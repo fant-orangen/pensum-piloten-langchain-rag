@@ -1,0 +1,58 @@
+[project]
+name = "pensum-piloten"
+version = "0.1.0"
+description = "A Socratic RAG tutoring system that guides students toward independent learning"
+requires-python = ">=3.11"
+dependencies = [
+    # --- Core LLM / RAG framework ---
+    "langchain>=0.3,<0.4",
+    "langchain-core>=0.3,<0.4",
+    "langchain-community>=0.3,<0.4",
+    "langchain-openai>=0.3,<0.4",
+    "langchain-text-splitters>=0.3,<0.4",
+
+    # --- Vector store ---
+    "chromadb>=0.5,<1",
+
+    # --- Document loaders ---
+    "pypdf>=4,<5",
+    "docx2txt>=0.8",
+    "beautifulsoup4>=4.12",
+
+    # --- Embeddings / reranking ---
+    "sentence-transformers>=3,<4",
+
+    # --- API layer ---
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "pydantic>=2,<3",
+    "pydantic-settings>=2,<3",
+
+    # --- Utilities ---
+    "python-dotenv>=1,<2",
+    "structlog>=24,<26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[project.scripts]
+ingest = "scripts.ingest:main"
+serve = "src.api.app:start"
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
