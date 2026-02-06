@@ -20,6 +20,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 # Core system prompt
 # ---------------------------------------------------------------------------
 
+# TODO: これを修正して
 _SYSTEM_TEMPLATE = """\
 You are a Socratic tutor for university students.  Your goal is to help the
 student develop genuine understanding of the subject matter — never to give
