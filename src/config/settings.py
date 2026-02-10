@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     retriever_top_k: int = 5
 
+    # --- Reranking ---
+    rerank_enabled: bool = False
+    rerank_fetch_k: int = 25          # retrieve this many candidates from Chroma
+    rerank_top_k: int = 5             # keep this many after reranking (usually = retriever_top_k)
+    rerank_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000

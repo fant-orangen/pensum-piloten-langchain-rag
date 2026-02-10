@@ -15,26 +15,34 @@ from src.vectorstore.store import get_vectorstore
 
 logger = structlog.get_logger(__name__)
 
+from sentence_transformers import CrossEncoder
+from src.config import get_settings
+from src.vectorstore.store import get_vectorstore
+from src.retriever.rerank_retriever import CrossEncoderRerankRetriever
 
-def get_retriever() -> BaseRetriever:
-    """Return a retriever backed by the persisted Chroma vector store.
+_ce: CrossEncoder | None = None
 
-    Retrieval strategy can be switched here without changing downstream code.
-    """
-    settings = get_settings()
+def get_retriever():
+    s = get_settings()
     vectorstore = get_vectorstore()
 
-    # --- Default: similarity search ---
-    retriever = vectorstore.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": settings.retriever_top_k},
+    # fetch more than you finally use
+    base = vectorstore.as_retriever(search_kwargs={"k": s.rerank_fetch_k})
+
+
+    if not s.rerank_enabled:
+        # fall back to normal retrieval
+        return vectorstore.as_retriever(search_kwargs={"k": s.retriever_top_k})
+
+    if not getattr(s, "rerank_enabled", False):
+        return base
+
+    global _ce
+    if _ce is None:
+        _ce = CrossEncoder(s.rerank_model_name)
+
+    return CrossEncoderRerankRetriever(
+        base_retriever=base,
+        cross_encoder=_ce,
+        top_k=s.rerank_top_k,
     )
-
-    # --- Alternative: MMR (uncomment to enable) ---
-    # retriever = vectorstore.as_retriever(
-    #     search_type="mmr",
-    #     search_kwargs={"k": settings.retriever_top_k, "fetch_k": 20},
-    # )
-
-    logger.info("retriever_ready", top_k=settings.retriever_top_k)
-    return retriever
