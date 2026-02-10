@@ -4,17 +4,32 @@ Usage:
     python -m scripts.chat
 """
 
+import json
 import sys
+from datetime import datetime
+from pathlib import Path
 
 from langchain_core.messages import HumanMessage, AIMessage
 
 from src.chain import build_rag_chain
+
+_LOG_DIR = Path("data/chat_logs")
 
 # ANSI colour codes
 _BLUE = "\033[94m"
 _GREEN = "\033[92m"
 _RESET = "\033[0m"
 _BOLD = "\033[1m"
+
+
+def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
+    if not chat_history:
+        return
+    _LOG_DIR.mkdir(parents=True, exist_ok=True)
+    filepath = _LOG_DIR / f"{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}.json"
+    log = [{"role": "human" if isinstance(m, HumanMessage) else "ai", "content": m.content}
+           for m in chat_history]
+    filepath.write_text(json.dumps(log, indent=2, ensure_ascii=False))
 
 
 def main() -> None:
@@ -28,10 +43,12 @@ def main() -> None:
         try:
             user_input = input(f"{_GREEN}{_BOLD}User:{_RESET} ")
         except (EOFError, KeyboardInterrupt):
+            _save_log(chat_history)
             print("\nGoodbye!")
             sys.exit(0)
 
         if user_input.strip().lower() in {"quit", "exit", "q"}:
+            _save_log(chat_history)
             print("Goodbye!")
             break
 
