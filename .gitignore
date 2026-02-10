@@ -16,3 +16,8 @@ data/chroma/
 .vscode/
 .idea/
 *.swp
+
+# SSH
+ssh
+ssh.pub
+

@@ -11,7 +11,7 @@ prompt is a one-line change).
 
 import structlog
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+from langchain_core.runnables import RunnableParallel, RunnableLambda
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
@@ -66,10 +66,13 @@ def build_rag_chain():
     #   3. Feed context + question (+ optional chat history) into the prompt.
     #   4. Send prompt to the LLM.
     #   5. Parse the output to a plain string.
+    extract_question = RunnableLambda(lambda x: x["question"])
+
     chain = (
         RunnableParallel(
-            context=retriever | _format_docs,
-            question=RunnablePassthrough(),
+            context=extract_question | retriever | _format_docs,
+            question=extract_question,
+            chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
         )
         | prompt
         | llm
