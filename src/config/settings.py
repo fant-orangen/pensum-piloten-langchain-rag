@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
 
+        # --- Debug / Logging ---
+    rerank_log: bool = False
+    rerank_log_top_n: int = 8
+    rerank_log_preview_chars: int = 120
+
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),
         "env_file_encoding": "utf-8",
