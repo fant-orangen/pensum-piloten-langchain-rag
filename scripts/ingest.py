@@ -11,6 +11,7 @@ import sys
 import structlog
 
 from src.ingestion import load_documents, chunk_documents
+from src.graph import build_graph_index, persist_graph_index
 from src.vectorstore import build_vectorstore
 
 logger = structlog.get_logger(__name__)
@@ -37,7 +38,12 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("step", name="chunk_documents")
     chunks = chunk_documents(docs)
 
-    # 3. Embed & store
+    # 3. Build/persist lightweight entity-overlap graph index
+    logger.info("step", name="build_graph_index")
+    graph_index = build_graph_index(chunks)
+    persist_graph_index(graph_index)
+
+    # 4. Embed & store
     logger.info("step", name="build_vectorstore")
     build_vectorstore(chunks)
 

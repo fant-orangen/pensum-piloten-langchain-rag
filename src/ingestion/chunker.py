@@ -5,11 +5,14 @@ most document types.  It respects natural boundaries (paragraphs, sentences)
 while staying within the configured size limits.
 """
 
+from __future__ import annotations
+
 import structlog
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.config import get_settings
+from src.ingestion.entities import extract_entities
 
 logger = structlog.get_logger(__name__)
 
@@ -33,6 +36,19 @@ def chunk_documents(documents: list[Document]) -> list[Document]:
     """
     splitter = _build_splitter()
     chunks = splitter.split_documents(documents)
+
+    for chunk_index, chunk in enumerate(chunks):
+        source_ref = (
+            str(chunk.metadata.get("source_path") or chunk.metadata.get("source_file") or "unknown")
+        )
+        page = chunk.metadata.get("page")
+        page_value = str(page) if page is not None else "na"
+        chunk_id = f"{source_ref}::p{page_value}::c{chunk_index}"
+
+        chunk.metadata["chunk_index"] = chunk_index
+        chunk.metadata["chunk_id"] = chunk_id
+        chunk.metadata["entities"] = extract_entities(chunk.page_content)
+
     logger.info(
         "chunking_complete",
         input_docs=len(documents),
