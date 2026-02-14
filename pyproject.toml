@@ -23,6 +23,9 @@ dependencies = [
     # --- Embeddings / reranking ---
     "sentence-transformers>=3,<4",
 
+    # --- Knowledge Graph ---
+    "neo4j>=5,<6",
+
     # --- API layer ---
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30,<1",
@@ -44,6 +47,7 @@ dev = [
 
 [project.scripts]
 ingest = "scripts.ingest:main"
+ingest-kg = "scripts.ingest_kg:main"
 serve = "src.api.app:start"
 
 [build-system]

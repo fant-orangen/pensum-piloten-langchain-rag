@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     retriever_top_k: int = 5
 
+    # --- Neo4j (Knowledge Graph) ---
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = ""
+    kg_expansion_hops: int = 1
+    kg_max_expanded_chunks: int = 10
+
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000
