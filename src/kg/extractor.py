@@ -3,6 +3,7 @@
 Each triplet links two entities via a relation and is traced back to its source chunk.
 """
 
+import asyncio
 import hashlib
 import re
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from src.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
+# TODO: modify this prompt if necessary to get a better knowledge graph
 _EXTRACTION_PROMPT = """\
 Extract informative triplets directly from the text following the examples.
 Each triplet should capture a factual relationship between two entities.
@@ -73,10 +75,49 @@ def _parse_triplets(text: str, chunk_id: str) -> list[Triplet]:
     return triplets
 
 
-def extract_triplets(chunks: list[Document], batch_size: int = 20) -> list[Triplet]:
+_MAX_RETRIES = 5
+
+
+async def _extract_batch_async(
+    llm: ChatOpenAI,
+    docs: list[Document],
+    semaphore: asyncio.Semaphore,
+) -> list[Triplet]:
+    """Extract triplets from a batch of chunks concurrently with rate-limit retries."""
+
+    async def _process_one(doc: Document) -> list[Triplet]:
+        chunk_id = make_chunk_id(doc)
+        doc.metadata["chunk_id"] = chunk_id
+        prompt = _EXTRACTION_PROMPT.format(text=doc.page_content)
+
+        for attempt in range(_MAX_RETRIES):
+            try:
+                async with semaphore:
+                    response = await llm.ainvoke(prompt)
+                return _parse_triplets(response.content, chunk_id)
+            except Exception as e:
+                if "429" in str(e) or "rate_limit" in str(e).lower():
+                    wait = 2 ** attempt
+                    logger.warning("rate_limited", attempt=attempt + 1, wait=wait)
+                    await asyncio.sleep(wait)
+                else:
+                    logger.error("extraction_failed", chunk_id=chunk_id, error=str(e))
+                    return []
+        logger.error("extraction_exhausted_retries", chunk_id=chunk_id)
+        return []
+
+    results = await asyncio.gather(*[_process_one(doc) for doc in docs])
+    triplets: list[Triplet] = []
+    for batch_result in results:
+        triplets.extend(batch_result)
+    return triplets
+
+
+def extract_triplets(chunks: list[Document], concurrency: int = 10) -> list[Triplet]:
     """Extract triplets from all chunks using the configured LLM.
 
-    Processes chunks in batches. Each chunk gets a stable chunk_id added to its metadata.
+    Sends up to `concurrency` async requests in parallel, with retry on rate limits.
+    Each chunk gets a stable chunk_id added to its metadata.
     """
     settings = get_settings()
     llm = ChatOpenAI(
@@ -86,19 +127,14 @@ def extract_triplets(chunks: list[Document], batch_size: int = 20) -> list[Tripl
     )
 
     all_triplets: list[Triplet] = []
+    semaphore = asyncio.Semaphore(concurrency)
 
-    for i in range(0, len(chunks), batch_size):
-        batch = chunks[i : i + batch_size]
-        logger.info("extracting_triplets", batch=f"{i+1}-{i+len(batch)}/{len(chunks)}")
+    # Process all chunks in one async run, semaphore controls concurrency
+    async def _run_all() -> list[Triplet]:
+        return await _extract_batch_async(llm, chunks, semaphore)
 
-        for doc in batch:
-            chunk_id = make_chunk_id(doc)
-            doc.metadata["chunk_id"] = chunk_id
-
-            prompt = _EXTRACTION_PROMPT.format(text=doc.page_content)
-            response = llm.invoke(prompt)
-            triplets = _parse_triplets(response.content, chunk_id)
-            all_triplets.extend(triplets)
+    logger.info("extracting_triplets", total=len(chunks), concurrency=concurrency)
+    all_triplets = asyncio.run(_run_all())
 
     logger.info("triplet_extraction_complete", total_triplets=len(all_triplets))
     return all_triplets
