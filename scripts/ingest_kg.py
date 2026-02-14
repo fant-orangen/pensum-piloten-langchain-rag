@@ -1,22 +1,45 @@
 """KG ingestion script — loads documents, chunks them, builds the vector store,
 extracts triplets, and populates the Neo4j knowledge graph.
 
+Triplets are cached to data/kg_triplets.json after extraction so they survive
+crashes and can be reused by scripts/build_kg.py.
+
 Usage:
-    python -m scripts.ingest_kg                      # uses default data/documents/
+    python -m scripts.ingest_kg                      # full pipeline
     python -m scripts.ingest_kg --dir /path/to/docs  # custom directory
 """
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 import structlog
 
+from src.config import get_settings
 from src.ingestion import load_documents, chunk_documents
-from src.kg.extractor import extract_triplets, make_chunk_id
+from src.kg.extractor import extract_triplets, make_chunk_id, Triplet
 from src.kg.store import KGStore
 from src.vectorstore import build_vectorstore
 
 logger = structlog.get_logger(__name__)
+
+_CACHE_DIR = Path(get_settings().chroma_persist_dir).parent
+_TRIPLETS_CACHE = _CACHE_DIR / "kg_triplets.json"
+
+
+def _save_triplets(triplets: list[Triplet], chunk_metadata: dict) -> None:
+    """Persist triplets and chunk metadata to disk."""
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    data = {
+        "triplets": [
+            {"head": t.head, "relation": t.relation, "tail": t.tail, "chunk_id": t.chunk_id}
+            for t in triplets
+        ],
+        "chunk_metadata": chunk_metadata,
+    }
+    _TRIPLETS_CACHE.write_text(json.dumps(data, ensure_ascii=False))
+    logger.info("triplets_cached", path=str(_TRIPLETS_CACHE), count=len(triplets))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -55,8 +78,7 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("step", name="extract_triplets")
     triplets = extract_triplets(chunks)
 
-    # 6. Build knowledge graph in Neo4j
-    logger.info("step", name="build_knowledge_graph")
+    # 5b. Cache triplets immediately so they survive if step 6 fails
     chunk_metadata = {
         chunk.metadata["chunk_id"]: {
             "source_file": chunk.metadata.get("source_file", "unknown"),
@@ -64,7 +86,10 @@ def main(argv: list[str] | None = None) -> None:
         }
         for chunk in chunks
     }
+    _save_triplets(triplets, chunk_metadata)
 
+    # 6. Build knowledge graph in Neo4j
+    logger.info("step", name="build_knowledge_graph")
     kg_store = KGStore()
     try:
         kg_store.build_kg(triplets, chunk_metadata)

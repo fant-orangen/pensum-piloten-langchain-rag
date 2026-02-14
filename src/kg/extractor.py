@@ -78,45 +78,35 @@ def _parse_triplets(text: str, chunk_id: str) -> list[Triplet]:
 _MAX_RETRIES = 5
 
 
-async def _extract_batch_async(
+async def _process_one(
     llm: ChatOpenAI,
-    docs: list[Document],
-    semaphore: asyncio.Semaphore,
+    doc: Document,
 ) -> list[Triplet]:
-    """Extract triplets from a batch of chunks concurrently with rate-limit retries."""
+    """Extract triplets from a single chunk with retry on rate limits."""
+    chunk_id = make_chunk_id(doc)
+    doc.metadata["chunk_id"] = chunk_id
+    prompt = _EXTRACTION_PROMPT.format(text=doc.page_content)
 
-    async def _process_one(doc: Document) -> list[Triplet]:
-        chunk_id = make_chunk_id(doc)
-        doc.metadata["chunk_id"] = chunk_id
-        prompt = _EXTRACTION_PROMPT.format(text=doc.page_content)
-
-        for attempt in range(_MAX_RETRIES):
-            try:
-                async with semaphore:
-                    response = await llm.ainvoke(prompt)
-                return _parse_triplets(response.content, chunk_id)
-            except Exception as e:
-                if "429" in str(e) or "rate_limit" in str(e).lower():
-                    wait = 2 ** attempt
-                    logger.warning("rate_limited", attempt=attempt + 1, wait=wait)
-                    await asyncio.sleep(wait)
-                else:
-                    logger.error("extraction_failed", chunk_id=chunk_id, error=str(e))
-                    return []
-        logger.error("extraction_exhausted_retries", chunk_id=chunk_id)
-        return []
-
-    results = await asyncio.gather(*[_process_one(doc) for doc in docs])
-    triplets: list[Triplet] = []
-    for batch_result in results:
-        triplets.extend(batch_result)
-    return triplets
+    for attempt in range(_MAX_RETRIES):
+        try:
+            response = await llm.ainvoke(prompt)
+            return _parse_triplets(response.content, chunk_id)
+        except Exception as e:
+            if "429" in str(e) or "rate_limit" in str(e).lower():
+                wait = 2 ** attempt
+                logger.warning("rate_limited", attempt=attempt + 1, wait=wait)
+                await asyncio.sleep(wait)
+            else:
+                logger.error("extraction_failed", chunk_id=chunk_id, error=str(e))
+                return []
+    logger.error("extraction_exhausted_retries", chunk_id=chunk_id)
+    return []
 
 
-def extract_triplets(chunks: list[Document], concurrency: int = 10) -> list[Triplet]:
+def extract_triplets(chunks: list[Document], batch_size: int = 10) -> list[Triplet]:
     """Extract triplets from all chunks using the configured LLM.
 
-    Sends up to `concurrency` async requests in parallel, with retry on rate limits.
+    Processes chunks in batches of `batch_size` with async concurrency within each batch.
     Each chunk gets a stable chunk_id added to its metadata.
     """
     settings = get_settings()
@@ -127,14 +117,20 @@ def extract_triplets(chunks: list[Document], concurrency: int = 10) -> list[Trip
     )
 
     all_triplets: list[Triplet] = []
-    semaphore = asyncio.Semaphore(concurrency)
 
-    # Process all chunks in one async run, semaphore controls concurrency
-    async def _run_all() -> list[Triplet]:
-        return await _extract_batch_async(llm, chunks, semaphore)
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i : i + batch_size]
+        logger.info("extracting_triplets", batch=f"{i+1}-{i+len(batch)}/{len(chunks)}")
 
-    logger.info("extracting_triplets", total=len(chunks), concurrency=concurrency)
-    all_triplets = asyncio.run(_run_all())
+        async def _run_batch(b: list[Document] = batch) -> list[Triplet]:
+            results = await asyncio.gather(*[_process_one(llm, doc) for doc in b])
+            flat: list[Triplet] = []
+            for r in results:
+                flat.extend(r)
+            return flat
+
+        batch_triplets = asyncio.run(_run_batch())
+        all_triplets.extend(batch_triplets)
 
     logger.info("triplet_extraction_complete", total_triplets=len(all_triplets))
     return all_triplets
