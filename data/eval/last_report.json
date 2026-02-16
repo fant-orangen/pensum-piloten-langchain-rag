@@ -1,0 +1,109 @@
+{
+  "generated_at_utc": "2026-02-14T15:09:25.587889+00:00",
+  "dataset_path": "/Users/magnus/Documents/GitHub/BachelorTest/BachelorTest/pensum-piloten-langchain-rag/data/eval/retrieval_eval.jsonl",
+  "rank_cutoff": 10,
+  "seed": 42,
+  "evaluated_examples": 2,
+  "modes": {
+    "baseline": {
+      "hit@1": 0.0,
+      "hit@3": 0.0,
+      "hit@5": 0.0,
+      "mrr": 0.0,
+      "evaluated_examples": 2,
+      "matches_found": 0,
+      "errors": 2
+    },
+    "rerank_only": {
+      "hit@1": 0.0,
+      "hit@3": 0.0,
+      "hit@5": 0.0,
+      "mrr": 0.0,
+      "evaluated_examples": 2,
+      "matches_found": 0,
+      "errors": 2
+    },
+    "graph_only": {
+      "hit@1": 0.0,
+      "hit@3": 0.0,
+      "hit@5": 0.0,
+      "mrr": 0.0,
+      "evaluated_examples": 2,
+      "matches_found": 0,
+      "errors": 2
+    },
+    "graph_rerank": {
+      "hit@1": 0.0,
+      "hit@3": 0.0,
+      "hit@5": 0.0,
+      "mrr": 0.0,
+      "evaluated_examples": 2,
+      "matches_found": 0,
+      "errors": 2
+    }
+  },
+  "errors_by_mode": {
+    "baseline": [
+      {
+        "id": "q01",
+        "error": "Connection error."
+      },
+      {
+        "id": "q02",
+        "error": "Connection error."
+      }
+    ],
+    "rerank_only": [
+      {
+        "id": "q01",
+        "error": "Connection error."
+      },
+      {
+        "id": "q02",
+        "error": "Connection error."
+      }
+    ],
+    "graph_only": [
+      {
+        "id": "q01",
+        "error": "Connection error."
+      },
+      {
+        "id": "q02",
+        "error": "Connection error."
+      }
+    ],
+    "graph_rerank": [
+      {
+        "id": "q01",
+        "error": "Connection error."
+      },
+      {
+        "id": "q02",
+        "error": "Connection error."
+      }
+    ]
+  },
+  "per_example": [
+    {
+      "id": "q01",
+      "question": "What is an operating system and what does it do?",
+      "ranks": {
+        "baseline": null,
+        "rerank_only": null,
+        "graph_only": null,
+        "graph_rerank": null
+      }
+    },
+    {
+      "id": "q02",
+      "question": "What is time-sharing in operating systems?",
+      "ranks": {
+        "baseline": null,
+        "rerank_only": null,
+        "graph_only": null,
+        "graph_rerank": null
+      }
+    }
+  ]
+}

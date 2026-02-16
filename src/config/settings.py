@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -29,20 +30,28 @@ class Settings(BaseSettings):
     retriever_top_k: int = 5
 
     # --- Reranking ---
-    rerank_enabled: bool = False
+    rerank_enabled: bool = True
     rerank_fetch_k: int = 25          # retrieve this many candidates from Chroma
     rerank_top_k: int = 5             # keep this many after reranking (usually = retriever_top_k)
     rerank_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     # --- Graph-guided retrieval ---
-    graph_enabled: bool = False
+    graph_enabled: bool = True
     graph_hops: int = 1
     graph_seed_k: int = 25
     graph_max_candidates: int = 60
     graph_min_entity_df: int = 2
     graph_max_entity_df: int = 200
     graph_max_entities_per_query: int = 30
+    graph_entity_extractor: Literal["rule", "spacy"] = "rule"
+    graph_spacy_model_name: str = "en_core_web_sm"
+    graph_adaptive_enabled: bool = False
     graph_index_path: str = str(PROJECT_ROOT / "data" / "graph" / "graph_index.json")
+
+    # --- Output grounding verification ---
+    grounding_enabled: bool = False
+    grounding_mode: Literal["note", "prune"] = "note"
+    grounding_min_overlap: float = 0.18
 
     # --- API ---
     api_host: str = "0.0.0.0"
@@ -52,10 +61,10 @@ class Settings(BaseSettings):
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
 
     # --- Debug / Logging ---
-    rerank_log: bool = False
+    rerank_log: bool = True
     rerank_log_top_n: int = 8
     rerank_log_preview_chars: int = 120
-    graph_log: bool = False
+    graph_log: bool = True
     graph_log_top_n: int = 8
     graph_log_preview_chars: int = 120
 

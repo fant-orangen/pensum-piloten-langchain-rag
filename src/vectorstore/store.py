@@ -37,6 +37,22 @@ def build_vectorstore(chunks: list[Document]) -> Chroma:
     settings = get_settings()
     logger.info("building_vectorstore", num_chunks=len(chunks))
 
+    # Replace the existing collection to avoid stale chunks from older schemas.
+    cleanup_store = Chroma(
+        collection_name=settings.chroma_collection_name,
+        embedding_function=get_embeddings(),
+        persist_directory=settings.chroma_persist_dir,
+    )
+    try:
+        cleanup_store.delete_collection()
+        logger.info("vectorstore_collection_deleted", collection=settings.chroma_collection_name)
+    except Exception as exc:  # no collection yet, or backend-specific delete error
+        logger.info(
+            "vectorstore_collection_delete_skipped",
+            collection=settings.chroma_collection_name,
+            reason=str(exc),
+        )
+
     ids: list[str] = []
     store_docs: list[Document] = []
     for i, chunk in enumerate(chunks):

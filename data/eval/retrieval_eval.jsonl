@@ -1,0 +1,24 @@
+{"id":"q01","question":"What is an operating system and what does it do?","expected_source_contains":["OS Principles Practice Vol 1"],"expected_chunk_hints":["operating system","kernel"]}
+{"id":"q02","question":"What is time-sharing in operating systems?","expected_source_contains":["OS Principles Practice Vol 1"],"expected_chunk_hints":["time-sharing","operating systems"]}
+{"id":"q03","question":"What is the difference between user mode and kernel mode?","expected_source_contains":["OS Principles Practice Vol 1"],"expected_chunk_hints":["user mode","kernel mode"]}
+{"id":"q04","question":"How do system calls work?","expected_source_contains":["OS Principles Practice Vol 1"],"expected_chunk_hints":["system call","trap"]}
+{"id":"q05","question":"What is a process and how is it different from a program?","expected_source_contains":["OS Principles Practice Vol 1"],"expected_chunk_hints":["process","program"]}
+{"id":"q06","question":"What is a thread and why do we use threads?","expected_source_contains":["OS Principles Practice Vol 2"],"expected_chunk_hints":["thread","concurrency"]}
+{"id":"q07","question":"What causes race conditions and how can they be prevented?","expected_source_contains":["OS Principles Practice Vol 2"],"expected_chunk_hints":["race condition","mutual exclusion"]}
+{"id":"q08","question":"Explain semaphores with a simple example.","expected_source_contains":["OS Principles Practice Vol 2"],"expected_chunk_hints":["semaphore","critical section"]}
+{"id":"q09","question":"What is deadlock and what are the Coffman conditions?","expected_source_contains":["OS Principles Practice Vol 2"],"expected_chunk_hints":["deadlock","Coffman"]}
+{"id":"q10","question":"What are monitors in synchronization?","expected_source_contains":["OS Principles Practice Vol 2"],"expected_chunk_hints":["monitor","synchronization"]}
+{"id":"q11","question":"What is virtual memory?","expected_source_contains":["OS Principles Practice Vol 3"],"expected_chunk_hints":["virtual memory","address translation"]}
+{"id":"q12","question":"How does paging work in memory management?","expected_source_contains":["OS Principles Practice Vol 3"],"expected_chunk_hints":["paging","page table"]}
+{"id":"q13","question":"What is a page table and why is it needed?","expected_source_contains":["OS Principles Practice Vol 3"],"expected_chunk_hints":["page table","virtual address"]}
+{"id":"q14","question":"What is a TLB and how does it improve performance?","expected_source_contains":["OS Principles Practice Vol 3"],"expected_chunk_hints":["TLB","translation lookaside buffer"]}
+{"id":"q15","question":"What is memory protection in operating systems?","expected_source_contains":["OS Principles Practice Vol 3"],"expected_chunk_hints":["memory protection","access"]}
+{"id":"q16","question":"How do caches relate to memory hierarchy?","expected_source_contains":["OS Principles Practice Vol 3"],"expected_chunk_hints":["cache","memory hierarchy"]}
+{"id":"q17","question":"What is memory-mapped I/O?","expected_source_contains":["OS Principles Practice Vol 4"],"expected_chunk_hints":["memory mapped I/O","I/O"]}
+{"id":"q18","question":"How do interrupts work in I/O systems?","expected_source_contains":["OS Principles Practice Vol 4"],"expected_chunk_hints":["interrupt","device"]}
+{"id":"q19","question":"What is DMA (Direct Memory Access)?","expected_source_contains":["OS Principles Practice Vol 4"],"expected_chunk_hints":["DMA","Direct Memory Access"]}
+{"id":"q20","question":"How does disk scheduling improve performance?","expected_source_contains":["OS Principles Practice Vol 4"],"expected_chunk_hints":["disk scheduling","seek"]}
+{"id":"q21","question":"What is RAID and why is it used?","expected_source_contains":["OS Principles Practice Vol 4"],"expected_chunk_hints":["RAID","redundancy"]}
+{"id":"q22","question":"Explain the producer-consumer problem.","expected_source_contains":["OS Principles Practice Vol 2"],"expected_chunk_hints":["producer","consumer"]}
+{"id":"q23","question":"What is context switching?","expected_source_contains":["OS Principles Practice Vol 1","OS Principles Practice Vol 2"],"expected_chunk_hints":["context switch","scheduler"]}
+{"id":"q24","question":"What is address translation from virtual to physical memory?","expected_source_contains":["OS Principles Practice Vol 3"],"expected_chunk_hints":["address translation","physical address"]}

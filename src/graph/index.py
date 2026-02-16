@@ -11,7 +11,7 @@ import structlog
 from langchain_core.documents import Document
 
 from src.config import get_settings
-from src.ingestion.entities import extract_entities
+from src.ingestion.entities import clean_entities, extract_entities
 
 logger = structlog.get_logger(__name__)
 
@@ -61,6 +61,7 @@ class GraphIndex:
 
 def build_graph_index(chunks: list[Document]) -> GraphIndex:
     """Build a cheap overlap graph from chunk entities."""
+    settings = get_settings()
     chunk_entities: dict[str, list[str]] = {}
     entity_chunks_map: dict[str, set[str]] = defaultdict(set)
 
@@ -68,9 +69,13 @@ def build_graph_index(chunks: list[Document]) -> GraphIndex:
         chunk_id = str(chunk.metadata.get("chunk_id") or f"chunk-{i}")
         entities_raw = chunk.metadata.get("entities")
         if isinstance(entities_raw, list):
-            entities = [str(e).lower() for e in entities_raw if isinstance(e, str) and e.strip()]
+            entities = clean_entities(str(e) for e in entities_raw if isinstance(e, str))
         else:
-            entities = extract_entities(chunk.page_content)
+            entities = extract_entities(
+                chunk.page_content,
+                extractor=settings.graph_entity_extractor,
+                spacy_model_name=settings.graph_spacy_model_name,
+            )
 
         unique_entities = sorted(set(entities))
         chunk_entities[chunk_id] = unique_entities

@@ -35,6 +35,7 @@ def chunk_documents(documents: list[Document]) -> list[Document]:
     gains an additional ``start_index`` field.
     """
     splitter = _build_splitter()
+    settings = get_settings()
     chunks = splitter.split_documents(documents)
 
     for chunk_index, chunk in enumerate(chunks):
@@ -47,7 +48,11 @@ def chunk_documents(documents: list[Document]) -> list[Document]:
 
         chunk.metadata["chunk_index"] = chunk_index
         chunk.metadata["chunk_id"] = chunk_id
-        chunk.metadata["entities"] = extract_entities(chunk.page_content)
+        chunk.metadata["entities"] = extract_entities(
+            chunk.page_content,
+            extractor=settings.graph_entity_extractor,
+            spacy_model_name=settings.graph_spacy_model_name,
+        )
 
     logger.info(
         "chunking_complete",

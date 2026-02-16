@@ -1,3 +1,8 @@
-from src.prompts.templates import TUTOR_PROMPT, build_tutor_prompt
+from src.prompts.templates import (
+    TUTOR_PROMPT,
+    TeachingMode,
+    build_tutor_prompt,
+    normalise_teaching_mode,
+)
 
-__all__ = ["TUTOR_PROMPT", "build_tutor_prompt"]
+__all__ = ["TUTOR_PROMPT", "TeachingMode", "build_tutor_prompt", "normalise_teaching_mode"]
