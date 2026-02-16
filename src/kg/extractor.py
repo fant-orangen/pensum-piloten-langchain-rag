@@ -77,7 +77,7 @@ def _parse_triplets(text: str, chunk_id: str) -> list[Triplet]:
 
 _MAX_RETRIES = 5
 
-
+"""Asynchronous process which extracts triplets from a single chunk"""
 async def _process_one(
     llm: ChatOpenAI,
     doc: Document,
