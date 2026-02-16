@@ -10,7 +10,7 @@ build/
 .env
 
 # Data / vector store
-#data/chroma/
+data/chroma/
 
 # IDE
 .vscode/
