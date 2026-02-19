@@ -128,6 +128,7 @@ class KGStore:
             WITH COLLECT(DISTINCT neighbor) AS all_entities
             UNWIND all_entities AS ae
             MATCH (expanded:Chunk)-[:MENTIONS]->(ae)
+            WHERE NOT (expanded.chunk_id IN $seed_ids)
             RETURN DISTINCT expanded.chunk_id AS chunk_id
             LIMIT $max_chunks
         """

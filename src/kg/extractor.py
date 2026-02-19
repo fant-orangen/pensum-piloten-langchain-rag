@@ -57,9 +57,10 @@ class Triplet:
 
 def make_chunk_id(doc: Document) -> str:
     """Generate a stable, deterministic ID for a chunk based on its source and position."""
-    source = doc.metadata.get("source_file", "unknown")
+    source = doc.metadata.get("source_path") or doc.metadata.get("source_file", "unknown")
+    page = doc.metadata.get("page", "")
     start = doc.metadata.get("start_index", 0)
-    raw = f"{source}:{start}"
+    raw = f"{source}:{page}:{start}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
