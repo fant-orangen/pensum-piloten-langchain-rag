@@ -15,6 +15,11 @@ def test_chunk_documents_splits_long_text():
     assert len(chunks) > 1
     for chunk in chunks:
         assert "source_file" in chunk.metadata
+        assert "chunk_index" in chunk.metadata
+        assert "chunk_id" in chunk.metadata
+
+    chunk_ids = [chunk.metadata["chunk_id"] for chunk in chunks]
+    assert len(chunk_ids) == len(set(chunk_ids))
 
 
 def test_chunk_documents_preserves_short_text():
@@ -25,3 +30,5 @@ def test_chunk_documents_preserves_short_text():
 
     assert len(chunks) == 1
     assert chunks[0].page_content == "Short text."
+    assert chunks[0].metadata["chunk_index"] == 0
+    assert chunks[0].metadata["chunk_id"] == "test.txt:c0"

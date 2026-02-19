@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     retriever_top_k: int = 5
 
     # --- Reranking ---
-    rerank_enabled: bool = False
+    rerank_enabled: bool = True
     rerank_fetch_k: int = 25          # retrieve this many candidates from Chroma
     rerank_top_k: int = 5             # keep this many after reranking (usually = retriever_top_k)
     rerank_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
 
         # --- Debug / Logging ---
-    rerank_log: bool = False
+    rerank_log: bool = True
     rerank_log_top_n: int = 8
     rerank_log_preview_chars: int = 120
 
