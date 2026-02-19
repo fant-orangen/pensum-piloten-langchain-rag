@@ -68,8 +68,21 @@ class KGExpandedRetriever(BaseRetriever):
                 include=["documents", "metadatas"],
             )
             if results and results["documents"]:
+                valid_ids = set(new_ids)
                 for doc_text, meta in zip(results["documents"], results["metadatas"]):
-                    expanded_docs.append(Document(page_content=doc_text, metadata=meta))
+                    # Explicit Python-side filter — guards against ChromaDB $in misbehavior
+                    if meta.get("chunk_id") in valid_ids:
+                        expanded_docs.append(Document(page_content=doc_text, metadata=meta))
+
+        # Hard cap — prevents context overflow regardless of upstream behavior
+        max_expanded = get_settings().kg_max_expanded_chunks
+        if len(expanded_docs) > max_expanded:
+            logger.warning(
+                "kg_expansion_capped",
+                fetched=len(expanded_docs),
+                cap=max_expanded,
+            )
+            expanded_docs = expanded_docs[:max_expanded]
 
         logger.info(
             "kg_expanded_retrieval",
