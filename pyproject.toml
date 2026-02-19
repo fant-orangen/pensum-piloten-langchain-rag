@@ -25,6 +25,7 @@ dependencies = [
 
     # --- Knowledge Graph ---
     "neo4j>=5,<6",
+    "networkx>=3,<4",
 
     # --- API layer ---
     "fastapi>=0.115,<1",
