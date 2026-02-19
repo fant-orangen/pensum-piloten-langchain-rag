@@ -50,14 +50,14 @@ def _get_llm() -> ChatOpenAI:
     )
 
 
-def build_rag_chain():
-    """Construct and return the full Socratic-tutor RAG chain.
+def build_rag_chain(system_prompt: str | None = None):
+    """Construct and return the full tutor RAG chain.
 
     Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
     and yields the tutor's response as a string.
     """
     retriever = get_retriever()
-    prompt = build_tutor_prompt()
+    prompt = build_tutor_prompt(system_prompt=system_prompt)
     llm = _get_llm()
 
     # The chain:
@@ -79,5 +79,5 @@ def build_rag_chain():
         | StrOutputParser()
     )
 
-    logger.info("rag_chain_built")
+    logger.info("rag_chain_built", custom_system_prompt=bool(system_prompt))
     return chain

@@ -5,15 +5,15 @@ description = "A Socratic RAG tutoring system that guides students toward indepe
 requires-python = ">=3.11"
 dependencies = [
     # --- Core LLM / RAG framework ---
-    "langchain>=0.3,<0.4",
-    "langchain-core>=0.3,<0.4",
-    "langchain-community>=0.3,<0.4",
-    "langchain-openai>=0.3,<0.4",
-    "langchain-text-splitters>=0.3,<0.4",
+    "langchain>=1.1,<2",
+    "langchain-core>=1.1.3,<2",
+    "langchain-community>=0.4,<0.5",
+    "langchain-openai>=1.1,<2",
+    "langchain-text-splitters>=1.0,<2",
 
     # --- Vector store ---
-    "langchain-chroma>=0.2",
-    "chromadb>=0.5,<1",
+    "langchain-chroma==1.1.0",
+    "chromadb==1.5.0",
 
     # --- Document loaders ---
     "pypdf>=4,<5",
@@ -32,6 +32,7 @@ dependencies = [
     # --- Utilities ---
     "python-dotenv>=1,<2",
     "structlog>=24,<26",
+    "gradio>=5,<6",
 ]
 
 [project.optional-dependencies]
