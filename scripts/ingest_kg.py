@@ -28,16 +28,13 @@ _CACHE_DIR = Path(get_settings().chroma_persist_dir).parent
 _TRIPLETS_CACHE = _CACHE_DIR / "kg_triplets.json"
 
 
-def _save_triplets(triplets: list[Triplet], chunk_metadata: dict) -> None:
-    """Persist triplets and chunk metadata to disk."""
+def _save_triplets(triplets: list[Triplet]) -> None:
+    """Persist triplets to disk."""
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    data = {
-        "triplets": [
-            {"head": t.head, "relation": t.relation, "tail": t.tail, "chunk_id": t.chunk_id}
-            for t in triplets
-        ],
-        "chunk_metadata": chunk_metadata,
-    }
+    data = [
+        {"head": t.head, "relation": t.relation, "tail": t.tail, "chunk_id": t.chunk_id}
+        for t in triplets
+    ]
     _TRIPLETS_CACHE.write_text(json.dumps(data, ensure_ascii=False))
     logger.info("triplets_cached", path=str(_TRIPLETS_CACHE), count=len(triplets))
 
@@ -65,12 +62,12 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("step", name="chunk_documents")
     chunks = chunk_documents(docs)
 
-    # 3. Assign stable chunk IDs (needed to link ChromaDB <-> Neo4j)
+    # 3. Assign stable chunk IDs (needed to link ChromaDB <-> Neo4j edges)
     logger.info("step", name="assign_chunk_ids")
     for chunk in chunks:
         chunk.metadata["chunk_id"] = make_chunk_id(chunk)
 
-    # 4. Embed & store in ChromaDB (with chunk_id metadata)
+    # 4. Embed & store in ChromaDB
     logger.info("step", name="build_vectorstore")
     build_vectorstore(chunks)
 
@@ -78,21 +75,14 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("step", name="extract_triplets")
     triplets = extract_triplets(chunks)
 
-    # 5b. Cache triplets immediately so they survive if step 6 fails
-    chunk_metadata = {
-        chunk.metadata["chunk_id"]: {
-            "source_file": chunk.metadata.get("source_file", "unknown"),
-            "page": chunk.metadata.get("page", ""),
-        }
-        for chunk in chunks
-    }
-    _save_triplets(triplets, chunk_metadata)
+    # Cache triplets immediately so they survive if step 6 fails
+    _save_triplets(triplets)
 
     # 6. Build knowledge graph in Neo4j
     logger.info("step", name="build_knowledge_graph")
     kg_store = KGStore()
     try:
-        kg_store.build_kg(triplets, chunk_metadata)
+        kg_store.build_kg(triplets)
     finally:
         kg_store.close()
 

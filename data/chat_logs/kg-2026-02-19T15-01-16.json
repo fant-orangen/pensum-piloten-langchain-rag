@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "What is a thread?"
+  },
+  {
+    "role": "ai",
+    "content": "That's a great question! To help you understand what a thread is, let's break it down. \n\nBased on the material, can you tell me what you already know about how threads relate to tasks in a program? What do you think distinguishes a thread from other components of a program?"
+  }
+]

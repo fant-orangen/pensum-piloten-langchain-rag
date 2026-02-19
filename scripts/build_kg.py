@@ -31,27 +31,24 @@ _CACHE_DIR = Path(get_settings().chroma_persist_dir).parent
 _TRIPLETS_CACHE = _CACHE_DIR / "kg_triplets.json"
 
 
-def _save_cache(triplets: list[Triplet], chunk_metadata: dict) -> None:
+def _save_cache(triplets: list[Triplet]) -> None:
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    data = {
-        "triplets": [
-            {"head": t.head, "relation": t.relation, "tail": t.tail, "chunk_id": t.chunk_id}
-            for t in triplets
-        ],
-        "chunk_metadata": chunk_metadata,
-    }
+    data = [
+        {"head": t.head, "relation": t.relation, "tail": t.tail, "chunk_id": t.chunk_id}
+        for t in triplets
+    ]
     _TRIPLETS_CACHE.write_text(json.dumps(data, ensure_ascii=False))
     logger.info("cache_saved", path=str(_TRIPLETS_CACHE), count=len(triplets))
 
 
-def _load_cache() -> tuple[list[Triplet], dict]:
+def _load_cache() -> list[Triplet]:
     data = json.loads(_TRIPLETS_CACHE.read_text())
     triplets = [
         Triplet(head=t["head"], relation=t["relation"], tail=t["tail"], chunk_id=t["chunk_id"])
-        for t in data["triplets"]
+        for t in data
     ]
     logger.info("cache_loaded", path=str(_TRIPLETS_CACHE), count=len(triplets))
-    return triplets, data["chunk_metadata"]
+    return triplets
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -66,7 +63,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if not args.no_cache and _TRIPLETS_CACHE.exists():
-        triplets, chunk_metadata = _load_cache()
+        triplets = _load_cache()
     else:
         logger.info("step", name="load_documents")
         docs = load_documents()
@@ -84,20 +81,13 @@ def main(argv: list[str] | None = None) -> None:
         logger.info("step", name="extract_triplets")
         triplets = extract_triplets(chunks)
 
-        chunk_metadata = {
-            chunk.metadata["chunk_id"]: {
-                "source_file": chunk.metadata.get("source_file", "unknown"),
-                "page": chunk.metadata.get("page", ""),
-            }
-            for chunk in chunks
-        }
-        _save_cache(triplets, chunk_metadata)
+        _save_cache(triplets)
 
     # Build knowledge graph in Neo4j
     logger.info("step", name="build_knowledge_graph", triplets=len(triplets))
     kg_store = KGStore()
     try:
-        kg_store.build_kg(triplets, chunk_metadata)
+        kg_store.build_kg(triplets)
     finally:
         kg_store.close()
 
