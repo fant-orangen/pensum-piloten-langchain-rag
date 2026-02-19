@@ -11,7 +11,11 @@ prompt is a one-line change).
 
 import structlog
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnableParallel, RunnableLambda
+from langchain_core.runnables import (
+    RunnableLambda,
+    RunnableParallel,
+    RunnablePassthrough,
+)
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
@@ -29,13 +33,24 @@ def _format_docs(docs: list[Document]) -> str:
     metadata so the LLM can cite it.
     """
     parts: list[str] = []
+
+    def _format_page(raw_page: object) -> str:
+        if raw_page == 0:
+            return "0"
+        if raw_page is None:
+            return "-"
+        page_str = str(raw_page).strip()
+        return page_str if page_str else "-"
+
     for i, doc in enumerate(docs, 1):
-        source = doc.metadata.get("source_file", "unknown")
-        page = doc.metadata.get("page", "")
-        header = f"[Source {i}: {source}"
-        if page:
-            header += f", p. {page}"
-        header += "]"
+        source = doc.metadata.get("source_file") or doc.metadata.get("source_path") or "unknown"
+        page = _format_page(doc.metadata.get("page"))
+        chunk_ref = doc.metadata.get("chunk_id")
+        if not chunk_ref:
+            chunk_index = doc.metadata.get("chunk_index")
+            chunk_ref = f"c{chunk_index}" if chunk_index is not None else "-"
+
+        header = f"[S{i}|{source}|p={page}|id={chunk_ref}]"
         parts.append(f"{header}\n{doc.page_content}")
     return "\n\n---\n\n".join(parts)
 
@@ -50,34 +65,67 @@ def _get_llm() -> ChatOpenAI:
     )
 
 
-def build_rag_chain(system_prompt: str | None = None):
-    """Construct and return the full tutor RAG chain.
-
-    Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
-    and yields the tutor's response as a string.
-    """
+def _build_with_context_inputs():
+    """Build reusable chain stage containing docs + formatted context."""
     retriever = get_retriever()
-    prompt = build_tutor_prompt(system_prompt=system_prompt)
-    llm = _get_llm()
-
-    # The chain:
-    #   1. Run the retriever in parallel with passing the question through.
-    #   2. Format retrieved docs into a context string.
-    #   3. Feed context + question (+ optional chat history) into the prompt.
-    #   4. Send prompt to the LLM.
-    #   5. Parse the output to a plain string.
     extract_question = RunnableLambda(lambda x: x["question"])
 
-    chain = (
-        RunnableParallel(
-            context=extract_question | retriever | _format_docs,
-            question=extract_question,
-            chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
+    base_inputs = RunnableParallel(
+        docs=extract_question | retriever,
+        question=extract_question,
+        chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
+    )
+    return base_inputs | RunnablePassthrough.assign(
+        context=RunnableLambda(lambda x: _format_docs(x["docs"]))
+    )
+
+
+def _build_answer_runnable(system_prompt: str | None = None):
+    """Build the prompt + llm answer branch that outputs plain text."""
+    prompt = build_tutor_prompt(system_prompt=system_prompt)
+    llm = _get_llm()
+    return (
+        RunnableLambda(
+            lambda x: {
+                "context": x["context"],
+                "question": x["question"],
+                "chat_history": x["chat_history"],
+            }
         )
         | prompt
         | llm
         | StrOutputParser()
     )
 
-    logger.info("rag_chain_built", custom_system_prompt=bool(system_prompt))
+
+def build_rag_chain(system_prompt: str | None = None):
+    """Construct and return the tutor RAG chain.
+
+    Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
+    and yields the tutor's response as a string.
+    """
+    with_context = _build_with_context_inputs()
+    answer_branch = _build_answer_runnable(system_prompt=system_prompt)
+    chain = with_context | answer_branch
+
+    logger.info("rag_chain_built", custom_system_prompt=bool(system_prompt), with_sources=False)
+    return chain
+
+
+def build_rag_chain_with_sources(system_prompt: str | None = None):
+    """Construct and return a RAG chain that outputs answer + retrieved docs.
+
+    Output shape:
+      {"answer": str, "docs": list[Document]}
+    """
+    with_context = _build_with_context_inputs()
+    answer_branch = _build_answer_runnable(system_prompt=system_prompt)
+
+    chain = (
+        with_context
+        | RunnablePassthrough.assign(answer=answer_branch)
+        | RunnableLambda(lambda x: {"answer": x["answer"], "docs": x["docs"]})
+    )
+
+    logger.info("rag_chain_built", custom_system_prompt=bool(system_prompt), with_sources=True)
     return chain

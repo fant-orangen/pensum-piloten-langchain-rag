@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from textwrap import shorten
 from typing import Any
 
 import gradio as gr
+from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.chain import build_rag_chain
+from src.chain import build_rag_chain_with_sources
 from src.prompts import DEFAULT_MODE_KEY, MODE_LABELS, MODE_PROMPTS
 from src.vectorstore import get_vectorstore
 
@@ -52,7 +54,7 @@ def _get_chain(mode_key: str):
         return _CHAIN_CACHE[mode_key]
 
     prompt = MODE_PROMPTS.get(mode_key, MODE_PROMPTS[DEFAULT_MODE_KEY])
-    chain = build_rag_chain(system_prompt=prompt)
+    chain = build_rag_chain_with_sources(system_prompt=prompt)
     _CHAIN_CACHE[mode_key] = chain
     return chain
 
@@ -87,11 +89,60 @@ def _status_markdown(mode_label: str) -> str:
     return f"Status: **{badge}**\n\n{_mode_status_text(mode_label, vectorstore_message)}"
 
 
-def _chat(user_message: str, history: list[tuple[str | None, str | None]] | None, mode_label: str):
+def _empty_sources_markdown() -> str:
+    return "_No sources for this response yet._"
+
+
+def _format_page(raw_page: object) -> str:
+    if raw_page == 0:
+        return "0"
+    if raw_page is None:
+        return "-"
+    page_str = str(raw_page).strip()
+    return page_str if page_str else "-"
+
+
+def _format_source_id(doc: Document) -> str:
+    source = doc.metadata.get("source_file") or doc.metadata.get("source_path") or "unknown"
+    page = _format_page(doc.metadata.get("page"))
+    chunk_ref = doc.metadata.get("chunk_id")
+    if not chunk_ref:
+        chunk_index = doc.metadata.get("chunk_index")
+        chunk_ref = f"c{chunk_index}" if chunk_index is not None else "-"
+    return f"{source} | p={page} | id={chunk_ref}"
+
+
+def _render_sources_markdown(docs: list[Document]) -> str:
+    if not docs:
+        return _empty_sources_markdown()
+
+    lines: list[str] = ["Retrieved sources:"]
+    for rank, doc in enumerate(docs, 1):
+        preview = shorten(" ".join(doc.page_content.split()), width=220, placeholder="…")
+        lines.append(f"{rank}. **{_format_source_id(doc)}**")
+        lines.append(f"   {preview}")
+    return "\n".join(lines)
+
+
+def _extract_answer_and_docs(result: object) -> tuple[str, list[Document]]:
+    if isinstance(result, dict):
+        answer = str(result.get("answer", ""))
+        docs = result.get("docs")
+        if isinstance(docs, list):
+            return answer, [d for d in docs if isinstance(d, Document)]
+        return answer, []
+    return str(result), []
+
+
+def _chat(
+    user_message: str,
+    history: list[tuple[str | None, str | None]] | None,
+    mode_label: str,
+):
     history = history or []
     text = (user_message or "").strip()
     if not text:
-        return "", history, _status_markdown(mode_label)
+        return "", history, _status_markdown(mode_label), _empty_sources_markdown()
 
     mode_key = _LABEL_TO_MODE.get(mode_label, DEFAULT_MODE_KEY)
     ready, vectorstore_message = _vectorstore_status()
@@ -100,24 +151,36 @@ def _chat(user_message: str, history: list[tuple[str | None, str | None]] | None
             "Cannot answer yet because the vectorstore is not ready.\n\n"
             f"{vectorstore_message}"
         )
-        return "", history + [(text, error_msg)], _status_markdown(mode_label)
+        return (
+            "",
+            history + [(text, error_msg)],
+            _status_markdown(mode_label),
+            _empty_sources_markdown(),
+        )
 
+    docs: list[Document] = []
     try:
         chain = _get_chain(mode_key)
         chat_history = _to_langchain_history(history)
-        answer = chain.invoke({"question": text, "chat_history": chat_history})
+        result = chain.invoke({"question": text, "chat_history": chat_history})
+        answer, docs = _extract_answer_and_docs(result)
     except Exception as exc:
         answer = (
             "An error occurred while generating a response.\n\n"
             f"Details: {exc}"
         )
+        docs = []
 
     updated_history = history + [(text, str(answer))]
-    return "", updated_history, _status_markdown(mode_label)
+    return "", updated_history, _status_markdown(mode_label), _render_sources_markdown(docs)
 
 
 def _clear(mode_label: str):
-    return [], _status_markdown(mode_label)
+    return [], _status_markdown(mode_label), "", _empty_sources_markdown()
+
+
+def _on_mode_change(mode_label: str):
+    return [], _status_markdown(mode_label), "", _empty_sources_markdown()
 
 
 def build_demo() -> gr.Blocks:
@@ -134,12 +197,14 @@ def build_demo() -> gr.Blocks:
         )
         status = gr.Markdown(_status_markdown(_DEFAULT_MODE_LABEL))
 
-        chatbot = gr.Chatbot(label="Tutor chat", height=500)
+        chatbot = gr.Chatbot(label="Tutor chat", height=500, type="tuples")
         message = gr.Textbox(
             label="Your message",
             placeholder="Ask about memory access, paging, scheduling, ...",
             lines=2,
         )
+        with gr.Accordion("Sources", open=False):
+            sources = gr.Markdown(_empty_sources_markdown())
 
         with gr.Row():
             send_button = gr.Button("Send", variant="primary")
@@ -148,23 +213,23 @@ def build_demo() -> gr.Blocks:
         send_button.click(
             fn=_chat,
             inputs=[message, chatbot, mode],
-            outputs=[message, chatbot, status],
+            outputs=[message, chatbot, status, sources],
         )
         message.submit(
             fn=_chat,
             inputs=[message, chatbot, mode],
-            outputs=[message, chatbot, status],
+            outputs=[message, chatbot, status, sources],
         )
         clear_button.click(
             fn=_clear,
             inputs=[mode],
-            outputs=[chatbot, status],
+            outputs=[chatbot, status, message, sources],
         )
 
         mode.change(
-            fn=lambda selected_mode: _status_markdown(selected_mode),
+            fn=_on_mode_change,
             inputs=[mode],
-            outputs=[status],
+            outputs=[chatbot, status, message, sources],
         )
 
     return demo
