@@ -23,7 +23,6 @@ _LOADER_MAP: dict[str, type] = {
     ".md": TextLoader,
 }
 
-
 def load_single_file(file_path: Path) -> list[Document]:
     """Load a single file and return its pages / sections as Documents."""
     suffix = file_path.suffix.lower()

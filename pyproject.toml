@@ -13,7 +13,7 @@ dependencies = [
 
     # --- Vector store ---
     "langchain-chroma>=0.2",
-    "chromadb>=0.5,<1",
+    "chromadb==1.5.0",
 
     # --- Document loaders ---
     "pypdf>=4,<5",
