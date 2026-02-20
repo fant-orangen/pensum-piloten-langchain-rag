@@ -13,8 +13,11 @@ class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
     # --- LLM provider ---
-    llm_provider: str = "openai"  # "openai" | more providers to follow
-    ollama_base_url: str = "http://localhost:11434/v1"
+    llm_provider: str = "openai"  # "openai" | "local"
+
+    # --- IDUN LLM gateway (used when llm_provider = "local") ---
+    idun_base_url: str = "https://llm.hpc.ntnu.no/v1"
+    idun_api_key: str = ""
 
     # --- LLM ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
