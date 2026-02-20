@@ -36,7 +36,9 @@ class _ChunkDebugHandler(BaseCallbackHandler):
         for i, doc in enumerate(documents, 1):
             source = doc.metadata.get("source_path") or doc.metadata.get("source_file", "unknown")
             chunk_id = doc.metadata.get("chunk_id", "?")
-            print(f"\n  {_BOLD}#{i}{_RESET} {_DIM}{source} [{chunk_id}]{_RESET}")
+            page = doc.metadata.get("page", "")
+            page_str = f", p. {page}" if page else ""
+            print(f"\n  {_BOLD}#{i}{_RESET} {_DIM}{source} [{chunk_id}]{page_str}{_RESET}")
             print(f"{_DIM}{'─' * 60}{_RESET}")
             print(doc.page_content)
             print(f"{_DIM}{'─' * 60}{_RESET}")

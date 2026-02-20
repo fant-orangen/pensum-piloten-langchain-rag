@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "Tell me about processes.esses. I just want a quick summary of what a process is first"
+  },
+  {
+    "role": "ai",
+    "content": "A **process** is an instance of a program that is being executed. It includes the program's code, its current activity (represented by the program counter), and the process's own memory space. Each process operates independently and has its own resources, such as memory and file handles.\n\n**Intuition**: Think of a process like a running application on your computer. Just as you can open multiple instances of a word processor, each instance is a separate process.\n\n**Example**: If you open a web browser and a text editor, each of these applications runs as a distinct process, with its own memory and execution context.\n\n**Common Mistake**: A common mistake is to confuse a process with a thread. While a process is an independent execution unit with its own resources, a thread is a smaller unit of execution that runs within a process and shares the process's resources.\n\n**Comprehension Checks**:\n1. What is the main difference between a process and a thread?\n2. Can multiple processes run the same program simultaneously?"
+  }
+]

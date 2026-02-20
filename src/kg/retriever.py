@@ -140,6 +140,12 @@ class KGExpandedRetriever(BaseRetriever):
         if not ordered_ids:
             return [doc for doc, _ in seed_pairs]
 
+        # Ensure seed chunks are always included, appended after MST-ordered ids.
+        for cid in seed_ids:
+            if cid not in seen:
+                seen.add(cid)
+                ordered_ids.append(cid)
+
         # Step 7: Fetch the final chunk set from ChromaDB.
         collection = vectorstore._collection
         results = collection.get(

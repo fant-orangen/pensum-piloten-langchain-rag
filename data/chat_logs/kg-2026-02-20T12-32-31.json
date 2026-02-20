@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "Tell me about processes. I just want a quick summary of what a process is first"
+  },
+  {
+    "role": "ai",
+    "content": "A **process** is an instance of a program that is being executed. It includes the program's code, its current activity, and its own memory space, which contains the program's data, heap, and global variables. Each process operates independently, with the operating system managing multiple processes through a data structure called the **process control block (PCB)**, which stores essential information about the process.\n\n**Intuition**: Think of a process as a unique execution environment for a program, similar to how an object is an instance of a class in object-oriented programming.\n\n**Example**: When you open a web browser, the operating system creates a process for that browser, allowing it to run separately from other applications.\n\n**Common Mistake**: A common mistake is to confuse a process with a thread. While a thread is a sequence of instructions within a process, a process encompasses its own memory space and resources.\n\n**Comprehension Checks**:\n1. What does a process include besides the program's code?\n2. What is the role of the process control block (PCB)?"
+  }
+]
