@@ -1,6 +1,6 @@
 """Model factory — the single place to swap LLM and embedding backends.
 
-Set ``LLM_PROVIDER`` in .env to select the backend:
+Set ``MODEL_PROVIDER`` in .env to select the backend:
 
     openai  — ChatOpenAI + OpenAIEmbeddings (default, requires OPENAI_API_KEY)
     local   — IDUN LLM gateway (Kimi K2.5 etc.) + HuggingFace sentence-transformers
@@ -18,23 +18,23 @@ from src.config import get_settings
 def get_llm(temperature: float = 0.0) -> BaseChatModel:
     """Return a chat model for the configured provider."""
     settings = get_settings()
-    if settings.llm_provider == "openai":
+    if settings.model_provider == "openai":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model=settings.llm_model_name,
+            model=settings.openai_llm_model,
             openai_api_key=settings.openai_api_key,
             temperature=temperature,
         )
-    if settings.llm_provider == "local":
+    if settings.model_provider == "local":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model=settings.llm_model_name,
+            model=settings.local_llm_model,
             openai_api_key=settings.idun_api_key,
             base_url=settings.idun_base_url,
             temperature=temperature,
         )
     raise ValueError(
-        f"Unknown llm_provider: {settings.llm_provider!r}. Supported values: 'openai', 'local'"
+        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'local'"
     )
 
 
@@ -42,17 +42,17 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
 def get_embeddings() -> Embeddings:
     """Return a cached embedding model for the configured provider."""
     settings = get_settings()
-    if settings.llm_provider == "openai":
+    if settings.model_provider == "openai":
         from langchain_openai import OpenAIEmbeddings
         return OpenAIEmbeddings(
-            model=settings.embedding_model_name,
+            model=settings.openai_embedding_model,
             openai_api_key=settings.openai_api_key,
             timeout=60,
         )
-    if settings.llm_provider == "local":
-        return _E5Embeddings(model_name=settings.embedding_model_name)
+    if settings.model_provider == "local":
+        return _E5Embeddings(model_name=settings.local_embedding_model)
     raise ValueError(
-        f"Unknown llm_provider: {settings.llm_provider!r}. Supported values: 'openai', 'local'"
+        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'local'"
     )
 
 

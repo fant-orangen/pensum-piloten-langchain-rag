@@ -13,16 +13,21 @@ class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
     # --- LLM provider ---
-    llm_provider: str = "openai"  # "openai" | "local"
+    model_provider: str = "openai"  # "openai" | "local"
 
-    # --- IDUN LLM gateway (used when llm_provider = "local") ---
+    # --- IDUN LLM gateway (used when model_provider = "local") ---
     idun_base_url: str = "https://llm.hpc.ntnu.no/v1"
     idun_api_key: str = ""
 
     # --- LLM ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
-    llm_model_name: str = "gpt-4o-mini"
-    embedding_model_name: str = "text-embedding-3-small"
+    openai_llm_model: str = "gpt-4o-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
+
+
+    # Change these if you want a different local model.
+    local_llm_model: str = "moonshotai/Kimi-K2.5"
+    local_embedding_model: str = "intfloat/multilingual-e5-small"
 
     # --- Vector store (Chroma) ---
     chroma_persist_dir: str = str(PROJECT_ROOT / "data" / "chroma")

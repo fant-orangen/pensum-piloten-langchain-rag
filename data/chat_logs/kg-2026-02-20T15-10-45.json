@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "What is a process?"
+  },
+  {
+    "role": "ai",
+    "content": "**Definition:** A process is the execution of an application program with restricted rights, serving as an abstraction for protection provided by the operating system kernel.\n\n**Intuition:** Think of a process as an instance of a program that is running. Each process has its own memory space, which includes its code, data, and execution context, allowing it to operate independently from other processes.\n\n**Example:** When you open a web browser, the operating system creates a process for that browser. This process has its own memory and resources, separate from other applications you might be running, like a text editor or a game.\n\n**Common Mistake:** A common mistake is to confuse a process with a thread. While a process can contain one or more threads, it is more than just a thread because it has its own address space and resources.\n\n**Comprehension Checks:**\n1. What does a process represent in terms of application execution?\n2. How does a process differ from a thread?"
+  }
+]
