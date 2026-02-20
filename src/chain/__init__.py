@@ -1,3 +1,3 @@
-from src.chain.rag_chain import build_rag_chain
+from src.chain.rag_chain import build_rag_chain, build_rag_chain_with_sources
 
-__all__ = ["build_rag_chain"]
+__all__ = ["build_rag_chain", "build_rag_chain_with_sources"]
