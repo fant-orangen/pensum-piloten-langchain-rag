@@ -65,7 +65,7 @@ class KGExpandedRetriever(BaseRetriever):
             logger.warning("empty_subgraph", seed_ids=seed_ids)
             return [doc for doc, _ in seed_pairs]
 
-        # Step 3: Build a chunk_id -> similarity score map.
+        # Step 3: Preprocessing for seed chunks.
         # Seed scores come from Step 1. Convert L2 distance to similarity in (0,1]
         # so that all weights are on the same scale as expanded chunk scores below.
         scores: dict[str, float] = {
@@ -80,7 +80,7 @@ class KGExpandedRetriever(BaseRetriever):
         # Step 3b: Score unscored chunk_ids in the expanded subgraph.
         # For all chunk_ids found in the expanded subgraph that do not have
         # a similarity score from the original semantic search (i.e., were not
-        # in the top-k seed set), perform a batched similarity search to assign
+        # in the top-k seed chunks), perform a batched similarity search to assign
         # them a score. This ensures every chunk_id in the subgraph is assigned
         # a relevance score for the subsequent MST filtering step.
         # The scoring is done by querying the vectorstore for embeddings whose
@@ -88,10 +88,11 @@ class KGExpandedRetriever(BaseRetriever):
         # converted to similarity scores in (0,1] by 1/(1+dist).
         if unscored_ids:
             collection = vectorstore._collection
+            query_embedding = vectorstore._embedding_function.embed_query(query)
             scored = collection.query(
-                query_texts=[query],
+                query_embeddings=[query_embedding],
                 where={"chunk_id": {"$in": unscored_ids}},
-                n_results=min(len(unscored_ids), collection.count()), # Limit to the number of chunks in the collection
+                n_results=min(len(unscored_ids), collection.count()),
                 include=["metadatas", "distances"],
             )
             if scored and scored["metadatas"]:
@@ -128,6 +129,13 @@ class KGExpandedRetriever(BaseRetriever):
                 if edge.chunk_id not in seen:
                     seen.add(edge.chunk_id)
                     ordered_ids.append(edge.chunk_id)
+
+        if not ordered_ids:
+            return [doc for doc, _ in seed_pairs]
+
+        # Filter out chunks below the minimum similarity threshold.
+        min_score = get_settings().kg_min_chunk_score
+        ordered_ids = [cid for cid in ordered_ids if scores.get(cid, 0.0) >= min_score]
 
         if not ordered_ids:
             return [doc for doc, _ in seed_pairs]
