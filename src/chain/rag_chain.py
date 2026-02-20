@@ -13,9 +13,8 @@ import structlog
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnableLambda
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI
 
-from src.config import get_settings
+from src.models import get_llm
 from src.retriever import get_retriever
 from src.prompts import build_tutor_prompt
 
@@ -40,16 +39,6 @@ def _format_docs(docs: list[Document]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-def _get_llm() -> ChatOpenAI:
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm_model_name,
-        openai_api_key=settings.openai_api_key,
-        temperature=0.3,       # low temp for factual grounding
-        streaming=True,
-    )
-
-
 def build_rag_chain():
     """Construct and return the full Socratic-tutor RAG chain.
 
@@ -58,7 +47,7 @@ def build_rag_chain():
     """
     retriever = get_retriever()
     prompt = build_tutor_prompt()
-    llm = _get_llm()
+    llm = get_llm(temperature=0.3)
 
     # The chain:
     #   1. Run the retriever in parallel with passing the question through.

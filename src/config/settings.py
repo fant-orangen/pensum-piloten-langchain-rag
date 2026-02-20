@@ -12,6 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
+    # --- LLM provider ---
+    llm_provider: str = "openai"  # "openai" | more providers to follow
+    ollama_base_url: str = "http://localhost:11434/v1"
+
     # --- LLM ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
     llm_model_name: str = "gpt-4o-mini"

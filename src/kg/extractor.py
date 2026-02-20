@@ -10,9 +10,9 @@ from dataclasses import dataclass
 
 import structlog
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
 
-from src.config import get_settings
+from src.models import get_llm
 
 logger = structlog.get_logger(__name__)
 
@@ -80,7 +80,7 @@ _MAX_RETRIES = 5
 
 """Asynchronous process which extracts triplets from a single chunk"""
 async def _process_one(
-    llm: ChatOpenAI,
+    llm: BaseChatModel,
     doc: Document,
 ) -> list[Triplet]:
     """Extract triplets from a single chunk with retry on rate limits."""
@@ -110,12 +110,7 @@ def extract_triplets(chunks: list[Document], batch_size: int = 10) -> list[Tripl
     Processes chunks in batches of `batch_size` with async concurrency within each batch.
     Each chunk gets a stable chunk_id added to its metadata.
     """
-    settings = get_settings()
-    llm = ChatOpenAI(
-        model=settings.llm_model_name,
-        openai_api_key=settings.openai_api_key,
-        temperature=0.0,
-    )
+    llm = get_llm(temperature=0.0)
 
     all_triplets: list[Triplet] = []
 

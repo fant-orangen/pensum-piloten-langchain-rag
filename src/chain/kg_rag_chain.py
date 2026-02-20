@@ -8,8 +8,9 @@ import structlog
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnableLambda
 
-from src.chain.rag_chain import _format_docs, _get_llm
+from src.chain.rag_chain import _format_docs
 from src.kg.retriever import get_kg_retriever
+from src.models import get_llm
 from src.prompts import build_tutor_prompt
 
 logger = structlog.get_logger(__name__)
@@ -23,7 +24,7 @@ def build_kg_rag_chain():
     """
     retriever = get_kg_retriever()
     prompt = build_tutor_prompt()
-    llm = _get_llm()
+    llm = get_llm(temperature=0.3)
 
     extract_question = RunnableLambda(lambda x: x["question"])
 
