@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     neo4j_password: str = ""
     kg_expansion_hops: int = 1
     kg_max_expanded_chunks: int = 10
-    kg_min_chunk_score: float = 0.4
+    kg_min_chunk_score: float = 0.5
 
     # --- API ---
     api_host: str = "0.0.0.0"
