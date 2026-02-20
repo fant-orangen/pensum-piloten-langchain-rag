@@ -2,13 +2,17 @@
 
 Usage:
     python -m scripts.chat_kg
+    python -m scripts.chat_kg --debug   # print retrieved chunks before each response
 """
 
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, AIMessage
 
 from src.chain.kg_rag_chain import build_kg_rag_chain
@@ -18,8 +22,25 @@ _LOG_DIR = Path("data/chat_logs")
 # ANSI colour codes
 _BLUE = "\033[94m"
 _GREEN = "\033[92m"
+_YELLOW = "\033[93m"
+_DIM = "\033[2m"
 _RESET = "\033[0m"
 _BOLD = "\033[1m"
+
+
+class _ChunkDebugHandler(BaseCallbackHandler):
+    """Callback that prints retrieved chunks to stdout."""
+
+    def on_retriever_end(self, documents: list[Document], **kwargs: Any) -> None:
+        print(f"\n{_YELLOW}{_BOLD}[DEBUG] Retrieved {len(documents)} chunk(s):{_RESET}")
+        for i, doc in enumerate(documents, 1):
+            source = doc.metadata.get("source_path") or doc.metadata.get("source_file", "unknown")
+            chunk_id = doc.metadata.get("chunk_id", "?")
+            print(f"\n  {_BOLD}#{i}{_RESET} {_DIM}{source} [{chunk_id}]{_RESET}")
+            print(f"{_DIM}{'─' * 60}{_RESET}")
+            print(doc.page_content)
+            print(f"{_DIM}{'─' * 60}{_RESET}")
+        print()
 
 
 def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
@@ -33,11 +54,16 @@ def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
 
 
 def main() -> None:
+    debug = "--debug" in sys.argv
+
     print(f"\n{_BOLD}Pensum Piloten — Socratic Tutor (KG-RAG){_RESET}")
+    if debug:
+        print(f"{_YELLOW}[DEBUG mode enabled — retrieved chunks will be shown]{_RESET}")
     print("Type your question and press Enter. Type 'quit' or 'exit' to stop.\n")
 
     chain = build_kg_rag_chain()
     chat_history: list[HumanMessage | AIMessage] = []
+    callbacks = [_ChunkDebugHandler()] if debug else []
 
     while True:
         try:
@@ -55,7 +81,10 @@ def main() -> None:
         if not user_input.strip():
             continue
 
-        answer = chain.invoke({"question": user_input, "chat_history": chat_history})
+        answer = chain.invoke(
+            {"question": user_input, "chat_history": chat_history},
+            config={"callbacks": callbacks},
+        )
 
         print(f"{_BLUE}{_BOLD}Tutor:{_RESET} {answer}\n")
 
