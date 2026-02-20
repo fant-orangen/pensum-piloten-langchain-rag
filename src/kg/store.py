@@ -85,3 +85,49 @@ class KGStore:
             edges=edge_count,
             triplets_ingested=len(triplets),
         )
+
+    def get_expanded_subgraph(
+        self,
+        seed_chunk_ids: list[str],
+        hops: int | None = None,
+    ) -> list[tuple[str, str, str, str]]:
+        """Return all edges in the m-hop expanded subgraph of the seed chunks.
+
+        Starting from all entities touched by edges whose chunk_id is in
+        seed_chunk_ids, traverses up to `hops` hops along RELATED_TO edges
+        and returns every edge in the resulting subgraph as
+        (head, tail, relation, chunk_id).
+
+        This is the raw material for MST filtering: the caller assigns weights
+        (similarity scores) and passes the result to build_mst_subgraphs.
+        """
+        settings = get_settings()
+        hops = hops if hops is not None else settings.kg_expansion_hops
+
+        query = f"""
+            MATCH (h:Entity)-[r:RELATED_TO]->(t:Entity)
+            WHERE r.chunk_id IN $seed_ids
+            WITH COLLECT(DISTINCT h) + COLLECT(DISTINCT t) AS seed_entities
+            UNWIND seed_entities AS se
+            MATCH (se)-[:RELATED_TO*0..{int(hops)}]-(neighbor:Entity)
+            WITH COLLECT(DISTINCT neighbor) AS all_entities
+            UNWIND all_entities AS ae
+            MATCH (ae)-[r2:RELATED_TO]->(other:Entity)
+            WHERE other IN all_entities
+            RETURN ae.name AS head, other.name AS tail,
+                   r2.relation AS relation, r2.chunk_id AS chunk_id
+        """
+
+        with self._driver.session() as session:
+            result = session.run(query, seed_ids=seed_chunk_ids)
+            edges = [
+                (rec["head"], rec["tail"], rec["relation"], rec["chunk_id"])
+                for rec in result
+            ]
+
+        logger.info(
+            "kg_subgraph_fetched",
+            seed_count=len(seed_chunk_ids),
+            edge_count=len(edges),
+        )
+        return edges

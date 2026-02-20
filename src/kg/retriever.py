@@ -1,11 +1,13 @@
-"""KG-expanded retriever — combines semantic search with knowledge graph traversal.
+"""KG-RAG retriever — semantic search + graph expansion + MST filtering.
 
-Pipeline:
-  1. Semantic similarity search (ChromaDB) -> seed chunks
-  2. Extract chunk IDs from seed results
-  3. Expand via KG traversal (Neo4j) -> additional chunk IDs
-  4. Fetch expanded chunks from ChromaDB
-  5. Return merged, deduplicated results
+Pipeline (per the KG2RAG paper):
+  1. Semantic similarity search (ChromaDB) -> seed chunks with scores
+  2. Expand via KG traversal (Neo4j) -> subgraph edges (head, tail, relation, chunk_id)
+  3. Score all chunks referenced by subgraph edges via embedding similarity
+  4. Attach scores to edges as weights -> WeightedEdge list
+  5. MST filtering (organizer) -> one MST per connected component
+  6. Read surviving chunk_ids from MST edges, fetch from ChromaDB
+  7. Return chunks in component-relevance order
 """
 
 from typing import Any
@@ -16,6 +18,7 @@ from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 
 from src.config import get_settings
+from src.kg.organizer import WeightedEdge, build_mst_subgraphs
 from src.kg.store import KGStore
 from src.vectorstore.store import get_vectorstore
 
@@ -23,7 +26,7 @@ logger = structlog.get_logger(__name__)
 
 
 class KGExpandedRetriever(BaseRetriever):
-    """A retriever that uses KG graph traversal to expand semantic search results."""
+    """Retriever that combines KG-guided expansion with MST-based context filtering."""
 
     kg_store: Any = None
     top_k: int = 5
@@ -39,60 +42,111 @@ class KGExpandedRetriever(BaseRetriever):
     ) -> list[Document]:
         vectorstore = get_vectorstore()
 
-        # Step 1: Semantic similarity search for seed chunks
-        seed_results = vectorstore.similarity_search(query, k=self.top_k)
-        logger.info("seed_retrieval", count=len(seed_results))
+        # Step 1: Semantic search — seeds with similarity scores.
+        # Scores are needed as edge weights; similarity_search_with_score returns
+        # (Document, float) pairs where float is cosine similarity.
+        seed_pairs = vectorstore.similarity_search_with_score(query, k=self.top_k) # first seed similarity search
+        logger.info("seed_retrieval", count=len(seed_pairs))
 
-        # Step 2: Get chunk IDs from seed results
         seed_ids = [
             doc.metadata["chunk_id"]
-            for doc in seed_results
+            for doc, _ in seed_pairs
             if "chunk_id" in doc.metadata
         ]
-
         if not seed_ids:
             logger.warning("no_chunk_ids_in_seeds")
-            return seed_results
+            return [doc for doc, _ in seed_pairs]
 
-        # Step 3: Expand via KG
-        expanded_ids = self.kg_store.get_expanded_chunk_ids(seed_ids)
+        # Step 2: Fetch the full expanded subgraph edges from Neo4j.
+        # Returns (head, tail, relation, chunk_id) for every edge in the
+        # m-hop neighbourhood of seed entities.
+        raw_edges = self.kg_store.get_expanded_subgraph(seed_ids)
+        if not raw_edges:
+            logger.warning("empty_subgraph", seed_ids=seed_ids)
+            return [doc for doc, _ in seed_pairs]
 
-        # Step 4: Fetch expanded chunks from ChromaDB (excluding already-retrieved seeds)
-        new_ids = [cid for cid in expanded_ids if cid not in set(seed_ids)]
+        # Step 3: Build a chunk_id -> similarity score map.
+        # Seed scores come from Step 1. Expanded chunk IDs not already scored
+        # are fetched and scored via a Chroma embedding query.
+        scores: dict[str, float] = {
+            doc.metadata["chunk_id"]: float(score)
+            for doc, score in seed_pairs
+            if "chunk_id" in doc.metadata
+        }
+        all_edge_chunk_ids = {chunk_id for _, _, _, chunk_id in raw_edges}
+        unscored_ids = [cid for cid in all_edge_chunk_ids if cid not in scores]
 
-        expanded_docs: list[Document] = []
-        if new_ids:
+        if unscored_ids:
             collection = vectorstore._collection
-            results = collection.get(
-                where={"chunk_id": {"$in": new_ids}},
-                include=["documents", "metadatas"],
+            scored = collection.query(
+                query_texts=[query],
+                where={"chunk_id": {"$in": unscored_ids}},
+                n_results=len(unscored_ids),
+                include=["metadatas", "distances"],
             )
-            if results and results["documents"]:
-                valid_ids = set(new_ids)
-                for doc_text, meta in zip(results["documents"], results["metadatas"]):
-                    # Explicit Python-side filter — guards against ChromaDB $in misbehavior
-                    if meta.get("chunk_id") in valid_ids:
-                        expanded_docs.append(Document(page_content=doc_text, metadata=meta))
+            if scored and scored["metadatas"]:
+                for meta, dist in zip(scored["metadatas"][0], scored["distances"][0]):
+                    cid = meta.get("chunk_id")
+                    if cid:
+                        # Chroma distances are L2; convert to similarity in [0,1]
+                        scores[cid] = 1.0 / (1.0 + dist)
 
-        # Hard cap — prevents context overflow regardless of upstream behavior
-        max_expanded = get_settings().kg_max_expanded_chunks
-        if len(expanded_docs) > max_expanded:
-            logger.warning(
-                "kg_expansion_capped",
-                fetched=len(expanded_docs),
-                cap=max_expanded,
+        # Step 4: Construct WeightedEdge list — attach scores to edges.
+        # Edges whose chunk_id has no score (chunk absent from Chroma) are skipped.
+        weighted_edges = [
+            WeightedEdge(
+                head=head,
+                tail=tail,
+                relation=relation,
+                chunk_id=chunk_id,
+                weight=scores[chunk_id],
             )
-            expanded_docs = expanded_docs[:max_expanded]
+            for head, tail, relation, chunk_id in raw_edges
+            if chunk_id in scores
+        ]
 
-        logger.info(
-            "kg_expanded_retrieval",
-            seed=len(seed_results),
-            expanded=len(expanded_docs),
-            total=len(seed_results) + len(expanded_docs),
+        # Step 5: MST filtering — one maximum spanning tree per connected component.
+        # Returns components sorted by mean edge weight descending.
+        components = build_mst_subgraphs(weighted_edges)
+
+        # Step 6: Collect chunk_ids from MST edges in component order, deduplicated.
+        # Deduplication is needed because one chunk can contribute edges in one component.
+        seen: set[str] = set()
+        ordered_ids: list[str] = []
+        for component in components:
+            for edge in component:
+                if edge.chunk_id not in seen:
+                    seen.add(edge.chunk_id)
+                    ordered_ids.append(edge.chunk_id)
+
+        if not ordered_ids:
+            return [doc for doc, _ in seed_pairs]
+
+        # Step 7: Fetch the final chunk set from ChromaDB.
+        collection = vectorstore._collection
+        results = collection.get(
+            where={"chunk_id": {"$in": ordered_ids}},
+            include=["documents", "metadatas"],
         )
 
-        # Merge: seeds first, then expanded
-        return seed_results + expanded_docs
+        id_to_doc: dict[str, Document] = {}
+        if results and results["documents"]:
+            for doc_text, meta in zip(results["documents"], results["metadatas"]):
+                cid = meta.get("chunk_id")
+                if cid in seen:
+                    id_to_doc[cid] = Document(page_content=doc_text, metadata=meta)
+
+        # Return in MST component order (most relevant component first).
+        final_docs = [id_to_doc[cid] for cid in ordered_ids if cid in id_to_doc]
+
+        logger.info(
+            "kg_mst_retrieval",
+            seeds=len(seed_ids),
+            subgraph_edges=len(raw_edges),
+            components=len(components),
+            final_chunks=len(final_docs),
+        )
+        return final_docs
 
 
 def get_kg_retriever() -> KGExpandedRetriever:
