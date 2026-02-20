@@ -44,8 +44,8 @@ class KGExpandedRetriever(BaseRetriever):
 
         # Step 1: Semantic search — seeds with similarity scores.
         # Scores are needed as edge weights; similarity_search_with_score returns
-        # (Document, float) pairs where float is cosine similarity.
-        seed_pairs = vectorstore.similarity_search_with_score(query, k=self.top_k) # first seed similarity search
+        # (Document, float) pairs where float is an L2 distance (lower = more similar).
+        seed_pairs = vectorstore.similarity_search_with_score(query, k=self.top_k)
         logger.info("seed_retrieval", count=len(seed_pairs))
 
         seed_ids = [
@@ -66,16 +66,26 @@ class KGExpandedRetriever(BaseRetriever):
             return [doc for doc, _ in seed_pairs]
 
         # Step 3: Build a chunk_id -> similarity score map.
-        # Seed scores come from Step 1. Expanded chunk IDs not already scored
-        # are fetched and scored via a Chroma embedding query.
+        # Seed scores come from Step 1. Convert L2 distance to similarity in (0,1]
+        # so that all weights are on the same scale as expanded chunk scores below.
         scores: dict[str, float] = {
-            doc.metadata["chunk_id"]: float(score)
+            doc.metadata["chunk_id"]: 1.0 / (1.0 + score)
             for doc, score in seed_pairs
             if "chunk_id" in doc.metadata
         }
         all_edge_chunk_ids = {chunk_id for _, _, _, chunk_id in raw_edges}
-        unscored_ids = [cid for cid in all_edge_chunk_ids if cid not in scores]
+        unscored_ids = [cid for cid in all_edge_chunk_ids if cid not in scores] # unscored ids = chunk ids in the expanded subgraph that are not in the seed chunks
 
+        # 
+        # Step 3b: Score unscored chunk_ids in the expanded subgraph.
+        # For all chunk_ids found in the expanded subgraph that do not have
+        # a similarity score from the original semantic search (i.e., were not
+        # in the top-k seed set), perform a batched similarity search to assign
+        # them a score. This ensures every chunk_id in the subgraph is assigned
+        # a relevance score for the subsequent MST filtering step.
+        # The scoring is done by querying the vectorstore for embeddings whose
+        # chunk_id is in unscored_ids, returning L2 distances which are then
+        # converted to similarity scores in (0,1] by 1/(1+dist).
         if unscored_ids:
             collection = vectorstore._collection
             scored = collection.query(

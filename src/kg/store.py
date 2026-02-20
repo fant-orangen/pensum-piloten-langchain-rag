@@ -97,9 +97,6 @@ class KGStore:
         seed_chunk_ids, traverses up to `hops` hops along RELATED_TO edges
         and returns every edge in the resulting subgraph as
         (head, tail, relation, chunk_id).
-
-        This is the raw material for MST filtering: the caller assigns weights
-        (similarity scores) and passes the result to build_mst_subgraphs.
         """
         settings = get_settings()
         hops = hops if hops is not None else settings.kg_expansion_hops
