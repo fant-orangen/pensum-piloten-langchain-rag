@@ -22,3 +22,5 @@ data/kg_triplets.json
 ssh
 ssh.pub
 
+.DS_Store
+
