@@ -91,7 +91,7 @@ class KGExpandedRetriever(BaseRetriever):
             scored = collection.query(
                 query_texts=[query],
                 where={"chunk_id": {"$in": unscored_ids}},
-                n_results=len(unscored_ids),
+                n_results=min(len(unscored_ids), collection.count()), # Limit to the number of chunks in the collection
                 include=["metadatas", "distances"],
             )
             if scored and scored["metadatas"]:
