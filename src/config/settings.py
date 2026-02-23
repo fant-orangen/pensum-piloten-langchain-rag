@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
 
+    # --- Ingestion filtering ---
+    toc_line_threshold: float = 0.5
+
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),
         "env_file_encoding": "utf-8",

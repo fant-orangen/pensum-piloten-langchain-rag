@@ -11,6 +11,8 @@ import re
 import structlog
 from langchain_core.documents import Document
 
+from src.config import get_settings
+
 logger = structlog.get_logger(__name__)
 
 # Matches a line that looks like a TOC entry:
@@ -19,17 +21,14 @@ logger = structlog.get_logger(__name__)
 #   - ends with a 1–4 digit page number (with optional trailing whitespace)
 _TOC_LINE_RE = re.compile(r"^.{2,80}[\s.·•–\-]{3,}\d{1,4}\s*$")
 
-# If this fraction (or more) of non-empty lines match _TOC_LINE_RE the whole
-# document is considered a table of contents and will be dropped.
-_TOC_LINE_THRESHOLD = 0.5
-
 
 def _is_toc_document(doc: Document) -> bool:
+    settings = get_settings()
     lines = [ln.strip() for ln in doc.page_content.splitlines() if ln.strip()]
     if len(lines) < 3:
         return False
     hits = sum(1 for ln in lines if _TOC_LINE_RE.match(ln))
-    return hits / len(lines) >= _TOC_LINE_THRESHOLD
+    return hits / len(lines) >= settings.toc_line_threshold
 
 
 def remove_table_of_contents(docs: list[Document]) -> list[Document]:
