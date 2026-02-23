@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "What does a process have to do with the text segment?"
+  },
+  {
+    "role": "ai",
+    "content": "A process is a sequential execution of instructions that operates within its own address space, which includes various segments of memory, one of which is the text segment.\n\n**Definition:** The text segment is a portion of a process's memory that contains the executable code of the program.\n\n**Intuition:** When a process is executed, it loads its code into the text segment, allowing the CPU to access and execute the instructions defined in the program.\n\n**Example:** In a typical operating system, when you run a program, the code for that program is loaded into the text segment of the process. For instance, if you run a text editor, the instructions for opening, editing, and saving files are stored in the text segment.\n\n**Common Mistake:** A common mistake is to confuse the text segment with other segments, such as the data segment, which contains global variables and static data. The text segment specifically holds only the executable code.\n\n**Comprehension Checks:**\n1. What does the text segment contain?\n2. How does the text segment relate to a process's execution?"
+  }
+]
