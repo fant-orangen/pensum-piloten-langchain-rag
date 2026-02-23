@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
 
     # --- Ingestion filtering ---
-    toc_line_threshold: float = 0.5
+    toc_line_threshold: float = 0.5 # If more than 50% of the lines in a document match the TOC line pattern, the document is removed.
 
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),
