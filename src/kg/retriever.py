@@ -34,7 +34,7 @@ class KGExpandedRetriever(BaseRetriever):
     class Config:
         arbitrary_types_allowed = True
 
-    def _get_relevant_documents(
+    def _get_relevant_documents( # TODO: divide the responsibility of this function into smaller functions 
         self,
         query: str,
         *,
@@ -133,7 +133,7 @@ class KGExpandedRetriever(BaseRetriever):
         if not ordered_ids:
             return [doc for doc, _ in seed_pairs]
 
-        # Filter out chunks below the minimum similarity threshold.
+        # Filter out chunks below the minimum similarity threshold. TODO: should only filter if there are too many chunks left at the end of the pipeline
         min_score = get_settings().kg_min_chunk_score
         ordered_ids = [cid for cid in ordered_ids if scores.get(cid, 0.0) >= min_score]
 

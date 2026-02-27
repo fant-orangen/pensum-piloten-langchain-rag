@@ -64,7 +64,7 @@ def main() -> None:
     print("Type your question and press Enter. Type 'quit' or 'exit' to stop.\n")
 
     chain = build_kg_rag_chain()
-    chat_history: list[HumanMessage | AIMessage] = []
+    chat_history: list[HumanMessage | AIMessage] = [] # Differentiate between human and AI messages
     callbacks = [_ChunkDebugHandler()] if debug else []
 
     while True:
