@@ -8,7 +8,6 @@ from langchain_community.document_loaders import (
     PyPDFLoader,
     Docx2txtLoader,
     TextLoader,
-    DirectoryLoader,
 )
 
 from src.config import get_settings
