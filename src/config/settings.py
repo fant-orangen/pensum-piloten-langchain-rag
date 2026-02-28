@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retriever_top_k: int = 5
+    kg_max_final_chunks: int = 20
 
     # --- Neo4j (Knowledge Graph) ---
     neo4j_uri: str = "bolt://localhost:7687"
@@ -46,8 +47,8 @@ class Settings(BaseSettings):
     neo4j_password: str = ""
     kg_expansion_hops: int = 1
     kg_max_expanded_chunks: int = 10
-    kg_min_chunk_score: float = 0.5
-    kg_max_final_chunks: int = 20
+    # kg_min_chunk_score: float = 0.5
+
 
     # --- API ---
     api_host: str = "0.0.0.0"
