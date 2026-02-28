@@ -69,7 +69,10 @@ def main() -> None:
 
     while True:
         try:
-            user_input = input(f"{_GREEN}{_BOLD}User:{_RESET} ")
+            # Print a styled label separately so readline gets a plain prompt.
+            # Passing ANSI escapes directly to input() can break cursor/wrap math.
+            print(f"{_GREEN}{_BOLD}User:{_RESET} ", end="", flush=True)
+            user_input = input()
         except (EOFError, KeyboardInterrupt):
             _save_log(chat_history)
             print("\nGoodbye!")
