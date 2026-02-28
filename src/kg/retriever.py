@@ -216,17 +216,27 @@ class KGExpandedRetriever(BaseRetriever):
 
     @staticmethod
     def _apply_score_threshold(ordered_ids: list[str], scores: dict[str, float]) -> list[str]:
-        """Filter chunk IDs below the configured minimum similarity threshold.
+        """Limit final chunk IDs by similarity to a configured maximum count.
 
         Args:
             ordered_ids: Candidate chunk IDs in relevance order.
             scores: Similarity score map by ``chunk_id``.
 
         Returns:
-            IDs whose score is at least ``kg_min_chunk_score`` from settings.
+            At most ``kg_max_final_chunks`` IDs, where lowest-similarity IDs are
+            removed first. Relative order among retained IDs is preserved.
         """
-        min_score = get_settings().kg_min_chunk_score
-        return [cid for cid in ordered_ids if scores.get(cid, 0.0) >= min_score]
+        max_chunks = get_settings().kg_max_final_chunks
+        if len(ordered_ids) <= max_chunks:
+            return ordered_ids
+
+        top_ids = sorted(
+            ordered_ids,
+            key=lambda cid: scores.get(cid, 0.0),
+            reverse=True,
+        )[:max_chunks]
+        keep_ids = set(top_ids)
+        return [cid for cid in ordered_ids if cid in keep_ids]
 
     @staticmethod
     def _append_missing_seed_ids(ordered_ids: list[str], seed_ids: list[str]) -> list[str]:
@@ -322,7 +332,6 @@ class KGExpandedRetriever(BaseRetriever):
         if not ordered_ids:
             return self._seed_documents(seed_pairs)
 
-        # TODO: only filter by threshold if too many chunks remain.
         ordered_ids = self._apply_score_threshold(ordered_ids, scores)
         if not ordered_ids:
             return self._seed_documents(seed_pairs)

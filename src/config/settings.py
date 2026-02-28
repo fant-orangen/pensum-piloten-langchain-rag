@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     kg_expansion_hops: int = 1
     kg_max_expanded_chunks: int = 10
     kg_min_chunk_score: float = 0.5
+    kg_max_final_chunks: int = 20
 
     # --- API ---
     api_host: str = "0.0.0.0"
