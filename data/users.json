@@ -1,8 +1,34 @@
 {
   "Magnus": {
     "username": "Magnus",
+    "fornavn": "Magnus",
+    "etternavn": "",
     "name": "Magnus",
     "password_hash": "317184ea43537e4e0c85464941973d43c52195539c5a2933fd04b6aa4a880821",
     "salt": "2c5f45e9d35667cf62fd9ebbcfad5e84"
+  },
+  "Magnus123": {
+    "username": "Magnus123",
+    "fornavn": "Magnus",
+    "etternavn": "Magnussen",
+    "name": "Magnus Magnussen",
+    "password_hash": "f6ccbd1b52badd865da90032e4d425b35973133a8c0e03ff784c7837c50fc87f",
+    "salt": "cc9552c9c8af14fc4c673f3f8b688625"
+  },
+  "Lars": {
+    "username": "Lars",
+    "fornavn": "Lars",
+    "etternavn": "Nilsen",
+    "name": "Lars Nilsen",
+    "password_hash": "f8870c7553d58b9d901d4612db2c91e01988a1f072b7c9a4a6fc8ff67d69f01b",
+    "salt": "4bfb4338b837f552659ee3cf0a728d47"
+  },
+  "Lars2": {
+    "username": "Lars2",
+    "fornavn": "Lars",
+    "etternavn": "Eriksen",
+    "name": "Lars Eriksen",
+    "password_hash": "d0ee66b6e4e863464a443bdcd806d32e95d94f2523fc1fcbe3cb43e7a4169400",
+    "salt": "772133fc14be53ed7f946931ea4df0ab"
   }
 }
