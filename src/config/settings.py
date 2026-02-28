@@ -59,6 +59,9 @@ class Settings(BaseSettings):
 
     # --- Ingestion filtering ---
     toc_line_threshold: float = 0.5 # If more than 50% of the lines in a document match the TOC line pattern, the document is removed.
+    
+    # --- LLM test generation ---
+    test_chat_max_messages_per_agent: int = 12
 
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),
