@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # kg_min_chunk_score: float = 0.5
 
 
+    # --- Database ---
+    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten"
+
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000

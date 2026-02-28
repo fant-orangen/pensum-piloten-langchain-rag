@@ -34,6 +34,11 @@ dependencies = [
     "pydantic-settings>=2,<3",
     "gradio>=4,<6",
 
+    # --- Database ---
+    "sqlmodel>=0.0.19",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+
     # --- Utilities ---
     "python-dotenv>=1,<2",
     "structlog>=24,<26",

@@ -1,5 +1,6 @@
 """FastAPI application — thin HTTP layer over the RAG chain."""
 
+from contextlib import asynccontextmanager
 from typing import Any
 
 import uvicorn
@@ -10,13 +11,23 @@ from langchain_core.messages import HumanMessage, AIMessage
 from src.config import get_settings
 from src.chain import build_kg_rag_chain, build_no_rag_chain
 from src.api.schemas import AskRequest, AskResponse
+from src.api.database import init_engine, create_tables
 
 logger = structlog.get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_engine()
+    await create_tables()
+    yield
+
 
 app = FastAPI(
     title="Pensum Piloten",
     description="Socratic RAG tutor that guides students toward independent learning.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Build chains lazily and reuse them across requests.
