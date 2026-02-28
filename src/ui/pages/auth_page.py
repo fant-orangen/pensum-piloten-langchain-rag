@@ -20,7 +20,9 @@ class AuthPageComponents:
     login_status: gr.Markdown
     register_username: gr.Textbox
     register_password: gr.Textbox
-    register_name: gr.Textbox
+    register_password_confirm: gr.Textbox
+    register_firstname: gr.Textbox
+    register_surname: gr.Textbox
     register_button: gr.Button
     register_status: gr.Markdown
 
@@ -39,7 +41,9 @@ def build_auth_page(*, visible: bool) -> AuthPageComponents:
                 gr.Markdown("# Registrer")
                 register_username = gr.Textbox(label="Brukernavn")
                 register_password = gr.Textbox(label="Passord", type="password")
-                register_name = gr.Textbox(label="Navn")
+                register_password_confirm = gr.Textbox(label="Gjenta passord", type="password")
+                register_firstname = gr.Textbox(label="Fornavn")
+                register_surname = gr.Textbox(label="Etternavn")
                 register_button = gr.Button("Registrer", variant="primary")
                 register_status = gr.Markdown()
 
@@ -51,7 +55,9 @@ def build_auth_page(*, visible: bool) -> AuthPageComponents:
         login_status=login_status,
         register_username=register_username,
         register_password=register_password,
-        register_name=register_name,
+        register_password_confirm=register_password_confirm,
+        register_firstname=register_firstname,
+        register_surname=register_surname,
         register_button=register_button,
         register_status=register_status,
     )
@@ -62,12 +68,24 @@ def handle_login(username: str, password: str) -> tuple[dict[str, Any], str, str
     if not success or user is None:
         return default_app_state(), message, "", ""
 
-    return authenticated_app_state(user.username, user.name), "", "", message
+    return authenticated_app_state(user.username, user.firstname, user.surname), "", "", message
 
 
-def handle_register(username: str, password: str, name: str) -> tuple[dict[str, Any], str, str, str]:
-    success, message, user = register_user(username, password, name)
+def handle_register(
+    username: str,
+    password: str,
+    password_confirm: str,
+    firstname: str,
+    surname: str,
+) -> tuple[dict[str, Any], str, str, str]:
+    success, message, user = register_user(
+        username,
+        password,
+        password_confirm,
+        firstname,
+        surname,
+    )
     if not success or user is None:
         return default_app_state(), "", message, ""
 
-    return authenticated_app_state(user.username, user.name), "", "", message
+    return authenticated_app_state(user.username, user.firstname, user.surname), "", "", message

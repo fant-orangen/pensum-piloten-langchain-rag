@@ -44,11 +44,20 @@ def login_user(username: str, password: str) -> tuple[bool, str, User | None]:
     return True, "Du er nå logget inn.", user
 
 
-def register_user(username: str, password: str, name: str) -> tuple[bool, str, User | None]:
+def register_user(
+    username: str,
+    password: str,
+    password_confirm: str,
+    fornavn: str,
+    etternavn: str,
+) -> tuple[bool, str, User | None]:
     cleaned_username = username.strip()
-    cleaned_name = name.strip()
-    if not cleaned_username or not password or not cleaned_name:
+    cleaned_fornavn = fornavn.strip()
+    cleaned_etternavn = etternavn.strip()
+    if not cleaned_username or not password or not password_confirm or not cleaned_fornavn or not cleaned_etternavn:
         return False, "Fyll ut alle feltene.", None
+    if password != password_confirm:
+        return False, "Passordene er ikke like.", None
 
     users = load_users()
     if cleaned_username in users:
@@ -57,7 +66,8 @@ def register_user(username: str, password: str, name: str) -> tuple[bool, str, U
     salt = os.urandom(16)
     user = User(
         username=cleaned_username,
-        name=cleaned_name,
+        fornavn=cleaned_fornavn,
+        etternavn=cleaned_etternavn,
         salt_hex=salt.hex(),
         password_hash_hex=hash_password(password, salt),
     )

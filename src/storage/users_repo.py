@@ -28,16 +28,32 @@ def load_users() -> dict[str, User]:
             continue
 
         stored_username = user_data.get("username")
+        firstname = user_data.get("firstname")
+        surname = user_data.get("surname")
         name = user_data.get("name")
         password_hash = user_data.get("password_hash")
         salt = user_data.get("salt")
-        if all(
-            isinstance(value, str) and value
-            for value in (stored_username, name, password_hash, salt)
+        if (
+            isinstance(stored_username, str)
+            and stored_username
+            and isinstance(password_hash, str)
+            and password_hash
+            and isinstance(salt, str)
+            and salt
         ):
+            resolved_firstname = ""
+            resolved_surname = ""
+            if isinstance(firstname, str) and firstname:
+                resolved_firstname = firstname
+                if isinstance(surname, str):
+                    resolved_surname = surname
+            elif isinstance(name, str) and name:
+                resolved_firstname = name
+
             users[username] = User(
                 username=stored_username,
-                name=name,
+                fornavn=resolved_firstname,
+                etternavn=resolved_surname,
                 salt_hex=salt,
                 password_hash_hex=password_hash,
             )
@@ -49,6 +65,8 @@ def save_users(users: dict[str, User]) -> None:
     payload = {
         username: {
             "username": user.username,
+            "fornavn": user.firstname,
+            "etternavn": user.surname,
             "name": user.name,
             "password_hash": user.password_hash_hex,
             "salt": user.salt_hex,

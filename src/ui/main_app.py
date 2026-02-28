@@ -51,12 +51,16 @@ def _handle_login(username: str, password: str) -> tuple[dict[str, Any], Any, An
 def _handle_register(
     username: str,
     password: str,
-    name: str,
+    password_confirm: str,
+    firstname: str,
+    surname: str,
 ) -> tuple[dict[str, Any], Any, Any, Any, str, str, str, str]:
     state, login_message, register_message, student_message = handle_register(
         username,
         password,
-        name,
+        password_confirm,
+        firstname,
+        surname,
     )
     return _render_main_app(
         state,
@@ -129,7 +133,9 @@ def build_main_app() -> gr.Blocks:
             inputs=[
                 auth_page.register_username,
                 auth_page.register_password,
-                auth_page.register_name,
+                auth_page.register_password_confirm,
+                auth_page.register_firstname,
+                auth_page.register_surname,
             ],
             outputs=app_outputs,
         )
