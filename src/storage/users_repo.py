@@ -30,6 +30,8 @@ def load_users() -> dict[str, User]:
         stored_username = user_data.get("username")
         firstname = user_data.get("firstname")
         surname = user_data.get("surname")
+        legacy_firstname = user_data.get("fornavn")
+        legacy_surname = user_data.get("etternavn")
         name = user_data.get("name")
         password_hash = user_data.get("password_hash")
         salt = user_data.get("salt")
@@ -47,13 +49,17 @@ def load_users() -> dict[str, User]:
                 resolved_firstname = firstname
                 if isinstance(surname, str):
                     resolved_surname = surname
+            elif isinstance(legacy_firstname, str) and legacy_firstname:
+                resolved_firstname = legacy_firstname
+                if isinstance(legacy_surname, str):
+                    resolved_surname = legacy_surname
             elif isinstance(name, str) and name:
                 resolved_firstname = name
 
             users[username] = User(
                 username=stored_username,
-                fornavn=resolved_firstname,
-                etternavn=resolved_surname,
+                firstname=resolved_firstname,
+                surname=resolved_surname,
                 salt_hex=salt,
                 password_hash_hex=password_hash,
             )
@@ -65,8 +71,8 @@ def save_users(users: dict[str, User]) -> None:
     payload = {
         username: {
             "username": user.username,
-            "fornavn": user.firstname,
-            "etternavn": user.surname,
+            "firstname": user.firstname,
+            "surname": user.surname,
             "name": user.name,
             "password_hash": user.password_hash_hex,
             "salt": user.salt_hex,

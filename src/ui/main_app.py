@@ -10,11 +10,13 @@ from src.ui.pages import (
     AB_PAGE_CSS,
     build_ab_page,
     build_auth_page,
+    build_chat_page,
     build_student_page,
     handle_back_to_student,
     handle_login,
     handle_logout,
     handle_open_ab_compare,
+    handle_open_chat,
     handle_register,
 )
 from src.ui.router import route_visibility_updates
@@ -27,7 +29,7 @@ def _render_main_app(
     login_message: str = "",
     register_message: str = "",
     student_message: str = "",
-) -> tuple[dict[str, Any], Any, Any, Any, str, str, str, str]:
+) -> tuple[dict[str, Any], Any, Any, Any, Any, str, str, str, str]:
     return (
         state,
         *route_visibility_updates(state.get(ROUTE_KEY)),
@@ -38,7 +40,7 @@ def _render_main_app(
     )
 
 
-def _handle_login(username: str, password: str) -> tuple[dict[str, Any], Any, Any, Any, str, str, str, str]:
+def _handle_login(username: str, password: str) -> tuple[dict[str, Any], Any, Any, Any, Any, str, str, str, str]:
     state, login_message, register_message, student_message = handle_login(username, password)
     return _render_main_app(
         state,
@@ -54,7 +56,7 @@ def _handle_register(
     password_confirm: str,
     firstname: str,
     surname: str,
-) -> tuple[dict[str, Any], Any, Any, Any, str, str, str, str]:
+) -> tuple[dict[str, Any], Any, Any, Any, Any, str, str, str, str]:
     state, login_message, register_message, student_message = handle_register(
         username,
         password,
@@ -72,8 +74,20 @@ def _handle_register(
 
 def _handle_open_ab_compare(
     state: dict[str, Any],
-) -> tuple[dict[str, Any], Any, Any, Any, str, str, str, str]:
+) -> tuple[dict[str, Any], Any, Any, Any, Any, str, str, str, str]:
     next_state, login_message, register_message, student_message = handle_open_ab_compare(state)
+    return _render_main_app(
+        next_state,
+        login_message=login_message,
+        register_message=register_message,
+        student_message=student_message,
+    )
+
+
+def _handle_open_chat(
+    state: dict[str, Any],
+) -> tuple[dict[str, Any], Any, Any, Any, Any, str, str, str, str]:
+    next_state, login_message, register_message, student_message = handle_open_chat(state)
     return _render_main_app(
         next_state,
         login_message=login_message,
@@ -84,7 +98,7 @@ def _handle_open_ab_compare(
 
 def _handle_back_to_student(
     state: dict[str, Any],
-) -> tuple[dict[str, Any], Any, Any, Any, str, str, str, str]:
+) -> tuple[dict[str, Any], Any, Any, Any, Any, str, str, str, str]:
     next_state, login_message, register_message, student_message = handle_back_to_student(state)
     return _render_main_app(
         next_state,
@@ -94,7 +108,7 @@ def _handle_back_to_student(
     )
 
 
-def _handle_logout() -> tuple[dict[str, Any], Any, Any, Any, str, str, str, str]:
+def _handle_logout() -> tuple[dict[str, Any], Any, Any, Any, Any, str, str, str, str]:
     state, login_message, register_message, student_message = handle_logout()
     return _render_main_app(
         state,
@@ -111,12 +125,14 @@ def build_main_app() -> gr.Blocks:
         auth_page = build_auth_page(visible=True)
         student_page = build_student_page(visible=False)
         ab_page = build_ab_page(demo, visible=False, include_back_button=True)
+        chat_page = build_chat_page(visible=False)
 
         app_outputs = [
             app_state,
             auth_page.group,
             student_page.group,
             ab_page.group,
+            chat_page.group,
             student_page.name_text,
             student_page.status_text,
             auth_page.login_status,
@@ -144,6 +160,11 @@ def build_main_app() -> gr.Blocks:
             inputs=[app_state],
             outputs=app_outputs,
         )
+        student_page.open_chat_button.click(
+            fn=_handle_open_chat,
+            inputs=[app_state],
+            outputs=app_outputs,
+        )
         student_page.logout_button.click(
             fn=_handle_logout,
             inputs=None,
@@ -155,5 +176,10 @@ def build_main_app() -> gr.Blocks:
                 inputs=[app_state],
                 outputs=app_outputs,
             )
+        chat_page.back_button.click(
+            fn=_handle_back_to_student,
+            inputs=[app_state],
+            outputs=app_outputs,
+        )
 
     return demo
