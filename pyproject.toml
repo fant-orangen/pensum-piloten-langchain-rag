@@ -38,6 +38,7 @@ dependencies = [
     "sqlmodel>=0.0.19",
     "asyncpg>=0.29",
     "alembic>=1.13",
+    "greenlet>=3.0",
 
     # --- Utilities ---
     "python-dotenv>=1,<2",
@@ -56,6 +57,10 @@ dev = [
 ingest = "scripts.ingest:main"
 ingest-kg = "scripts.ingest_kg:main"
 serve = "src.api.app:start"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
 
 [build-system]
 requires = ["setuptools>=70"]
