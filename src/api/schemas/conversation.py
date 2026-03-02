@@ -1,0 +1,24 @@
+"""Schemas for conversation endpoints."""
+
+import uuid
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel
+
+
+class ConversationRead(BaseModel):
+    """A single conversation as returned by the API.
+
+    Excludes user_id — the caller is always the authenticated user so
+    including it in the response adds no information and leaks an internal ID
+    to clients that don't need it.
+    """
+
+    id: uuid.UUID
+    course_id: uuid.UUID
+    title: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

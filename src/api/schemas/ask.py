@@ -1,4 +1,4 @@
-"""Pydantic models for the API request / response contracts."""
+"""Pydantic models for the /ask request / response contracts."""
 
 from typing import Literal
 
