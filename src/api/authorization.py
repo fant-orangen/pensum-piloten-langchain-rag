@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
 from src.api.models.user import User
 
@@ -62,3 +63,23 @@ async def require_course_teacher_or_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only a teacher of this course or a superadmin can perform this action.",
         )
+
+
+async def require_unenroll_permission(
+    current_user: User,
+    target_enrollment: CourseEnrollment,
+    course: Course,
+    db: AsyncSession,
+) -> None:
+    """Raise 403 if the current user is not permitted to remove the target from the course.
+
+    - Removing a student requires being a teacher of the course or a superadmin.
+    - Removing a teacher requires being the course creator or a superadmin.
+    """
+    if current_user.global_role == "superadmin":
+        return
+
+    if target_enrollment.role == "teacher":
+        require_course_owner_or_admin(current_user, course.created_by_id)
+    else:
+        await require_course_teacher_or_admin(current_user, course.id, db)

@@ -10,6 +10,7 @@ from src.api.authorization import (
     require_course_owner_or_admin,
     require_course_teacher_or_admin,
     require_teacher_or_admin,
+    require_unenroll_permission,
 )
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
@@ -21,7 +22,7 @@ from src.api.schemas.course import CourseCreate, CourseRead, EnrollmentCreate, E
 router = APIRouter(prefix="/courses", tags=["courses"])
 
 
-@router.get("", response_model=list[CourseRead])
+@router.get("", response_model=list[CourseRead]) # TODO: E2E
 async def list_my_courses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -35,7 +36,7 @@ async def list_my_courses(
     return [CourseRead.model_validate(c) for c in result.scalars().all()]
 
 
-@router.post("", response_model=CourseRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CourseRead, status_code=status.HTTP_201_CREATED) # TODO: E2E
 async def create_course(
     body: CourseCreate,
     current_user: User = Depends(get_current_user),
@@ -78,7 +79,7 @@ async def create_course(
     return CourseRead.model_validate(course)
 
 
-@router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT) # TODO: E2E
 async def delete_course(
     course_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -99,7 +100,7 @@ async def delete_course(
     await db.commit()
 
 
-@router.post(
+@router.post( # TODO: E2E
     "/{course_id}/enrollments",
     response_model=EnrollmentRead,
     status_code=status.HTTP_201_CREATED,
@@ -150,3 +151,39 @@ async def enroll_user(
     await db.commit()
     await db.refresh(enrollment)
     return EnrollmentRead.model_validate(enrollment)
+
+
+@router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unenroll_user(
+    course_id: uuid.UUID,
+    user_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Remove a user from a course.
+
+    - Removing a student requires being a teacher of the course or a superadmin.
+    - Removing a teacher requires being the course creator or a superadmin.
+    """
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    course = course_result.scalars().first()
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    enrollment_result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.user_id == user_id,
+            CourseEnrollment.course_id == course_id,
+        )
+    )
+    enrollment = enrollment_result.scalars().first()
+    if enrollment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User is not enrolled in this course.",
+        )
+
+    await require_unenroll_permission(current_user, enrollment, course, db)
+
+    await db.delete(enrollment)
+    await db.commit()
