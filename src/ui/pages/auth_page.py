@@ -68,7 +68,7 @@ def handle_login(username: str, password: str) -> tuple[dict[str, Any], str, str
     if not success or user is None:
         return default_app_state(), message, "", ""
 
-    return authenticated_app_state(user.username, user.firstname, user.surname), "", "", message
+    return authenticated_app_state(user.username, user.firstname, user.surname, user.role), "", "", message
 
 
 def handle_register(
@@ -88,4 +88,4 @@ def handle_register(
     if not success or user is None:
         return default_app_state(), "", message, ""
 
-    return authenticated_app_state(user.username, user.firstname, user.surname), "", "", message
+    return authenticated_app_state(user.username, user.firstname, user.surname, user.role), "", "", message

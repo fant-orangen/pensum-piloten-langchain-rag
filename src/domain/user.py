@@ -12,6 +12,7 @@ class User:
     surname: str
     salt_hex: str
     password_hash_hex: str
+    role: str = "student"
 
     @property
     def name(self) -> str:

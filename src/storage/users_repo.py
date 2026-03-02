@@ -8,6 +8,16 @@ from pathlib import Path
 from src.domain import User
 
 USERS_PATH = Path("data/users.json")
+ADMIN_USERNAME = "admin"
+_ALLOWED_ROLES = {"student", "teacher", "admin"}
+
+
+def _normalise_role(username: str, role: object) -> str:
+    if not isinstance(role, str) or role not in _ALLOWED_ROLES:
+        return "student"
+    if role == "admin" and username != ADMIN_USERNAME:
+        return "student"
+    return role
 
 
 def load_users() -> dict[str, User]:
@@ -35,6 +45,7 @@ def load_users() -> dict[str, User]:
         name = user_data.get("name")
         password_hash = user_data.get("password_hash")
         salt = user_data.get("salt")
+        role = user_data.get("role")
         if (
             isinstance(stored_username, str)
             and stored_username
@@ -62,6 +73,7 @@ def load_users() -> dict[str, User]:
                 surname=resolved_surname,
                 salt_hex=salt,
                 password_hash_hex=password_hash,
+                role=_normalise_role(username, role),
             )
     return users
 
@@ -76,6 +88,7 @@ def save_users(users: dict[str, User]) -> None:
             "name": user.name,
             "password_hash": user.password_hash_hex,
             "salt": user.salt_hex,
+            "role": _normalise_role(username, user.role),
         }
         for username, user in users.items()
     }

@@ -1,5 +1,5 @@
 [
-  "What is the difference between a process and a thread?",
+  "What is the difference between a thread and a process?",
   "How does preemptive scheduling differ from cooperative scheduling?",
   "What is a race condition, and how can mutexes help avoid it?",
   "Explain deadlock and the four Coffman conditions.",
