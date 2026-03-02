@@ -30,6 +30,7 @@ class KGExpandedRetriever(BaseRetriever):
 
     kg_store: Any = None
     top_k: int = 5
+    collection_name: str | None = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -58,7 +59,7 @@ class KGExpandedRetriever(BaseRetriever):
         Returns:
             Ordered list of ``(Document, distance)`` tuples.
         """
-        vectorstore = get_vectorstore()
+        vectorstore = get_vectorstore(self.collection_name)
         seed_pairs = vectorstore.similarity_search_with_score(query, k=self.top_k)
         logger.info("seed_retrieval", count=len(seed_pairs))
         return seed_pairs
@@ -309,7 +310,7 @@ class KGExpandedRetriever(BaseRetriever):
             Ordered list of retrieved documents. Falls back to seed documents
             if graph expansion or MST filtering yields no usable chunk IDs.
         """
-        vectorstore = get_vectorstore()
+        vectorstore = get_vectorstore(self.collection_name)
         seed_pairs = self._retrieve_seed_pairs(query)
         seed_ids = self._extract_seed_ids(seed_pairs)
         if not seed_ids:
@@ -349,7 +350,7 @@ class KGExpandedRetriever(BaseRetriever):
         return final_docs
 
 
-def get_kg_retriever() -> KGExpandedRetriever:
+def get_kg_retriever(collection_name: str | None = None) -> KGExpandedRetriever:
     """Construct a configured ``KGExpandedRetriever`` instance.
 
     Returns:
@@ -357,4 +358,8 @@ def get_kg_retriever() -> KGExpandedRetriever:
     """
     settings = get_settings()
     kg_store = KGStore()
-    return KGExpandedRetriever(kg_store=kg_store, top_k=settings.retriever_top_k)
+    return KGExpandedRetriever(
+        kg_store=kg_store,
+        top_k=settings.retriever_top_k,
+        collection_name=collection_name,
+    )

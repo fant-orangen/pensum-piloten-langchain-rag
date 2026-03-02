@@ -16,13 +16,17 @@ from src.prompts import build_tutor_prompt
 logger = structlog.get_logger(__name__)
 
 
-def build_kg_rag_chain():
+def build_kg_rag_chain(chroma_collection: str | None = None):
     """Construct and return the KG-guided Socratic-tutor RAG chain.
 
     Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
     and yields the tutor's response as a string.
+
+    chroma_collection: name of the ChromaDB collection to retrieve from.
+        Defaults to the globally configured collection when None.
+        Raises ValueError if the collection has not been ingested yet.
     """
-    retriever = get_kg_retriever()
+    retriever = get_kg_retriever(collection_name=chroma_collection)
     prompt = build_tutor_prompt()
     llm = get_llm(temperature=0.3)
 

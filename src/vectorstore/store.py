@@ -5,6 +5,7 @@ Provides two entry-points:
   * ``get_vectorstore``   — used at query time to open the existing store.
 """
 
+import chromadb
 import structlog
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -15,11 +16,24 @@ from src.vectorstore.embeddings import get_embeddings
 logger = structlog.get_logger(__name__)
 
 
-def get_vectorstore() -> Chroma:
-    """Open the persisted Chroma collection (read-only at query time)."""
+def get_vectorstore(collection_name: str | None = None) -> Chroma:
+    """Open the persisted Chroma collection (read-only at query time).
+
+    If collection_name is provided it must already exist — raises ValueError
+    otherwise. This prevents silently querying an empty collection when a
+    course has not been ingested yet.
+    """
     settings = get_settings()
+    name = collection_name or settings.chroma_collection_name
+
+    client = chromadb.PersistentClient(path=settings.chroma_persist_dir) # TODO: should not be used in production
+    try:
+        client.get_collection(name)
+    except Exception:
+        raise ValueError(f"Collection '{name}' has not been ingested yet.")
+
     return Chroma(
-        collection_name=settings.chroma_collection_name,
+        collection_name=name,
         embedding_function=get_embeddings(),
         persist_directory=settings.chroma_persist_dir,
     )
