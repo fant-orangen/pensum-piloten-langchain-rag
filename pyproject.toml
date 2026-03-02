@@ -40,6 +40,10 @@ dependencies = [
     "alembic>=1.13",
     "greenlet>=3.0",
 
+    # --- Auth ---
+    "PyJWT>=2.8",
+    "passlib[bcrypt]>=1.7",
+
     # --- Utilities ---
     "python-dotenv>=1,<2",
     "structlog>=24,<26",

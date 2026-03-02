@@ -12,6 +12,7 @@ from src.config import get_settings
 from src.chain import build_kg_rag_chain, build_no_rag_chain
 from src.api.schemas import AskRequest, AskResponse
 from src.api.database import init_engine, create_tables
+from src.api.routers import conversations
 
 logger = structlog.get_logger(__name__)
 
@@ -29,6 +30,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.include_router(conversations.router)
 
 # Build chains lazily and reuse them across requests.
 _chain_cache: dict[str, Any] = {}

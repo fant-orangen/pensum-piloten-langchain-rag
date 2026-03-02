@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # --- Database ---
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten"
 
+    # --- Auth ---
+    # Override with a long random string in production. Generate one with:
+    #   python -c "import secrets; print(secrets.token_hex(32))"
+    secret_key: str = "change-me-in-production"
+
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000

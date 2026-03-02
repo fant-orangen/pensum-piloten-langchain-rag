@@ -12,7 +12,8 @@ class User(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     email: str = Field(unique=True, index=True)
     hashed_password: str
-    full_name: str
+    first_name: str
+    last_name: str
     is_active: bool = True
     # Platform-level role. Controls who can create courses and who can promote
     # others. Course-level roles (student / teacher) live on CourseEnrollment.
