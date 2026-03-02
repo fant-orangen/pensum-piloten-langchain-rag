@@ -6,6 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.authorization import (
+    require_course_owner_or_admin,
+    require_course_teacher_or_admin,
+    require_teacher_or_admin,
+)
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.course import Course
@@ -38,16 +43,11 @@ async def create_course(
 ) -> CourseRead:
     """Create a new course.
 
-    Only users with global_role 'teacher' or 'superadmin' may create courses.
-    The creating user is automatically enrolled as a teacher of the course.
+    Only users with a platform-level teacher or superadmin role may create courses.
+    The creating user is automatically enrolled as a teacher of the new course.
     """
-    if current_user.global_role not in ("teacher", "superadmin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only teachers and superadmins can create courses.",
-        )
+    require_teacher_or_admin(current_user)
 
-    # Reject duplicate course codes.
     existing = await db.execute(select(Course).where(Course.code == body.code))
     if existing.scalars().first() is not None:
         raise HTTPException(
@@ -65,9 +65,8 @@ async def create_course(
         created_by_id=current_user.id,
     )
     db.add(course)
-    await db.flush()  # Populate course.id before creating the enrollment.
+    await db.flush()  # Populate course.id before the enrollment FK reference.
 
-    # Enroll the creating teacher in the course with role "teacher".
     enrollment = CourseEnrollment(
         user_id=current_user.id,
         course_id=course.id,
@@ -94,12 +93,7 @@ async def delete_course(
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    is_creator = course.created_by_id == current_user.id
-    if current_user.global_role != "superadmin" and not is_creator:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the creating teacher or a superadmin can delete this course.",
-        )
+    require_course_owner_or_admin(current_user, course.created_by_id)
 
     await db.delete(course)
     await db.commit()
@@ -110,7 +104,7 @@ async def delete_course(
     response_model=EnrollmentRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def enroll_student(
+async def enroll_user(
     course_id: uuid.UUID,
     body: EnrollmentCreate,
     current_user: User = Depends(get_current_user),
@@ -118,31 +112,15 @@ async def enroll_student(
 ) -> EnrollmentRead:
     """Enroll a user in a course by email.
 
-    Only a teacher enrolled in the course or a superadmin may add students.
-    The role defaults to 'student' but can be set to 'teacher'.
+    Only a teacher enrolled in the course or a superadmin may add users.
+    The role field defaults to 'student' but can be set to 'teacher'.
     """
-    # Verify the course exists.
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     if course_result.scalars().first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    # Authorise: superadmin always allowed; otherwise the requester must be a
-    # teacher enrolled in this course.
-    if current_user.global_role != "superadmin":
-        auth_result = await db.execute(
-            select(CourseEnrollment).where(
-                CourseEnrollment.user_id == current_user.id,
-                CourseEnrollment.course_id == course_id,
-                CourseEnrollment.role == "teacher",
-            )
-        )
-        if auth_result.scalars().first() is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only a teacher of this course or a superadmin can enroll users.",
-            )
+    await require_course_teacher_or_admin(current_user, course_id, db)
 
-    # Look up the target user by email.
     user_result = await db.execute(select(User).where(User.email == body.user_email))
     target_user = user_result.scalars().first()
     if target_user is None:
@@ -151,7 +129,6 @@ async def enroll_student(
             detail=f"No user with email '{body.user_email}' found.",
         )
 
-    # Prevent duplicate enrollments.
     dup_result = await db.execute(
         select(CourseEnrollment).where(
             CourseEnrollment.user_id == target_user.id,
