@@ -43,6 +43,7 @@ dependencies = [
     # --- Auth ---
     "PyJWT>=2.8",
     "passlib[bcrypt]>=1.7",
+    "email-validator>=2.0",
 
     # --- Utilities ---
     "python-dotenv>=1,<2",
