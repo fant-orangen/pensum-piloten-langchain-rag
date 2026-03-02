@@ -42,7 +42,7 @@
     "name": "Petter Pettersen",
     "password_hash": "adb16eb15f1c60bd180c20630060e181e44be062e4014ffb762503f5c52f5403",
     "salt": "cbbfc641ef37619a9c848c5a13e0244d",
-    "role": "student"
+    "role": "teacher"
   },
   "admin": {
     "username": "admin",
