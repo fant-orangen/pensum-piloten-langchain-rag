@@ -103,13 +103,14 @@ async def create_message(
     ]
 
     logger.info("invoking_chain", collection=course.chroma_collection, conversation_id=str(conversation.id))
-    answer: str = await chain.ainvoke({"question": content, "chat_history": lc_history})
+    answer: str = await chain.ainvoke({"question": content, "chat_history": lc_history}) # Invoke the RAG system
 
     # Save both messages and bump the conversation timestamp in one commit.
     human_msg = Message(conversation_id=conversation.id, role="human", content=content)
     ai_msg = Message(conversation_id=conversation.id, role="ai", content=answer)
     conversation.updated_at = datetime.utcnow()
 
+    # TODO: we need better error handling for this function
     db.add(human_msg)
     db.add(ai_msg)
     db.add(conversation)

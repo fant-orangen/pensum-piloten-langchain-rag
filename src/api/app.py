@@ -12,7 +12,7 @@ from src.config import get_settings
 from src.chain import build_kg_rag_chain, build_no_rag_chain
 from src.api.schemas import AskRequest, AskResponse
 from src.api.database import init_engine, create_tables, get_db
-from src.api.routers import auth, conversations
+from src.api.routers import auth, conversations, courses
 from src.api.seed import seed
 
 logger = structlog.get_logger(__name__)
@@ -36,6 +36,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(courses.router)
 app.include_router(conversations.router)
 
 # Build chains lazily and reuse them across requests.

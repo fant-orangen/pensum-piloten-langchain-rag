@@ -31,7 +31,7 @@ def build_kg_rag_chain(chroma_collection: str | None = None):
     retriever = get_kg_retriever(collection_name=chroma_collection)
     prompt = build_tutor_prompt()
     settings = get_settings()
-    llm = get_llm(settings().temperature)
+    llm = get_llm(settings.temperature)
 
     extract_question = RunnableLambda(lambda x: x["question"])
 
