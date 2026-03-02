@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.authorization import (
@@ -79,6 +79,8 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
 
     require_course_owner_or_admin(current_user, course.created_by_id)
 
+    # Remove all enrollments first to avoid FK constraint violations.
+    await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
     await db.delete(course)
     await db.commit()
 
