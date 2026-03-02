@@ -72,6 +72,11 @@ class Settings(BaseSettings):
     # --- LLM test generation ---
     test_chat_max_messages_per_agent: int = 12
 
+    # --- Seeding ---
+    # Set to true to insert a test course, teacher, and student on startup.
+    # Safe to leave on — seed is skipped if data already exists.
+    seed_test_data: bool = False
+
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),
         "env_file_encoding": "utf-8",
