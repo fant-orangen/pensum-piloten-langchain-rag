@@ -10,11 +10,11 @@ from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.conversation import Conversation
 from src.api.models.user import User
-from src.api.schemas.conversation import ConversationRead
-from src.api.schemas.message import MessageRead
+from src.api.schemas.conversation import ConversationCreate, ConversationRead
+from src.api.schemas.message import MessageCreate, MessageRead
 from src.api.schemas.pagination import Page, PaginationParams
-from src.api.services.conversations import get_user_conversations
-from src.api.services.messages import get_conversation_messages
+from src.api.services.conversations import create_conversation, get_user_conversations
+from src.api.services.messages import create_message, get_conversation_messages
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -63,3 +63,32 @@ async def list_messages(
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_conversation_messages(conversation_id, params, db)
     return Page.create(items=[MessageRead.model_validate(m) for m in items], total=total, params=params)
+
+
+@router.post("", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)
+async def new_conversation(
+    request: ConversationCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ConversationRead:
+    """Start a new conversation in a course the user is enrolled in."""
+    conversation = await create_conversation(current_user.id, request.course_id, db)
+    return ConversationRead.model_validate(conversation)
+
+
+@router.post("/{conversation_id}/messages", response_model=MessageRead, status_code=status.HTTP_201_CREATED)
+async def new_message(
+    conversation_id: uuid.UUID,
+    request: MessageCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageRead:
+    """Add a message to an existing conversation."""
+    result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    conversation = result.scalars().first()
+
+    if conversation is None or conversation.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
+
+    message = await create_message(conversation, request.content, "human", db)
+    return MessageRead.model_validate(message)

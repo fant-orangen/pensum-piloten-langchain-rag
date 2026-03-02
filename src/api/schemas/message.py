@@ -4,7 +4,11 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class MessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=10000)
 
 
 class MessageRead(BaseModel):

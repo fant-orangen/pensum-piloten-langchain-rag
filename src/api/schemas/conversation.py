@@ -7,6 +7,10 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class ConversationCreate(BaseModel):
+    course_id: uuid.UUID
+
+
 class ConversationRead(BaseModel):
     """A single conversation as returned by the API.
 

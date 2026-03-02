@@ -1,10 +1,12 @@
 """Message business logic and database queries."""
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.models.conversation import Conversation
 from src.api.models.message import Message
 from src.api.schemas.pagination import PaginationParams
 
@@ -33,3 +35,20 @@ async def get_conversation_messages(
     items = list(result.scalars().all())
 
     return items, total
+
+
+async def create_message(
+    conversation: Conversation,
+    content: str,
+    role: str,
+    db: AsyncSession,
+) -> Message:
+    """Persist a single message and bump the conversation's updated_at."""
+    message = Message(conversation_id=conversation.id, role=role, content=content)
+    conversation.updated_at = datetime.utcnow()
+
+    db.add(message)
+    db.add(conversation)
+    await db.commit()
+    await db.refresh(message)
+    return message
