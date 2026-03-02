@@ -33,7 +33,6 @@ def init_engine() -> None:
 
 async def create_tables() -> None:
     """Create all tables that do not already exist.
-
     Imports the models package first so every SQLModel table class is
     registered with the shared metadata before create_all runs.
     """

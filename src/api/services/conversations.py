@@ -20,14 +20,14 @@ async def get_user_conversations(
     """
     base = select(Conversation).where(Conversation.user_id == user_id)
 
-    count_result = await db.exec(select(func.count()).select_from(base.subquery()))
-    total: int = count_result.one()
+    count_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total: int = count_result.scalar_one()
 
-    result = await db.exec(
+    result = await db.execute(
         base.order_by(Conversation.updated_at.desc())
         .offset(params.offset)
         .limit(params.page_size)
     )
-    items = list(result.all())
+    items = list(result.scalars().all())
 
     return items, total
