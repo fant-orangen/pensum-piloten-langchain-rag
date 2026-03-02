@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     retriever_top_k: int = 5
     kg_max_final_chunks: int = 20
+    temperature: float = 0.3
 
     # --- Neo4j (Knowledge Graph) ---
     neo4j_uri: str = "bolt://localhost:7687"

@@ -13,6 +13,8 @@ from src.kg.retriever import get_kg_retriever
 from src.models import get_llm
 from src.prompts import build_tutor_prompt
 
+from src.config import get_settings
+
 logger = structlog.get_logger(__name__)
 
 
@@ -28,7 +30,8 @@ def build_kg_rag_chain(chroma_collection: str | None = None):
     """
     retriever = get_kg_retriever(collection_name=chroma_collection)
     prompt = build_tutor_prompt()
-    llm = get_llm(temperature=0.3)
+    settings = get_settings()
+    llm = get_llm(settings().temperature)
 
     extract_question = RunnableLambda(lambda x: x["question"])
 
