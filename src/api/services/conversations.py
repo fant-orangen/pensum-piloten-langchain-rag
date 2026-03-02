@@ -36,6 +36,27 @@ async def get_user_conversations(
     return items, total
 
 
+async def get_conversation_for_user(
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> Conversation:
+    """Fetch a conversation and verify it belongs to the given user.
+
+    Raises 404 if the conversation does not exist.
+    Raises 403 if the conversation exists but belongs to a different user.
+    """
+    result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    conversation = result.scalars().first()
+
+    if conversation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
+    if conversation.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    return conversation
+
+
 async def create_conversation(
     user_id: uuid.UUID,
     course_id: uuid.UUID,

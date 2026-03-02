@@ -2,18 +2,20 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
-from src.api.models.conversation import Conversation
 from src.api.models.user import User
 from src.api.schemas.conversation import ConversationCreate, ConversationRead
 from src.api.schemas.message import MessageCreate, MessageRead
 from src.api.schemas.pagination import Page, PaginationParams
-from src.api.services.conversations import create_conversation, get_user_conversations
+from src.api.services.conversations import (
+    create_conversation,
+    get_conversation_for_user,
+    get_user_conversations,
+)
 from src.api.services.messages import create_message, get_conversation_messages
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -48,18 +50,7 @@ async def list_messages(
     Only the owner of the conversation may access it.
     Reverse each page client-side to display messages in chronological order.
     """
-    result = await db.execute(
-        select(Conversation).where(Conversation.id == conversation_id)
-    )
-    conversation = result.scalars().first()
-
-    if conversation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
-
-    # これなら、ユーザは取得しようとした会話が存在していると知っている。それ最適か。ないなら変更する
-    if conversation.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
-
+    await get_conversation_for_user(conversation_id, current_user.id, db)
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_conversation_messages(conversation_id, params, db)
     return Page.create(items=[MessageRead.model_validate(m) for m in items], total=total, params=params)
@@ -84,11 +75,6 @@ async def new_message(
     db: AsyncSession = Depends(get_db),
 ) -> MessageRead:
     """Add a message to an existing conversation."""
-    result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
-    conversation = result.scalars().first()
-
-    if conversation is None or conversation.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
-
+    conversation = await get_conversation_for_user(conversation_id, current_user.id, db)
     message = await create_message(conversation, request.content, "human", db)
     return MessageRead.model_validate(message)
