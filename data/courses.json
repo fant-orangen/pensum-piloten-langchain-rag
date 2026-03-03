@@ -1,0 +1,36 @@
+{
+  "a559e3e3ef954081a69df64188eb1a24": {
+    "course_id": "a559e3e3ef954081a69df64188eb1a24",
+    "name": "Databaser",
+    "created_at": "2026-03-02T09:27:43.849879+00:00",
+    "responsible_teacher_username": "Lars",
+    "teacher_usernames": [
+      "Lars"
+    ],
+    "student_usernames": [
+      "Magnus"
+    ]
+  },
+  "22738429a6e74d098cd1c913bfd42f66": {
+    "course_id": "22738429a6e74d098cd1c913bfd42f66",
+    "name": "Operativsystemer",
+    "created_at": "2026-03-02T10:04:16.646711+00:00",
+    "responsible_teacher_username": "Lars",
+    "teacher_usernames": [
+      "Lars"
+    ],
+    "student_usernames": [
+      "Magnus123"
+    ]
+  },
+  "f1e433344f9a4332a825b22eb7ee7264": {
+    "course_id": "f1e433344f9a4332a825b22eb7ee7264",
+    "name": "Engelsk",
+    "created_at": "2026-03-02T10:06:02.977288+00:00",
+    "responsible_teacher_username": "Petter",
+    "teacher_usernames": [
+      "Petter"
+    ],
+    "student_usernames": []
+  }
+}

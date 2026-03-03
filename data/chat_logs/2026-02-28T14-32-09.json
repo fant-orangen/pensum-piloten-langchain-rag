@@ -1,0 +1,14 @@
+{
+  "conversation_id": "2026-02-28T14-32-09",
+  "title": "What is a thread?",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is a thread?"
+    },
+    {
+      "role": "assistant",
+      "content": "In your own words, what do you think a thread is—and how is it different from a *process*?\n\nTo guide you, try answering these two small questions:\n\n1) If a program can be doing multiple things “at once” (e.g., download + UI), what would you call each separately progressing activity?\n\n2) Who can pause and resume that activity: the program itself, or the operating system?\n\n(After you answer, I’ll help you refine it into a clean definition.)"
+    }
+  ]
+}

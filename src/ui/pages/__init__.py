@@ -1,0 +1,67 @@
+"""UI pages."""
+
+from src.ui.pages.ab_page import AB_PAGE_CSS, build_ab_app, build_ab_page
+from src.ui.pages.admin_page import build_admin_page, handle_admin_refresh, handle_upgrade_user
+from src.ui.pages.auth_page import build_auth_page, handle_login, handle_register
+from src.ui.pages.chat_page import build_chat_page
+from src.ui.pages.student_page import (
+    build_student_page,
+    handle_back_to_student,
+    handle_logout,
+    handle_open_ab_compare,
+    handle_open_chat,
+    handle_open_student_course,
+    student_courses_update,
+)
+from src.ui.pages.student_course_page import (
+    build_student_course_page,
+    student_course_title_text,
+)
+from src.ui.pages.teacher_page import (
+    build_teacher_page,
+    handle_add_course,
+    handle_open_teacher_course,
+    teacher_available_courses_text,
+    teacher_name_text,
+    teacher_responsible_courses_update,
+)
+from src.ui.pages.teacher_course_page import (
+    build_teacher_course_page,
+    handle_add_student,
+    teacher_course_student_choices_update,
+    teacher_course_students_text,
+    teacher_course_title_text,
+)
+
+__all__ = [
+    "AB_PAGE_CSS",
+    "build_ab_app",
+    "build_ab_page",
+    "build_admin_page",
+    "build_auth_page",
+    "build_chat_page",
+    "build_student_page",
+    "build_student_course_page",
+    "build_teacher_page",
+    "build_teacher_course_page",
+    "handle_admin_refresh",
+    "handle_add_course",
+    "handle_add_student",
+    "handle_back_to_student",
+    "handle_login",
+    "handle_logout",
+    "handle_open_ab_compare",
+    "handle_open_chat",
+    "handle_open_student_course",
+    "handle_open_teacher_course",
+    "handle_register",
+    "handle_upgrade_user",
+    "teacher_course_student_choices_update",
+    "student_course_title_text",
+    "student_courses_update",
+    "teacher_course_students_text",
+    "teacher_course_title_text",
+    "teacher_available_courses_text",
+    "teacher_name_text",
+    "teacher_responsible_courses_update",
+]
