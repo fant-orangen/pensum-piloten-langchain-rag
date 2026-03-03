@@ -20,7 +20,11 @@ from src.ui.main_app import build_main_app
 def main() -> None:
     app = build_main_app()
     app.queue()
-    app.launch()
+    try:
+        app.launch()
+    except KeyboardInterrupt:
+        # Graceful stop on Ctrl+C without showing an additional traceback.
+        pass
 
 
 if __name__ == "__main__":

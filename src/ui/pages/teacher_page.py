@@ -26,7 +26,7 @@ class TeacherPageComponents:
     group: gr.Group
     name_text: gr.Markdown
     responsible_list: gr.Radio
-    available_list: gr.Markdown
+    available_list: gr.Radio
     add_course_name: gr.Textbox
     add_course_button: gr.Button
     status_text: gr.Markdown
@@ -38,17 +38,12 @@ def teacher_name_text(state: dict[str, Any]) -> str:
     return f"Navn: {name or '-'}"
 
 
-def _render_course_lines(courses: list[Any], *, empty_text: str) -> str:
-    if not courses:
-        return empty_text
-
-    lines: list[str] = []
-    for course in courses:
-        if isinstance(course, dict):
-            lines.append(f"- {course.get('name', '?')} ({course.get('code', '?')})")
-        else:
-            lines.append(f"- {course.name}")
-    return "\n".join(lines)
+def _course_choices(courses: list[Any]) -> list[tuple[str, str]]:
+    return [
+        (f"{course['name']} ({course['code']})", course["id"])
+        for course in courses
+        if isinstance(course, dict)
+    ]
 
 
 def teacher_responsible_courses_update(state: dict[str, Any]) -> Any:
@@ -60,27 +55,27 @@ def teacher_responsible_courses_update(state: dict[str, Any]) -> Any:
         return gr.update(choices=[], value=None)
 
     courses, _err = _course_api.list_responsible_courses(token)
-    choices = [
-        (f"{course['name']} ({course['code']})", course["id"])
-        for course in courses
-        if isinstance(course, dict)
-    ]
+    choices = _course_choices(courses)
     selected_course_id = str(state.get(COURSE_ID_KEY) or "").strip()
     if selected_course_id and any(course_id == selected_course_id for _, course_id in choices):
         return gr.update(choices=choices, value=selected_course_id)
     return gr.update(choices=choices, value=None)
 
 
-def teacher_available_courses_text(state: dict[str, Any]) -> str:
+def teacher_available_courses_update(state: dict[str, Any]) -> Any:
     if not is_logged_in(state) or user_role(state) != "teacher":
-        return "Ingen tilgjengelige fag."
+        return gr.update(choices=[], value=None)
 
     token = auth_token(state)
     if not token:
-        return "Ingen tilgjengelige fag."
+        return gr.update(choices=[], value=None)
 
     courses, _err = _course_api.list_available_courses(token)
-    return _render_course_lines(courses, empty_text="Ingen tilgjengelige fag.")
+    choices = _course_choices(courses)
+    selected_course_id = str(state.get(COURSE_ID_KEY) or "").strip()
+    if selected_course_id and any(course_id == selected_course_id for _, course_id in choices):
+        return gr.update(choices=choices, value=selected_course_id)
+    return gr.update(choices=choices, value=None)
 
 
 def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
@@ -90,7 +85,7 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
         gr.Markdown("## Ansvarlig for")
         responsible_list = gr.Radio(choices=[], value=None, label="Ansvarlig for")
         gr.Markdown("## Tilgjengelige fag")
-        available_list = gr.Markdown("Ingen tilgjengelige fag.")
+        available_list = gr.Radio(choices=[], value=None, label="Tilgjengelige fag")
         gr.Markdown("## Legg til fag")
         add_course_name = gr.Textbox(label="Nytt fag")
         add_course_button = gr.Button("Legg til fag", variant="primary")
@@ -109,12 +104,12 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
     )
 
 
-def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, str, str]:
+def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, Any, str]:
     if not is_logged_in(state) or user_role(state) != "teacher":
         return (
             course_name,
             teacher_responsible_courses_update(state),
-            teacher_available_courses_text(state),
+            teacher_available_courses_update(state),
             "Ikke tillatt.",
         )
 
@@ -123,7 +118,7 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
         return (
             course_name,
             teacher_responsible_courses_update(state),
-            teacher_available_courses_text(state),
+            teacher_available_courses_update(state),
             "Sessionen er utløpt — logg inn på nytt.",
         )
 
@@ -132,7 +127,7 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
         return (
             course_name,
             teacher_responsible_courses_update(state),
-            teacher_available_courses_text(state),
+            teacher_available_courses_update(state),
             "Fyll ut fagnavnet.",
         )
 
@@ -149,7 +144,7 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
     return (
         next_input_value,
         teacher_responsible_courses_update(state),
-        teacher_available_courses_text(state),
+        teacher_available_courses_update(state),
         message,
     )
 
@@ -167,7 +162,7 @@ def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> 
     if not token:
         return clear_selected_course(state), "Sessionen er utløpt — logg inn på nytt."
 
-    courses, _err = _course_api.list_responsible_courses(token)
+    courses, _err = _course_api.list_available_courses(token)
     course = next(
         (c for c in courses if isinstance(c, dict) and c.get("id") == course_id),
         None,
