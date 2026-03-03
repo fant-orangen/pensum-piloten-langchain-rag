@@ -7,18 +7,13 @@ from typing import Any
 
 import gradio as gr
 
-from src.services import (
-    create_course,
-    get_course,
-    get_teacher_available_courses,
-    get_teacher_responsible_courses,
-)
+import src.ui.services.course_service as _course_api
 from src.ui.router import ROUTE_TEACHER_COURSE
 from src.ui.state import (
     COURSE_ID_KEY,
     NAME_KEY,
     ROUTE_KEY,
-    USERNAME_KEY,
+    auth_token,
     clear_selected_course,
     is_logged_in,
     user_role,
@@ -38,28 +33,19 @@ class TeacherPageComponents:
     logout_button: gr.Button
 
 
-def _teacher_username(state: dict[str, Any]) -> str:
-    return str(state.get(USERNAME_KEY) or "").strip()
-
-
 def teacher_name_text(state: dict[str, Any]) -> str:
     name = str(state.get(NAME_KEY) or "").strip()
     return f"Navn: {name or '-'}"
 
 
-def _render_course_lines(
-    courses: list[Any],
-    *,
-    include_responsible: bool,
-    empty_text: str,
-) -> str:
+def _render_course_lines(courses: list[Any], *, empty_text: str) -> str:
     if not courses:
         return empty_text
 
     lines: list[str] = []
     for course in courses:
-        if include_responsible:
-            lines.append(f"- {course.name} (ansvarlig: {course.responsible_teacher_username})")
+        if isinstance(course, dict):
+            lines.append(f"- {course.get('name', '?')} ({course.get('code', '?')})")
         else:
             lines.append(f"- {course.name}")
     return "\n".join(lines)
@@ -69,8 +55,16 @@ def teacher_responsible_courses_update(state: dict[str, Any]) -> Any:
     if not is_logged_in(state) or user_role(state) != "teacher":
         return gr.update(choices=[], value=None)
 
-    courses = get_teacher_responsible_courses(_teacher_username(state))
-    choices = [(course.name, course.course_id) for course in courses]
+    token = auth_token(state)
+    if not token:
+        return gr.update(choices=[], value=None)
+
+    courses, _err = _course_api.list_courses(token)
+    choices = [
+        (f"{course['name']} ({course['code']})", course["id"])
+        for course in courses
+        if isinstance(course, dict)
+    ]
     selected_course_id = str(state.get(COURSE_ID_KEY) or "").strip()
     if selected_course_id and any(course_id == selected_course_id for _, course_id in choices):
         return gr.update(choices=choices, value=selected_course_id)
@@ -81,12 +75,12 @@ def teacher_available_courses_text(state: dict[str, Any]) -> str:
     if not is_logged_in(state) or user_role(state) != "teacher":
         return "Ingen tilgjengelige fag."
 
-    courses = get_teacher_available_courses(_teacher_username(state))
-    return _render_course_lines(
-        courses,
-        include_responsible=True,
-        empty_text="Ingen tilgjengelige fag.",
-    )
+    token = auth_token(state)
+    if not token:
+        return "Ingen tilgjengelige fag."
+
+    courses, _err = _course_api.list_courses(token)
+    return _render_course_lines(courses, empty_text="Ingen tilgjengelige fag.")
 
 
 def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
@@ -115,7 +109,7 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
     )
 
 
-def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, str, str, str]:
+def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, str, str]:
     if not is_logged_in(state) or user_role(state) != "teacher":
         return (
             course_name,
@@ -124,8 +118,34 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, str
             "Ikke tillatt.",
         )
 
-    _, message, _ = create_course(_teacher_username(state), course_name)
-    next_input_value = "" if message == "Faget ble opprettet." else course_name
+    token = auth_token(state)
+    if not token:
+        return (
+            course_name,
+            teacher_responsible_courses_update(state),
+            teacher_available_courses_text(state),
+            "Sessionen er utløpt — logg inn på nytt.",
+        )
+
+    cleaned_name = course_name.strip()
+    if not cleaned_name:
+        return (
+            course_name,
+            teacher_responsible_courses_update(state),
+            teacher_available_courses_text(state),
+            "Fyll ut fagnavnet.",
+        )
+
+    # Derive a course code from the name (uppercase, spaces → underscores, max 20 chars).
+    code = cleaned_name.upper().replace(" ", "_")[:20]
+    # Use the code as the chroma collection name and a default documents directory.
+    chroma_collection = code.lower()
+    documents_dir = f"data/documents/{chroma_collection}"
+
+    success, message, _ = _course_api.create_course(
+        token, cleaned_name, code, chroma_collection, documents_dir
+    )
+    next_input_value = "" if success else course_name
     return (
         next_input_value,
         teacher_responsible_courses_update(state),
@@ -143,20 +163,21 @@ def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> 
             return state, ""
         return clear_selected_course(state), ""
 
-    course = get_course(course_id)
+    token = auth_token(state)
+    if not token:
+        return clear_selected_course(state), "Sessionen er utløpt — logg inn på nytt."
+
+    courses, _err = _course_api.list_courses(token)
+    course = next(
+        (c for c in courses if isinstance(c, dict) and c.get("id") == course_id),
+        None,
+    )
     if course is None:
         return clear_selected_course(state), "Fant ikke faget."
 
-    username = _teacher_username(state)
-    if (
-        username != course.responsible_teacher_username
-        and username not in course.teacher_usernames
-    ):
-        return clear_selected_course(state), "Ikke tillatt."
-
     return with_selected_course(
         clear_selected_course(state),
-        course.course_id,
+        course["id"],
         route=ROUTE_TEACHER_COURSE,
-        course_name=course.name,
+        course_name=course.get("name", ""),
     ), ""

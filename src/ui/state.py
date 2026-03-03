@@ -15,6 +15,7 @@ SURNAME_KEY = "surname"
 ROLE_KEY = "role"
 COURSE_ID_KEY = "course_id"
 COURSE_NAME_KEY = "course_name"
+TOKEN_KEY = "token"
 
 
 def default_app_state() -> dict[str, Any]:
@@ -28,6 +29,7 @@ def default_app_state() -> dict[str, Any]:
         ROLE_KEY: None,
         COURSE_ID_KEY: None,
         COURSE_NAME_KEY: None,
+        TOKEN_KEY: None,
     }
 
 
@@ -36,6 +38,8 @@ def authenticated_app_state(
     firstname: str,
     surname: str,
     role: str = "student",
+    *,
+    token: str | None = None,
 ) -> dict[str, Any]:
     full_name = " ".join(part for part in (firstname.strip(), surname.strip()) if part)
     route = home_route_for_role(role)
@@ -49,6 +53,7 @@ def authenticated_app_state(
         ROLE_KEY: role,
         COURSE_ID_KEY: None,
         COURSE_NAME_KEY: None,
+        TOKEN_KEY: token,
     }
 
 
@@ -97,6 +102,13 @@ def user_role(state: dict[str, Any]) -> str:
     if isinstance(role, str) and role:
         return role
     return "student"
+
+
+def auth_token(state: dict[str, Any]) -> str | None:
+    token = state.get(TOKEN_KEY)
+    if isinstance(token, str) and token:
+        return token
+    return None
 
 
 def student_name_text(state: dict[str, Any]) -> str:

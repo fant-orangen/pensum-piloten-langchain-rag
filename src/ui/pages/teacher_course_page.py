@@ -7,13 +7,8 @@ from typing import Any
 
 import gradio as gr
 
-from src.services import (
-    add_student_to_course,
-    get_addable_students_for_course,
-    get_course,
-    list_students_in_course,
-)
-from src.ui.state import COURSE_ID_KEY, USERNAME_KEY
+import src.ui.services.course_service as _course_api
+from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token
 
 
 @dataclass(slots=True)
@@ -22,7 +17,7 @@ class TeacherCoursePageComponents:
     back_button: gr.Button
     course_title: gr.Markdown
     students_list: gr.Markdown
-    add_student_username: gr.Dropdown
+    add_student_username: gr.Textbox
     add_student_button: gr.Button
     status_text: gr.Markdown
 
@@ -33,10 +28,9 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
         course_title = gr.Markdown("Fag: -")
         gr.Markdown("## Studenter")
         students_list = gr.Markdown("Ingen studenter ennå.")
-        add_student_username = gr.Dropdown(
-            choices=[],
-            value=None,
-            label="Studentbrukernavn",
+        add_student_username = gr.Textbox(
+            label="Studentens e-post",
+            placeholder="student@example.com",
         )
         add_student_button = gr.Button("Legg til student", variant="primary")
         status_text = gr.Markdown()
@@ -54,41 +48,58 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
 
 
 def teacher_course_title_text(state: dict[str, Any]) -> str:
-    course_id = str(state.get(COURSE_ID_KEY) or "").strip()
-    course = get_course(course_id)
-    if course is None:
-        return "Fag: -"
-    return f"Fag: {course.name}"
+    course_name = str(state.get(COURSE_NAME_KEY) or "").strip()
+    if not course_name:
+        course_id = str(state.get(COURSE_ID_KEY) or "").strip()
+        if not course_id:
+            return "Fag: -"
+        # Fall back to fetching from API if course_name is not in state.
+        token = auth_token(state)
+        if not token:
+            return "Fag: -"
+        courses, _err = _course_api.list_courses(token)
+        course = next(
+            (c for c in courses if isinstance(c, dict) and c.get("id") == course_id),
+            None,
+        )
+        if course is None:
+            return "Fag: -"
+        return f"Fag: {course.get('name', '-')}"
+    return f"Fag: {course_name}"
 
 
 def teacher_course_students_text(state: dict[str, Any]) -> str:
-    course_id = str(state.get(COURSE_ID_KEY) or "").strip()
-    students = list_students_in_course(course_id)
-    if not students:
-        return "Ingen studenter ennå."
-    return "\n".join(f"- {student_username}" for student_username in students)
+    # The API does not expose a student-listing endpoint; the enrolled users
+    # are managed through /courses/{id}/enrollments. Without a GET enrollments
+    # endpoint this list cannot be populated from the API yet.
+    # TODO: implement GET /courses/{id}/enrollments once that endpoint exists.
+    return "Studentliste er ikke tilgjengelig via API ennå."
 
 
 def teacher_course_student_choices_update(state: dict[str, Any], *, selected_username: str | None = None) -> Any:
-    course_id = str(state.get(COURSE_ID_KEY) or "").strip()
-    actor_username = str(state.get(USERNAME_KEY) or "").strip()
-    choices = get_addable_students_for_course(course_id, actor_username)
-    if selected_username and any(value == selected_username for _, value in choices):
-        return gr.update(choices=choices, value=selected_username)
-    return gr.update(choices=choices, value=None)
+    # The API does not expose a list-of-addable-students endpoint.
+    # The text input field is used instead of a dropdown.
+    # TODO: implement once GET /users (student list) endpoint exists.
+    return gr.update(value=selected_username or "")
 
 
-def handle_add_student(state: dict[str, Any], student_username: str | None) -> tuple[Any, str, str]:
+def handle_add_student(state: dict[str, Any], student_email: str | None) -> tuple[Any, str, str]:
     course_id = str(state.get(COURSE_ID_KEY) or "").strip()
-    actor_username = str(state.get(USERNAME_KEY) or "").strip()
-    selected_username = student_username if isinstance(student_username, str) else ""
-    success, message = add_student_to_course(course_id, selected_username, actor_username)
-    next_input_update = teacher_course_student_choices_update(
-        state,
-        selected_username=None if success else selected_username,
-    )
+    if not course_id:
+        return gr.update(value=""), teacher_course_students_text(state), "Fant ikke faget."
+
+    token = auth_token(state)
+    if not token:
+        return gr.update(value=""), teacher_course_students_text(state), "Sessionen er utløpt — logg inn på nytt."
+
+    email = (student_email or "").strip()
+    if not email:
+        return gr.update(value=""), teacher_course_students_text(state), "Fyll ut e-postadressen."
+
+    success, message = _course_api.enroll_user(token, course_id, email, role="student")
+    next_input_value = "" if success else email
     return (
-        next_input_update,
+        gr.update(value=next_input_value),
         teacher_course_students_text(state),
         message,
     )

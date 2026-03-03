@@ -7,7 +7,7 @@ from typing import Any
 
 import gradio as gr
 
-from src.services import login_user, register_user
+import src.ui.services.auth_service as _auth_api
 from src.ui.state import authenticated_app_state, default_app_state
 
 
@@ -32,14 +32,14 @@ def build_auth_page(*, visible: bool) -> AuthPageComponents:
         with gr.Tabs():
             with gr.Tab("Logg inn"):
                 gr.Markdown("# Logg inn")
-                login_username = gr.Textbox(label="Brukernavn")
+                login_username = gr.Textbox(label="E-post")
                 login_password = gr.Textbox(label="Passord", type="password")
                 login_button = gr.Button("Logg inn", variant="primary")
                 login_status = gr.Markdown()
 
             with gr.Tab("Registrer"):
                 gr.Markdown("# Registrer")
-                register_username = gr.Textbox(label="Brukernavn")
+                register_username = gr.Textbox(label="E-post")
                 register_password = gr.Textbox(label="Passord", type="password")
                 register_password_confirm = gr.Textbox(label="Gjenta passord", type="password")
                 register_firstname = gr.Textbox(label="Fornavn")
@@ -63,29 +63,51 @@ def build_auth_page(*, visible: bool) -> AuthPageComponents:
     )
 
 
-def handle_login(username: str, password: str) -> tuple[dict[str, Any], str, str, str]:
-    success, message, user = login_user(username, password)
-    if not success or user is None:
+def handle_login(email: str, password: str) -> tuple[dict[str, Any], str, str, str]:
+    success, message, info = _auth_api.login(email.strip(), password)
+    if not success or info is None:
         return default_app_state(), message, "", ""
 
-    return authenticated_app_state(user.username, user.firstname, user.surname, user.role), "", "", message
+    token = info.get("token", "")
+    # After login we only have the token. We will pick up the user's name and
+    # role from the API in a follow-up call, but for now we use the email as
+    # the display username and default to "student" — the student page will
+    # load courses from the API, so the role from the token is sufficient.
+    # TODO: call GET /users/me once that endpoint exists to get first/last name
+    #       and global_role without a second login round-trip.
+    state = authenticated_app_state(email.strip(), "", "", "student", token=token)
+    return state, "", "", message
 
 
 def handle_register(
-    username: str,
+    email: str,
     password: str,
     password_confirm: str,
     firstname: str,
     surname: str,
 ) -> tuple[dict[str, Any], str, str, str]:
-    success, message, user = register_user(
-        username,
+    success, message, user_data = _auth_api.register(
+        email.strip(),
         password,
         password_confirm,
-        firstname,
-        surname,
+        firstname.strip(),
+        surname.strip(),
     )
-    if not success or user is None:
+    if not success or user_data is None:
         return default_app_state(), "", message, ""
 
-    return authenticated_app_state(user.username, user.firstname, user.surname, user.role), "", "", message
+    # After registration, log the user in immediately to obtain a token.
+    login_success, login_message, login_info = _auth_api.login(email.strip(), password)
+    if not login_success or login_info is None:
+        # Registration succeeded but auto-login failed; send the user to the
+        # login page with a prompt to log in manually.
+        return default_app_state(), "", "Registrering fullført. Logg inn for å fortsette.", ""
+
+    token = login_info.get("token", "")
+    global_role = user_data.get("global_role", "student")
+    first_name = user_data.get("first_name", firstname.strip())
+    last_name = user_data.get("last_name", surname.strip())
+    state = authenticated_app_state(
+        email.strip(), first_name, last_name, global_role, token=token
+    )
+    return state, "", "", message

@@ -6,7 +6,7 @@ from typing import Any
 
 import gradio as gr
 
-from src.services import ensure_admin_user, get_course
+from src.services import ensure_admin_user
 from src.ui.pages import (
     AB_PAGE_CSS,
     build_ab_page,
@@ -48,7 +48,7 @@ from src.ui.router import (
 )
 from src.ui.state import (
     COURSE_ID_KEY,
-    USERNAME_KEY,
+    auth_token,
     clear_selected_course,
     default_app_state,
     home_route_for_role,
@@ -57,13 +57,6 @@ from src.ui.state import (
     user_role,
     with_route,
 )
-
-
-def _selected_course(state: dict[str, Any]) -> Any:
-    course_id = str(state.get(COURSE_ID_KEY) or "").strip()
-    if not course_id:
-        return None
-    return get_course(course_id)
 
 
 def _render_main_app(
@@ -88,29 +81,18 @@ def _render_main_app(
             if current_role != "teacher":
                 state = with_route(clear_selected_course(state), home_route_for_role(current_role))
             else:
-                course = _selected_course(state)
-                username = str(state.get(USERNAME_KEY) or "").strip()
-                if course is None:
+                course_id = str(state.get(COURSE_ID_KEY) or "").strip()
+                if not course_id:
                     state = with_route(clear_selected_course(state), ROUTE_TEACHER)
                     teacher_message = teacher_message or "Fant ikke faget."
-                elif (
-                    username != course.responsible_teacher_username
-                    and username not in course.teacher_usernames
-                ):
-                    state = with_route(clear_selected_course(state), ROUTE_TEACHER)
-                    teacher_message = teacher_message or "Ikke tillatt."
         elif current_route == ROUTE_STUDENT_COURSE:
             if current_role != "student":
                 state = with_route(clear_selected_course(state), home_route_for_role(current_role))
             else:
-                course = _selected_course(state)
-                username = str(state.get(USERNAME_KEY) or "").strip()
-                if course is None:
+                course_id = str(state.get(COURSE_ID_KEY) or "").strip()
+                if not course_id:
                     state = with_route(clear_selected_course(state), ROUTE_STUDENT)
                     student_message = student_message or "Fant ikke faget."
-                elif username not in course.student_usernames:
-                    state = with_route(clear_selected_course(state), ROUTE_STUDENT)
-                    student_message = student_message or "Ikke tillatt."
 
     current_role = user_role(state)
     current_route = state.get("route")
@@ -126,6 +108,8 @@ def _render_main_app(
 
     student_status = student_message if current_route == ROUTE_STUDENT and current_role == "student" else ""
     teacher_status = teacher_message if current_route == ROUTE_TEACHER and current_role == "teacher" else ""
+
+    token = auth_token(state)
 
     return (
         state,
@@ -146,6 +130,7 @@ def _render_main_app(
         student_course_title_text(state),
         login_message,
         register_message,
+        token,
     )
 
 
@@ -284,6 +269,7 @@ def build_main_app() -> gr.Blocks:
             student_course_page.course_title,
             auth_page.login_status,
             auth_page.register_status,
+            chat_page.token_state,
         ]
 
         auth_page.login_button.click(
