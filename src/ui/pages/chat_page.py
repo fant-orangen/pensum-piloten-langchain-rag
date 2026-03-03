@@ -20,6 +20,7 @@ class ChatPageComponents:
     group: gr.Group
     back_button: gr.Button
     token_state: gr.State
+    course_id_state: gr.State
 
 
 def _default_conversation_state() -> dict[str, Any]:
@@ -48,10 +49,10 @@ def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, st
     return choices
 
 
-def _fetch_conversations(token: str) -> tuple[list[dict[str, Any]], str]:
+def _fetch_conversations(token: str, course_id: str | None = None) -> tuple[list[dict[str, Any]], str]:
     """Return (conversations, error_message). Conversations are ordered newest-first."""
     from src.ui.services.conversation_service import list_conversations
-    items, _total, err = list_conversations(token)
+    items, _total, err = list_conversations(token, course_id=course_id or None)
     return items, err
 
 
@@ -87,9 +88,10 @@ def _refresh_sidebar(
     token: str,
     selected_id: str | None = None,
     *,
+    course_id: str | None = None,
     status_message: str = "",
 ) -> tuple[Any, str, str, str]:
-    conversations, err = _fetch_conversations(token)
+    conversations, err = _fetch_conversations(token, course_id)
     if err:
         status_message = err
 
@@ -113,24 +115,25 @@ def _refresh_sidebar(
 def _load_conversation_handler(
     conversation_id: str | None,
     token: str | None,
+    course_id: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
     if not conversation_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, status_message="Ingen samtale valgt."
+            token, course_id=course_id, status_message="Ingen samtale valgt."
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
     history, err = _fetch_messages(token, conversation_id)
     if err:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, status_message=err
+            token, course_id=course_id, status_message=err
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
-    conversations, _ = _fetch_conversations(token)
+    conversations, _ = _fetch_conversations(token, course_id)
     selected_conv = next(
         (c for c in conversations if str(c.get("id", "")) == conversation_id),
         None,
@@ -145,6 +148,7 @@ def _load_conversation_handler(
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
         token,
         conversation_id,
+        course_id=course_id,
         status_message=f"Lastet samtale: {title}.",
     )
     return "", history, status_text, conv_state, selector_update, count_text, open_text
@@ -153,14 +157,15 @@ def _load_conversation_handler(
 def _new_conversation_handler(
     token: str | None,
     course_id_input: str,
+    course_id_state: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
-    course_id = course_id_input.strip()
+    course_id = (course_id_input or "").strip() or (course_id_state or "").strip()
     if not course_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, status_message="Skriv inn fag-ID for å starte en ny samtale."
+            token, course_id=course_id_state, status_message="Skriv inn fag-ID for å starte en ny samtale."
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
@@ -168,7 +173,7 @@ def _new_conversation_handler(
     success, message, conv_data = create_conversation(token, course_id)
     if not success or conv_data is None:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, status_message=message
+            token, course_id=course_id_state, status_message=message
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
@@ -180,7 +185,7 @@ def _new_conversation_handler(
         "course_id": course_id,
     }
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
-        token, conv_id, status_message="Ny samtale opprettet."
+        token, conv_id, course_id=course_id_state, status_message="Ny samtale opprettet."
     )
     return "", [], status_text, conv_state, selector_update, count_text, open_text
 
@@ -190,6 +195,7 @@ def _chat_handler(
     history: list[dict[str, Any]] | None,
     conversation_state: dict[str, Any] | None,
     token: str | None,
+    course_id_state: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
     visible_history = [
         msg
@@ -203,20 +209,20 @@ def _chat_handler(
 
     if not text:
         conv_id = (conversation_state or {}).get("conversation_id")
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id)
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
         return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
 
     conv_id = (conversation_state or {}).get("conversation_id")
     if not conv_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, status_message="Velg eller opprett en samtale først."
+            token, course_id=course_id_state, status_message="Velg eller opprett en samtale først."
         )
         return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
 
     from src.ui.services.conversation_service import send_message
     success, err, ai_msg_data = send_message(token, conv_id, text)
     if not success or ai_msg_data is None:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, status_message=err)
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state, status_message=err)
         return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
 
     ai_content = ai_msg_data.get("content", "")
@@ -225,20 +231,21 @@ def _chat_handler(
         {"role": "assistant", "content": ai_content},
     ]
 
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id)
+    selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
     return "", updated_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
 
 
 def _refresh_handler(
     conversation_state: dict[str, Any] | None,
     token: str | None,
+    course_id_state: str | None,
 ) -> tuple[Any, str, str, str, dict[str, Any]]:
     if not token:
         return gr.update(choices=[], value=None), "", "Ikke innlogget.", _open_conversation_text(None), _default_conversation_state()
 
     conv_id = (conversation_state or {}).get("conversation_id")
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
-        token, conv_id, status_message="Samtalelisten er oppdatert."
+        token, conv_id, course_id=course_id_state, status_message="Samtalelisten er oppdatert."
     )
     return selector_update, count_text, status_text, open_text, conversation_state or _default_conversation_state()
 
@@ -246,6 +253,7 @@ def _refresh_handler(
 def build_chat_page(*, visible: bool) -> ChatPageComponents:
     with gr.Group(visible=visible) as group:
         token_state = gr.State(None)
+        course_id_state = gr.State(None)
         conversation_state = gr.State(_default_conversation_state())
 
         with gr.Row():
@@ -254,6 +262,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 course_id_input = gr.Textbox(
                     label="Fag-ID",
                     placeholder="Lim inn fag-ID for å starte ny samtale",
+                    visible=False,
                 )
                 with gr.Row():
                     new_conversation_button = gr.Button("Ny samtale", variant="secondary")
@@ -293,27 +302,27 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
 
     send_button.click(
         fn=_chat_handler,
-        inputs=[message, chatbot, conversation_state, token_state],
+        inputs=[message, chatbot, conversation_state, token_state, course_id_state],
         outputs=chat_outputs,
     )
     message.submit(
         fn=_chat_handler,
-        inputs=[message, chatbot, conversation_state, token_state],
+        inputs=[message, chatbot, conversation_state, token_state, course_id_state],
         outputs=chat_outputs,
     )
     conversation_selector.change(
         fn=_load_conversation_handler,
-        inputs=[conversation_selector, token_state],
+        inputs=[conversation_selector, token_state, course_id_state],
         outputs=chat_outputs,
     )
     new_conversation_button.click(
         fn=_new_conversation_handler,
-        inputs=[token_state, course_id_input],
+        inputs=[token_state, course_id_input, course_id_state],
         outputs=chat_outputs,
     )
     refresh_button.click(
         fn=_refresh_handler,
-        inputs=[conversation_state, token_state],
+        inputs=[conversation_state, token_state, course_id_state],
         outputs=[
             conversation_selector,
             conversation_count,
@@ -323,4 +332,4 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         ],
     )
 
-    return ChatPageComponents(group=group, back_button=back_button, token_state=token_state)
+    return ChatPageComponents(group=group, back_button=back_button, token_state=token_state, course_id_state=course_id_state)

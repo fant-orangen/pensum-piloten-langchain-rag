@@ -8,7 +8,7 @@ from typing import Any
 import gradio as gr
 
 import src.ui.services.course_service as _course_api
-from src.ui.router import ROUTE_AB_COMPARE, ROUTE_CHAT, ROUTE_STUDENT_COURSE
+from src.ui.router import ROUTE_AB_COMPARE, ROUTE_CHAT
 from src.ui.state import (
     COURSE_ID_KEY,
     ROUTE_KEY,
@@ -93,23 +93,14 @@ def handle_open_student_course(state: dict[str, Any], course_id: str | None) -> 
         return default_app_state(), ""
     if not isinstance(course_id, str) or not course_id.strip():
         existing_course_id = str(state.get(COURSE_ID_KEY) or "").strip()
-        if state.get(ROUTE_KEY) == ROUTE_STUDENT_COURSE and existing_course_id:
+        if state.get(ROUTE_KEY) == ROUTE_CHAT and existing_course_id:
             return state, ""
         return with_route(clear_selected_course(state), home_route_for_role(user_role(state))), ""
-
-    token = auth_token(state)
-    if not token:
-        return default_app_state(), ""
-
-    courses, _err = _course_api.list_courses(token)
-    allowed_course_ids = {course["id"] for course in courses if isinstance(course, dict)}
-    if course_id not in allowed_course_ids:
-        return with_route(clear_selected_course(state), home_route_for_role(user_role(state))), "Ikke tillatt."
 
     return with_selected_course(
         clear_selected_course(state),
         course_id,
-        route=ROUTE_STUDENT_COURSE,
+        route=ROUTE_CHAT,
     ), ""
 
 

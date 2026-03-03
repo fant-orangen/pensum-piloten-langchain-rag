@@ -111,6 +111,8 @@ def _render_main_app(
 
     token = auth_token(state)
 
+    course_id = str(state.get(COURSE_ID_KEY) or "").strip() or None
+
     return (
         state,
         *route_visibility_updates(current_route),
@@ -131,6 +133,7 @@ def _render_main_app(
         login_message,
         register_message,
         token,
+        course_id,
     )
 
 
@@ -270,6 +273,7 @@ def build_main_app() -> gr.Blocks:
             auth_page.login_status,
             auth_page.register_status,
             chat_page.token_state,
+            chat_page.course_id_state,
         ]
 
         auth_page.login_button.click(

@@ -25,6 +25,7 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 async def list_conversations(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    course_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Page[ConversationRead]:
@@ -33,7 +34,7 @@ async def list_conversations(
     Ordered by most recent activity (updated_at descending).
     """
     params = PaginationParams(page=page, page_size=page_size)
-    items, total = await get_user_conversations(current_user.id, params, db)
+    items, total = await get_user_conversations(current_user.id, params, db, course_id=course_id)
     return Page.create(items=[ConversationRead.model_validate(c) for c in items], total=total, params=params)
 
 

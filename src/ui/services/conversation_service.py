@@ -12,6 +12,7 @@ def list_conversations(
     *,
     page: int = 1,
     page_size: int = 20,
+    course_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], int, str]:
     """Fetch a page of conversations for the authenticated user.
 
@@ -24,7 +25,10 @@ def list_conversations(
         On failure, conversations is empty and error_message is non-empty.
     """
     try:
-        data = get(f"/conversations?page={page}&page_size={page_size}", token=token)
+        path = f"/conversations?page={page}&page_size={page_size}"
+        if course_id:
+            path += f"&course_id={course_id}"
+        data = get(path, token=token)
     except ApiUnauthorizedError:
         return [], 0, "Sessionen er utløpt — logg inn på nytt."
     except ApiError as exc:
