@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "What is a thread+"
+  },
+  {
+    "role": "ai",
+    "content": "**Definition:** A thread is a single execution sequence within a process that represents a separately schedulable task. It executes a sequence of instructions, similar to a traditional program.\n\n**Intuition:** Think of a thread as a lightweight process that can run concurrently with other threads within the same application. Each thread operates independently but shares the same memory space, allowing for efficient communication and resource sharing.\n\n**Example:** In a multi-threaded program, one thread might handle user input while another processes data in the background. For instance, a web browser uses multiple threads to load different parts of a webpage simultaneously.\n\n**Common Mistake:** A common mistake is to assume that threads run in a predictable order. Due to their concurrent nature, the execution of threads can occur in an unpredictable sequence, leading to unexpected outputs if not managed properly.\n\n**Comprehension Checks:**\n1. What is the main advantage of using threads in a program?\n2. How does a thread differ from a process?"
+  }
+]

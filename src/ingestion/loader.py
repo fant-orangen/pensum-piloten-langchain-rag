@@ -8,10 +8,10 @@ from langchain_community.document_loaders import (
     PyPDFLoader,
     Docx2txtLoader,
     TextLoader,
-    DirectoryLoader,
 )
 
 from src.config import get_settings
+from src.ingestion.filter import remove_table_of_contents
 
 logger = structlog.get_logger(__name__)
 
@@ -22,7 +22,6 @@ _LOADER_MAP: dict[str, type] = {
     ".txt": TextLoader,
     ".md": TextLoader,
 }
-
 
 def load_single_file(file_path: Path) -> list[Document]:
     """Load a single file and return its pages / sections as Documents."""
@@ -61,5 +60,6 @@ def load_documents(directory: str | Path | None = None) -> list[Document]:
         if path.is_file() and path.suffix.lower() in _LOADER_MAP:
             all_docs.extend(load_single_file(path))
 
+    all_docs = remove_table_of_contents(all_docs)
     logger.info("documents_loaded", total=len(all_docs))
     return all_docs

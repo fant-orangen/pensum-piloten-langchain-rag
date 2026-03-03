@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "What is a thread?"
+  },
+  {
+    "role": "ai",
+    "content": "That's a great question! To help you understand what a thread is, let's start with what you already know about processes. \n\nCan you explain how a process operates and what its main characteristics are? Once we have that foundation, we can explore how threads relate to processes and what makes them distinct."
+  }
+]

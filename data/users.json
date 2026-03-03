@@ -1,0 +1,56 @@
+{
+  "Magnus": {
+    "username": "Magnus",
+    "firstname": "Magnus",
+    "surname": "",
+    "name": "Magnus",
+    "password_hash": "317184ea43537e4e0c85464941973d43c52195539c5a2933fd04b6aa4a880821",
+    "salt": "2c5f45e9d35667cf62fd9ebbcfad5e84",
+    "role": "student"
+  },
+  "Magnus123": {
+    "username": "Magnus123",
+    "firstname": "Magnus",
+    "surname": "Magnussen",
+    "name": "Magnus Magnussen",
+    "password_hash": "f6ccbd1b52badd865da90032e4d425b35973133a8c0e03ff784c7837c50fc87f",
+    "salt": "cc9552c9c8af14fc4c673f3f8b688625",
+    "role": "student"
+  },
+  "Lars": {
+    "username": "Lars",
+    "firstname": "Lars",
+    "surname": "Nilsen",
+    "name": "Lars Nilsen",
+    "password_hash": "f8870c7553d58b9d901d4612db2c91e01988a1f072b7c9a4a6fc8ff67d69f01b",
+    "salt": "4bfb4338b837f552659ee3cf0a728d47",
+    "role": "teacher"
+  },
+  "Lars2": {
+    "username": "Lars2",
+    "firstname": "Lars",
+    "surname": "Eriksen",
+    "name": "Lars Eriksen",
+    "password_hash": "d0ee66b6e4e863464a443bdcd806d32e95d94f2523fc1fcbe3cb43e7a4169400",
+    "salt": "772133fc14be53ed7f946931ea4df0ab",
+    "role": "student"
+  },
+  "Petter": {
+    "username": "Petter",
+    "firstname": "Petter",
+    "surname": "Pettersen",
+    "name": "Petter Pettersen",
+    "password_hash": "adb16eb15f1c60bd180c20630060e181e44be062e4014ffb762503f5c52f5403",
+    "salt": "cbbfc641ef37619a9c848c5a13e0244d",
+    "role": "teacher"
+  },
+  "admin": {
+    "username": "admin",
+    "firstname": "Admin",
+    "surname": "",
+    "name": "Admin",
+    "password_hash": "4f08733ee7aefa02bcc30c416fcdac6cdd3181c73c58ef7e0fe7a9d598ca6226",
+    "salt": "b874f06e2bf1aa92c5021a7e43f57b3e",
+    "role": "admin"
+  }
+}

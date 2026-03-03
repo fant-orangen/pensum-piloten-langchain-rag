@@ -1,0 +1,18 @@
+[
+  {
+    "role": "human",
+    "content": "Hva er det som grunnleggende definerer et operativsystem?"
+  },
+  {
+    "role": "ai",
+    "content": "Hvis du skulle koke det ned til én kjerneidé: Et operativsystem er laget som et *mellomlag* mellom programmer/brukere og maskinvaren, som **styrer og fordeler ressursene** i maskinen.\n\nFor å spisse det: når du tenker “ressurser”, hvilke av disse mener du er mest sentrale at OS-et må håndtere?\n\n1) CPU/prosessor-tid (hvem får kjøre når)  \n2) Minne (hvem får bruke hvilke adresser, og beskyttelse)  \n3) Lagring/filsystem (filer, rettigheter)  \n4) Enheter/I/O (tastatur, skjerm, nettverk, disk)  \n\nOg et oppfølgingsspørsmål: vil du definere operativsystemet ut fra *hva det gjør* (tjenester), eller *hvordan det er bygget* (kjerne vs. brukerrom)?"
+  },
+  {
+    "role": "human",
+    "content": "Alt er like viktig. Dersom en del mangler funker jo ikke systemet som en helhet. Uansett, forklar mer om CPU og prosessortid og hvordan systemet ahvem som får kjøre når"
+  },
+  {
+    "role": "ai",
+    "content": "Enig i helhetstanken: uten at OS-et håndterer alle disse, faller “illusjonen” av et fungerende system sammen. La oss zoome inn på CPU/prosessortid.\n\nNår flere programmer/“ting” vil kjøre samtidig, må operativsystemet gjøre to grunnjobber:\n\n1) **Holde styr på hvem som kan kjøre**  \nOS-et representerer arbeid som *prosesser* og *tråder*. Typisk har hver tråd en tilstand som f.eks.:\n- **Running** (kjører faktisk på CPU akkurat nå)\n- **Ready** (klar til å kjøre, men venter på CPU)\n- **Blocked/Waiting** (kan ikke kjøre før noe skjer, ofte I/O: disk, nettverk, tastetrykk)\n\nBare *ready* konkurrerer om CPU.\n\n2) **Velge hvem som får CPU nå (scheduling / planlegging)**  \nOS-et har en *scheduler* som velger neste tråd fra “ready”-køen(e). Målet er en blanding av:\n- **Respons-tid** (at UI føles raskt, tastetrykk/lyd hakker ikke)\n- **Throughput** (få mye jobb gjort per tidsenhet)\n- **Rettferdighet/prioritet** (ingen skal sulte, noen oppgaver er viktigere)\n\n### Hvordan “ahvem som får kjøre når” skjer i praksis\nNøkkelmekanismen er at OS-et **deler CPU-tid i små biter** (ofte kalt *time slice* eller *quantum*, typisk noen millisekunder):\n\n- En tråd får kjøre en liten stund.\n- Så skjer enten:\n  **A)** tråden **blokkerer** (f.eks. ber om disk-lesing → da er det bortkastet å la CPU stå og vente), eller  \n  **B)** tidskvanten går ut → OS-et **avbryter** tråden og bytter til en annen.\n\nDette kalles **preemptive scheduling** (OS-et kan “ta” CPU tilbake). Uten dette må programmer frivillig gi fra seg CPU, og da kan én dårlig app gjøre hele systemet tregt.\n\n### Hva må til for at OS-et kan avbryte en tråd?\nMaskinvaren hjelper til:\n- En **timer-interrupt** (klokkeavbrudd) fyrer av regelmessig.\n- Når avbruddet kommer, hopper CPU inn i **kernel mode**, og OS-et får kontroll.\n- OS-et kan da gjøre en **context switch**:\n  - lagre registere/PC/stack-peker for tråden som kjørte\n  - velge ny tråd\n  - laste dens lagrede tilstand\n  - returnere til user mode og la den kjøre\n\n### Typisk situasjon: hvorfor bytter OS under I/O?\nDisk/nettverk er mye tregere enn CPU. Hvis en tråd ber om å lese fra disk, vil OS-et:\n- markere tråden som **blocked**\n- kjøre en annen **ready** tråd i mellomtiden\n- når I/O er ferdig kommer et avbrudd → tråden blir **ready** igjen\n\nSå: OS-et holder CPU i arbeid i stedet for å “stirre på disken”.\n\n---\n\nFor å koble dette til noe konkret: når du har nettleser + musikk + nedlasting samtidig, hva tror du er viktigst for OS-et å prioritere for at du skal oppleve systemet som “flytende”: **høy throughput** (maks total arbeid), eller **lav respons-tid** (rask reaksjon på input/lyd)? Hvorfor?"
+  }
+]

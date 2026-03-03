@@ -1,0 +1,12 @@
+[
+  "What is the difference between a thread and a process?",
+  "How does preemptive scheduling differ from cooperative scheduling?",
+  "What is a race condition, and how can mutexes help avoid it?",
+  "Explain deadlock and the four Coffman conditions.",
+  "What problem does virtual memory solve, and how does paging work?",
+  "Why do operating systems use system calls instead of direct hardware access?",
+  "How does a file system map a file name to data blocks on disk?",
+  "What is the purpose of a TLB in memory management?",
+  "Compare user-mode and kernel-mode execution.",
+  "When should an OS use round-robin scheduling versus shortest-job-first?"
+]

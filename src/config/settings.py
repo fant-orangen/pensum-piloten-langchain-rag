@@ -12,10 +12,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
+    # --- LLM provider ---
+    model_provider: str = "openai"  # "openai" | "local"
+
+    # --- IDUN LLM gateway (used when model_provider = "local") ---
+    idun_base_url: str = "https://llm.hpc.ntnu.no/v1"
+    idun_api_key: str = ""
+
     # --- LLM ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
-    llm_model_name: str = "gpt-4o-mini"
-    embedding_model_name: str = "text-embedding-3-small"
+    openai_llm_model: str = "gpt-5.2"
+    openai_embedding_model: str = "text-embedding-3-small"
+
+
+    # Change these if you want a different local model.
+    local_llm_model: str = "moonshotai/Kimi-K2.5"
+    local_embedding_model: str = "intfloat/multilingual-e5-small"
 
     # --- Vector store (Chroma) ---
     chroma_persist_dir: str = str(PROJECT_ROOT / "data" / "chroma")
@@ -27,6 +39,25 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retriever_top_k: int = 5
+    kg_max_final_chunks: int = 20
+    temperature: float = 0.3
+
+    # --- Neo4j (Knowledge Graph) ---
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = ""
+    kg_expansion_hops: int = 1
+    kg_max_expanded_chunks: int = 10
+    # kg_min_chunk_score: float = 0.5
+
+
+    # --- Database ---
+    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten"
+
+    # --- Auth ---
+    # Override with a long random string in production. Generate one with:
+    #   python -c "import secrets; print(secrets.token_hex(32))"
+    secret_key: str = "change-me-in-production"
 
     # --- API ---
     api_host: str = "0.0.0.0"
@@ -34,6 +65,17 @@ class Settings(BaseSettings):
 
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
+
+    # --- Ingestion filtering ---
+    toc_line_threshold: float = 0.5 # If more than 50% of the lines in a document match the TOC line pattern, the document is removed.
+    
+    # --- LLM test generation ---
+    test_chat_max_messages_per_agent: int = 12
+
+    # --- Seeding ---
+    # Set to true to insert a test course, teacher, and student on startup.
+    # Safe to leave on — seed is skipped if data already exists.
+    seed_test_data: bool = False
 
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),
