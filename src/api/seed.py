@@ -78,6 +78,16 @@ async def seed(db: AsyncSession) -> None:
         db.add(CourseEnrollment(user_id=student.id, course_id=course.id, role="student"))
         logger.info("seed_enrolled_student", email=_STUDENT_EMAIL, course=_COURSE_CODE)
 
+    teacher_enrollment_result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.user_id == teacher.id,
+            CourseEnrollment.course_id == course.id,
+        )
+    )
+    if teacher_enrollment_result.scalars().first() is None:
+        db.add(CourseEnrollment(user_id=teacher.id, course_id=course.id, role="teacher"))
+        logger.info("seed_enrolled_teacher", email=_TEACHER_EMAIL, course=_COURSE_CODE)
+
     await db.commit()
     logger.info("seed_complete")
 
