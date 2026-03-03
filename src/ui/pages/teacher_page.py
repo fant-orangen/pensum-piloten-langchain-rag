@@ -176,3 +176,32 @@ def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> 
         route=ROUTE_TEACHER_COURSE,
         course_name=course.get("name", ""),
     ), ""
+
+
+def handle_open_responsible_course(state: dict[str, Any], course_id: str | None) -> tuple[dict[str, Any], str]:
+    if not is_logged_in(state) or user_role(state) != "teacher":
+        return clear_selected_course(state), "Ikke tillatt."
+    if not isinstance(course_id, str) or not course_id.strip():
+        existing_course_id = str(state.get(COURSE_ID_KEY) or "").strip()
+        if state.get(ROUTE_KEY) == ROUTE_TEACHER_COURSE and existing_course_id:
+            return state, ""
+        return clear_selected_course(state), ""
+
+    token = auth_token(state)
+    if not token:
+        return clear_selected_course(state), "Sessionen er utløpt — logg inn på nytt."
+
+    courses, _err = _course_api.list_responsible_courses(token)
+    course = next(
+        (c for c in courses if isinstance(c, dict) and c.get("id") == course_id),
+        None,
+    )
+    if course is None:
+        return clear_selected_course(state), "Fant ikke faget."
+
+    return with_selected_course(
+        clear_selected_course(state),
+        course["id"],
+        route=ROUTE_TEACHER_COURSE,
+        course_name=course.get("name", ""),
+    ), ""
