@@ -28,6 +28,24 @@ async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Cou
     return list(result.scalars().all())
 
 
+async def get_available_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
+    """Return all courses the given user is enrolled in (any role)."""
+    return await get_enrolled_courses(user_id, db)
+
+
+async def get_responsible_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
+    """Return all courses where the given user is enrolled as a teacher."""
+    result = await db.execute(
+        select(Course)
+        .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
+        .where(
+            CourseEnrollment.user_id == user_id,
+            CourseEnrollment.role == "teacher",
+        )
+    )
+    return list(result.scalars().all())
+
+
 async def create_course(current_user: User, body: CourseCreate, db: AsyncSession) -> Course:
     """Create a new course and enroll the creating user as a teacher.
 

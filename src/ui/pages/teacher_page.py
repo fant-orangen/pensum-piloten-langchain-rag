@@ -59,7 +59,7 @@ def teacher_responsible_courses_update(state: dict[str, Any]) -> Any:
     if not token:
         return gr.update(choices=[], value=None)
 
-    courses, _err = _course_api.list_courses(token)
+    courses, _err = _course_api.list_responsible_courses(token)
     choices = [
         (f"{course['name']} ({course['code']})", course["id"])
         for course in courses
@@ -79,7 +79,7 @@ def teacher_available_courses_text(state: dict[str, Any]) -> str:
     if not token:
         return "Ingen tilgjengelige fag."
 
-    courses, _err = _course_api.list_courses(token)
+    courses, _err = _course_api.list_available_courses(token)
     return _render_course_lines(courses, empty_text="Ingen tilgjengelige fag.")
 
 
@@ -167,7 +167,7 @@ def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> 
     if not token:
         return clear_selected_course(state), "Sessionen er utløpt — logg inn på nytt."
 
-    courses, _err = _course_api.list_courses(token)
+    courses, _err = _course_api.list_responsible_courses(token)
     course = next(
         (c for c in courses if isinstance(c, dict) and c.get("id") == course_id),
         None,

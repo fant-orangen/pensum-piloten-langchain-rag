@@ -13,7 +13,9 @@ from src.api.services.courses import (
     create_course,
     delete_course,
     enroll_user,
+    get_available_courses,
     get_enrolled_courses,
+    get_responsible_courses,
     unenroll_user,
 )
 
@@ -27,6 +29,26 @@ async def list_my_courses(
 ) -> list[CourseRead]:
     """Return all courses the authenticated user is enrolled in."""
     courses = await get_enrolled_courses(current_user.id, db)
+    return [CourseRead.model_validate(c) for c in courses]
+
+
+@router.get("/available", response_model=list[CourseRead])
+async def list_available_courses(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseRead]:
+    """Return all courses the authenticated user is enrolled in (any role)."""
+    courses = await get_available_courses(current_user.id, db)
+    return [CourseRead.model_validate(c) for c in courses]
+
+
+@router.get("/responsible", response_model=list[CourseRead])
+async def list_responsible_courses(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseRead]:
+    """Return all courses where the authenticated user is enrolled as a teacher."""
+    courses = await get_responsible_courses(current_user.id, db)
     return [CourseRead.model_validate(c) for c in courses]
 
 

@@ -31,6 +31,46 @@ def list_courses(token: str) -> tuple[list[dict[str, Any]], str]:
     return data, ""
 
 
+def list_available_courses(token: str) -> tuple[list[dict[str, Any]], str]:
+    """Fetch all courses the authenticated user is enrolled in (any role).
+
+    Returns:
+        (courses, error_message)
+    """
+    try:
+        data = get("/courses/available", token=token)
+    except ApiUnauthorizedError:
+        return [], "Sessionen er utløpt — logg inn på nytt."
+    except ApiError as exc:
+        return [], f"Kunne ikke hente fag: {exc.detail}"
+    except Exception as exc:
+        return [], f"Kunne ikke nå API-serveren: {exc}"
+
+    if not isinstance(data, list):
+        return [], "Uventet svar fra serveren."
+    return data, ""
+
+
+def list_responsible_courses(token: str) -> tuple[list[dict[str, Any]], str]:
+    """Fetch courses where the authenticated user is enrolled as a teacher.
+
+    Returns:
+        (courses, error_message)
+    """
+    try:
+        data = get("/courses/responsible", token=token)
+    except ApiUnauthorizedError:
+        return [], "Sessionen er utløpt — logg inn på nytt."
+    except ApiError as exc:
+        return [], f"Kunne ikke hente fag: {exc.detail}"
+    except Exception as exc:
+        return [], f"Kunne ikke nå API-serveren: {exc}"
+
+    if not isinstance(data, list):
+        return [], "Uventet svar fra serveren."
+    return data, ""
+
+
 def create_course(
     token: str,
     name: str,

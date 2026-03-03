@@ -37,6 +37,36 @@ def main() -> None:
     check(code == 401, "Unauthenticated → 401")
 
     # ------------------------------------------------------------------
+    section("GET /courses/available")
+    # ------------------------------------------------------------------
+
+    code, body = get("/courses/available", token=student_token)
+    check(code == 200, "Student: /courses/available → 200")
+    check(isinstance(body, list) and len(body) > 0, "Student sees seeded enrolled course in /courses/available")
+
+    code, body = get("/courses/available", token=teacher_token)
+    check(code == 200, "Teacher: /courses/available → 200")
+    check(isinstance(body, list) and len(body) > 0, "Teacher sees enrolled courses in /courses/available")
+
+    code, _ = get("/courses/available")
+    check(code == 401, "Unauthenticated /courses/available → 401")
+
+    # ------------------------------------------------------------------
+    section("GET /courses/responsible")
+    # ------------------------------------------------------------------
+
+    code, body = get("/courses/responsible", token=teacher_token)
+    check(code == 200, "Teacher: /courses/responsible → 200")
+    check(isinstance(body, list) and len(body) > 0, "Teacher sees seeded teacher-role course in /courses/responsible")
+
+    code, body = get("/courses/responsible", token=student_token)
+    check(code == 200, "Student: /courses/responsible → 200")
+    check(isinstance(body, list) and len(body) == 0, "Student sees no courses in /courses/responsible")
+
+    code, _ = get("/courses/responsible")
+    check(code == 401, "Unauthenticated /courses/responsible → 401")
+
+    # ------------------------------------------------------------------
     section("POST /courses")
     # ------------------------------------------------------------------
 

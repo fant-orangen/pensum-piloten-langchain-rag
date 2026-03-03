@@ -8,6 +8,7 @@ from typing import Any
 import gradio as gr
 
 import src.ui.services.auth_service as _auth_api
+import src.ui.services.course_service as _course_api
 from src.ui.state import authenticated_app_state, default_app_state
 
 
@@ -69,13 +70,11 @@ def handle_login(email: str, password: str) -> tuple[dict[str, Any], str, str, s
         return default_app_state(), message, "", ""
 
     token = info.get("token", "")
-    # After login we only have the token. We will pick up the user's name and
-    # role from the API in a follow-up call, but for now we use the email as
-    # the display username and default to "student" — the student page will
-    # load courses from the API, so the role from the token is sufficient.
-    # TODO: call GET /users/me once that endpoint exists to get first/last name
-    #       and global_role without a second login round-trip.
-    state = authenticated_app_state(email.strip(), "", "", "student", token=token)
+    # Determine whether the user is a teacher of at least one course.
+    # If so, route them to the teacher page instead of the student page.
+    responsible, _err = _course_api.list_responsible_courses(token)
+    role = "teacher" if responsible else "student"
+    state = authenticated_app_state(email.strip(), "", "", role, token=token)
     return state, "", "", message
 
 
