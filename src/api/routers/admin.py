@@ -1,4 +1,4 @@
-"""Superadmin endpoints."""
+"""Admin endpoints."""
 
 import uuid
 
@@ -19,7 +19,7 @@ async def get_users(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AdminUserRead]:
-    """Return all users. Requires superadmin."""
+    """Return all users. Requires admin."""
     users = await list_users(current_user, db)
     return [AdminUserRead.model_validate(user) for user in users]
 
@@ -30,6 +30,6 @@ async def promote_to_teacher(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> AdminUserRead:
-    """Promote a user to global teacher role. Requires superadmin."""
+    """Promote a user to global teacher role. Requires admin."""
     user = await promote_user_to_teacher(current_user, user_id, db)
     return AdminUserRead.model_validate(user)

@@ -49,7 +49,7 @@ async def get_responsible_courses(user_id: uuid.UUID, db: AsyncSession) -> list[
 async def create_course(current_user: User, body: CourseCreate, db: AsyncSession) -> Course:
     """Create a new course and enroll the creating user as a teacher.
 
-    Raises 403 if the user lacks the teacher or superadmin role.
+    Raises 403 if the user lacks the teacher or admin role.
     Raises 409 if the course code is already taken.
     """
     require_teacher_or_admin(current_user)
@@ -88,7 +88,7 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     """Delete a course.
 
     Raises 404 if the course does not exist.
-    Raises 403 if the user is not the course creator or a superadmin.
+    Raises 403 if the user is not the course creator or an admin.
     """
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalars().first()
@@ -112,7 +112,7 @@ async def enroll_user(
     """Enroll a user in a course by email.
 
     Raises 404 if the course or target user does not exist.
-    Raises 403 if the current user is not a teacher of the course or a superadmin.
+    Raises 403 if the current user is not a teacher of the course or an admin.
     Raises 409 if the target user is already enrolled.
     """
     course_result = await db.execute(select(Course).where(Course.id == course_id))

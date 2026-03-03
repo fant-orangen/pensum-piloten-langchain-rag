@@ -77,6 +77,14 @@ class Settings(BaseSettings):
     # Safe to leave on — seed is skipped if data already exists.
     seed_test_data: bool = False
 
+    # --- Optional admin bootstrap ---
+    # If both email and password are set, startup ensures this account exists
+    # with global_role="admin".
+    admin_email: str = ""
+    admin_password: str = ""
+    admin_first_name: str = "System"
+    admin_last_name: str = "Admin"
+
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),
         "env_file_encoding": "utf-8",

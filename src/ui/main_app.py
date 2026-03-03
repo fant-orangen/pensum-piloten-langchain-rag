@@ -6,7 +6,6 @@ from typing import Any
 
 import gradio as gr
 
-from src.services import ensure_admin_user
 from src.ui.pages import (
     AB_PAGE_CSS,
     build_ab_page,
@@ -232,8 +231,6 @@ def _handle_logout() -> tuple[Any, ...]:
 
 
 def build_main_app() -> gr.Blocks:
-    ensure_admin_user()
-
     with gr.Blocks(css=AB_PAGE_CSS, title="Pensum Piloten") as demo:
         app_state = gr.State(default_app_state())
 

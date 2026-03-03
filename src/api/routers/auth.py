@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
+from src.api.dependencies import get_current_user
+from src.api.models.user import User
 from src.api.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 from src.api.security import create_access_token
 from src.api.services.auth import authenticate_user, register_user
@@ -30,3 +32,9 @@ async def login(
     user = await authenticate_user(request.email, request.password, db)
     token = create_access_token(str(user.id))
     return TokenResponse(access_token=token)
+
+
+@router.get("/me", response_model=UserResponse)
+async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
+    """Return the authenticated user's profile."""
+    return UserResponse.model_validate(current_user)

@@ -8,7 +8,6 @@ from typing import Any
 import gradio as gr
 
 import src.ui.services.auth_service as _auth_api
-import src.ui.services.course_service as _course_api
 from src.ui.state import authenticated_app_state, default_app_state
 
 
@@ -70,11 +69,17 @@ def handle_login(email: str, password: str) -> tuple[dict[str, Any], str, str, s
         return default_app_state(), message, "", ""
 
     token = info.get("token", "")
-    # Determine whether the user is a teacher of at least one course.
-    # If so, route them to the teacher page instead of the student page.
-    responsible, _err = _course_api.list_responsible_courses(token)
-    role = "teacher" if responsible else "student"
-    state = authenticated_app_state(email.strip(), "", "", role, token=token)
+    profile_success, profile_error, profile = _auth_api.current_user(token)
+    if not profile_success or profile is None:
+        return default_app_state(), profile_error or "Kunne ikke hente brukerprofil.", "", ""
+
+    state = authenticated_app_state(
+        str(profile.get("email", email.strip()) or email.strip()),
+        str(profile.get("first_name", "") or ""),
+        str(profile.get("last_name", "") or ""),
+        str(profile.get("global_role", "student") or "student"),
+        token=token,
+    )
     return state, "", "", message
 
 

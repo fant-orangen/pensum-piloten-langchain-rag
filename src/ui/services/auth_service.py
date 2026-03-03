@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.ui.services.api_client import ApiError, post
+from src.ui.services.api_client import ApiError, ApiUnauthorizedError, get, post
 
 
 def login(email: str, password: str) -> tuple[bool, str, dict[str, Any] | None]:
@@ -31,6 +31,22 @@ def login(email: str, password: str) -> tuple[bool, str, dict[str, Any] | None]:
         return False, "Innlogging feilet: ugyldig svar fra serveren.", None
 
     return True, "Du er nå logget inn.", {"token": access_token}
+
+
+def current_user(token: str) -> tuple[bool, str, dict[str, Any] | None]:
+    """Fetch the authenticated user's profile from /auth/me."""
+    try:
+        data = get("/auth/me", token=token)
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt.", None
+    except ApiError as exc:
+        return False, f"Kunne ikke hente brukerprofil: {exc.detail}", None
+    except Exception as exc:
+        return False, f"Kunne ikke nå API-serveren: {exc}", None
+
+    if not isinstance(data, dict):
+        return False, "Uventet svar fra serveren.", None
+    return True, "", data
 
 
 def register(

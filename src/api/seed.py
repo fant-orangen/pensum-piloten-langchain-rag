@@ -23,11 +23,22 @@ logger = structlog.get_logger(__name__)
 
 _TEACHER_EMAIL = "teacher@test.com"
 _STUDENT_EMAIL = "student@test.com"
+_ADMIN_EMAIL = "admin@test.com"
 _COURSE_CODE = "TEST101"
 
 
 async def seed(db: AsyncSession) -> None:
     settings = get_settings()
+
+    # --- Admin ---
+    await _get_or_create_user(
+        db,
+        email=_ADMIN_EMAIL,
+        password="password123",
+        first_name="Test",
+        last_name="Admin",
+        global_role="admin",
+    )
 
     # --- Teacher ---
     teacher = await _get_or_create_user(

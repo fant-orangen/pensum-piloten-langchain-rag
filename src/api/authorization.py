@@ -16,29 +16,29 @@ from src.api.models.user import User
 
 
 def require_teacher_or_admin(user: User) -> None:
-    """Raise 403 unless the user holds a platform-level teacher or superadmin role."""
-    if user.global_role not in ("teacher", "superadmin"):
+    """Raise 403 unless the user holds a platform-level teacher or admin role."""
+    if user.global_role not in ("teacher", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only teachers and superadmins can perform this action.",
+            detail="Only teachers and admins can perform this action.",
         )
 
 
 def require_admin(user: User) -> None:
-    """Raise 403 unless the user is a superadmin."""
-    if user.global_role != "superadmin":
+    """Raise 403 unless the user is an admin."""
+    if user.global_role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only superadmins can perform this action.",
+            detail="Only admins can perform this action.",
         )
 
 
 def require_course_owner_or_admin(user: User, created_by_id: uuid.UUID) -> None:
-    """Raise 403 unless the user created the course or is a superadmin."""
-    if user.global_role != "superadmin" and user.id != created_by_id:
+    """Raise 403 unless the user created the course or is an admin."""
+    if user.global_role != "admin" and user.id != created_by_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the creating teacher or a superadmin can perform this action.",
+            detail="Only the creating teacher or an admin can perform this action.",
         )
 
 
@@ -47,8 +47,8 @@ async def require_course_teacher_or_admin(
     course_id: uuid.UUID,
     db: AsyncSession,
 ) -> None:
-    """Raise 403 unless the user is enrolled as a teacher in the course or is a superadmin."""
-    if user.global_role == "superadmin":
+    """Raise 403 unless the user is enrolled as a teacher in the course or is an admin."""
+    if user.global_role == "admin":
         return
 
     result = await db.execute(
@@ -61,7 +61,7 @@ async def require_course_teacher_or_admin(
     if result.scalars().first() is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only a teacher of this course or a superadmin can perform this action.",
+            detail="Only a teacher of this course or an admin can perform this action.",
         )
 
 
@@ -73,10 +73,10 @@ async def require_unenroll_permission(
 ) -> None:
     """Raise 403 if the current user is not permitted to remove the target from the course.
 
-    - Removing a student requires being a teacher of the course or a superadmin.
-    - Removing a teacher requires being the course creator or a superadmin.
+    - Removing a student requires being a teacher of the course or an admin.
+    - Removing a teacher requires being the course creator or an admin.
     """
-    if current_user.global_role == "superadmin":
+    if current_user.global_role == "admin":
         return
 
     if target_enrollment.role == "teacher":
