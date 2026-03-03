@@ -1,4 +1,8 @@
-"""Teacher course page UI and handlers."""
+"""Teacher course page UI and handlers.
+
+Provides the course detail view for teachers, including the ability to enrol
+students in the selected course by e-mail address.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,8 @@ from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token
 
 @dataclass(slots=True)
 class TeacherCoursePageComponents:
+    """Holds references to every Gradio component on the teacher course detail page."""
+
     group: gr.Group
     back_button: gr.Button
     course_title: gr.Markdown
@@ -23,6 +29,7 @@ class TeacherCoursePageComponents:
 
 
 def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
+    """Build and return the teacher course detail Gradio group."""
     with gr.Group(visible=visible) as group:
         gr.Markdown("# Fag")
         course_title = gr.Markdown("Fag: -")
@@ -48,6 +55,7 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
 
 
 def teacher_course_title_text(state: dict[str, Any]) -> str:
+    """Resolve and return the display title for the current course, falling back to the API if needed."""
     course_name = str(state.get(COURSE_NAME_KEY) or "").strip()
     if not course_name:
         course_id = str(state.get(COURSE_ID_KEY) or "").strip()
@@ -69,6 +77,7 @@ def teacher_course_title_text(state: dict[str, Any]) -> str:
 
 
 def teacher_course_students_text(state: dict[str, Any]) -> str:
+    """Return a placeholder message for the student list until the enrollments endpoint is available."""
     # The API does not expose a student-listing endpoint; the enrolled users
     # are managed through /courses/{id}/enrollments. Without a GET enrollments
     # endpoint this list cannot be populated from the API yet.
@@ -77,6 +86,7 @@ def teacher_course_students_text(state: dict[str, Any]) -> str:
 
 
 def teacher_course_student_choices_update(state: dict[str, Any], *, selected_username: str | None = None) -> Any:
+    """Return a Gradio update for the student input field, preserving any pre-selected username."""
     # The API does not expose a list-of-addable-students endpoint.
     # The text input field is used instead of a dropdown.
     # TODO: implement once GET /users (student list) endpoint exists.
@@ -84,6 +94,7 @@ def teacher_course_student_choices_update(state: dict[str, Any], *, selected_use
 
 
 def handle_add_student(state: dict[str, Any], student_email: str | None) -> tuple[Any, str, str]:
+    """Enrol the given student e-mail in the currently selected course and refresh the student list."""
     course_id = str(state.get(COURSE_ID_KEY) or "").strip()
     if not course_id:
         return gr.update(value=""), teacher_course_students_text(state), "Fant ikke faget."

@@ -1,4 +1,9 @@
-"""Teacher page UI and handlers."""
+"""Teacher page UI and handlers.
+
+Provides the teacher landing page where a teacher can view courses they are
+responsible for, browse available courses, create new courses, and navigate
+into the course detail view.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +28,8 @@ from src.ui.state import (
 
 @dataclass(slots=True)
 class TeacherPageComponents:
+    """Holds references to every Gradio component on the teacher landing page."""
+
     group: gr.Group
     name_text: gr.Markdown
     responsible_list: gr.Radio
@@ -34,11 +41,13 @@ class TeacherPageComponents:
 
 
 def teacher_name_text(state: dict[str, Any]) -> str:
+    """Return a formatted name string for display on the teacher page."""
     name = str(state.get(NAME_KEY) or "").strip()
     return f"Navn: {name or '-'}"
 
 
 def _course_choices(courses: list[Any]) -> list[tuple[str, str]]:
+    """Convert a list of course dicts into (label, id) pairs for a Gradio Radio widget."""
     return [
         (f"{course['name']} ({course['code']})", course["id"])
         for course in courses
@@ -47,6 +56,7 @@ def _course_choices(courses: list[Any]) -> list[tuple[str, str]]:
 
 
 def teacher_responsible_courses_update(state: dict[str, Any]) -> Any:
+    """Fetch courses the teacher is responsible for and return a Radio update, preserving any previously selected course."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return gr.update(choices=[], value=None)
 
@@ -63,6 +73,7 @@ def teacher_responsible_courses_update(state: dict[str, Any]) -> Any:
 
 
 def teacher_available_courses_update(state: dict[str, Any]) -> Any:
+    """Fetch all courses available to the teacher and return a Radio update, preserving any previously selected course."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return gr.update(choices=[], value=None)
 
@@ -79,6 +90,7 @@ def teacher_available_courses_update(state: dict[str, Any]) -> Any:
 
 
 def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
+    """Build and return the teacher landing Gradio group."""
     with gr.Group(visible=visible) as group:
         gr.Markdown("# Lærer")
         name_text = gr.Markdown("Navn: -")
@@ -105,6 +117,7 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
 
 
 def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, Any, str]:
+    """Create a new course from the given name, refresh both course lists, and return a status message."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return (
             course_name,
@@ -150,6 +163,7 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
 
 
 def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> tuple[dict[str, Any], str]:
+    """Validate the selected available course and route the teacher to the course detail page."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return clear_selected_course(state), "Ikke tillatt."
     if not isinstance(course_id, str) or not course_id.strip():
@@ -179,6 +193,7 @@ def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> 
 
 
 def handle_open_responsible_course(state: dict[str, Any], course_id: str | None) -> tuple[dict[str, Any], str]:
+    """Validate the selected responsible course and route the teacher to the course detail page."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return clear_selected_course(state), "Ikke tillatt."
     if not isinstance(course_id, str) or not course_id.strip():

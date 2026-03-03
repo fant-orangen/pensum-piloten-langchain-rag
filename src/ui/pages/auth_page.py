@@ -1,4 +1,8 @@
-"""Auth page UI and handlers."""
+"""Auth page UI and handlers.
+
+Provides the login and registration interface and the handlers that authenticate
+users against the backend, derive their role, and populate the shared app state.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,8 @@ from src.ui.state import authenticated_app_state, default_app_state
 
 @dataclass(slots=True)
 class AuthPageComponents:
+    """Holds references to every Gradio component on the auth page."""
+
     group: gr.Group
     login_username: gr.Textbox
     login_password: gr.Textbox
@@ -29,6 +35,7 @@ class AuthPageComponents:
 
 
 def build_auth_page(*, visible: bool) -> AuthPageComponents:
+    """Build and return the login/registration Gradio group."""
     with gr.Group(visible=visible) as group:
         with gr.Tabs():
             with gr.Tab("Logg inn"):
@@ -65,6 +72,7 @@ def build_auth_page(*, visible: bool) -> AuthPageComponents:
 
 
 def handle_login(email: str, password: str) -> tuple[dict[str, Any], str, str, str]:
+    """Authenticate the user and return an updated app state with the appropriate role assigned."""
     success, message, info = _auth_api.login(email.strip(), password)
     if not success or info is None:
         return default_app_state(), message, "", ""
@@ -85,6 +93,7 @@ def handle_register(
     firstname: str,
     surname: str,
 ) -> tuple[dict[str, Any], str, str, str]:
+    """Register a new user and, on success, automatically log them in and return an authenticated app state."""
     success, message, user_data = _auth_api.register(
         email.strip(),
         password,
