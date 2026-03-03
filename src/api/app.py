@@ -12,7 +12,8 @@ from src.config import get_settings
 from src.chain import build_kg_rag_chain, build_no_rag_chain
 from src.api.schemas import AskRequest, AskResponse
 from src.api.database import init_engine, create_tables, get_db
-from src.api.routers import auth, conversations, courses
+from src.api.routers import admin, auth, conversations, courses
+from src.api.services.admin import ensure_admin_user
 from src.api.seed import seed
 
 logger = structlog.get_logger(__name__)
@@ -22,7 +23,16 @@ logger = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI):
     init_engine()
     await create_tables()
-    if get_settings().seed_test_data:
+    settings = get_settings()
+    async for db in get_db():
+        await ensure_admin_user(
+            db,
+            email=settings.admin_email,
+            password=settings.admin_password,
+            first_name=settings.admin_first_name,
+            last_name=settings.admin_last_name,
+        )
+    if settings.seed_test_data:
         async for db in get_db():
             await seed(db)
     yield
@@ -36,6 +46,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(courses.router)
 app.include_router(conversations.router)
 
