@@ -8,8 +8,10 @@
 #SBATCH --mem=16G
 #SBATCH --output=idun/logs/ingest_%j.log
 
-# ── Resolve project directory from the script location ──
-WORKDIR="$(cd "$(dirname "$0")/.." && pwd)"
+set -euo pipefail
+
+# ── Resolve project directory from submission location ──
+WORKDIR="${SLURM_SUBMIT_DIR:-/cluster/work/hjdaleng/pensum_piloten}"
 cd "$WORKDIR"
 
 echo "==> Starting ingestion on $(hostname) at $(date)"
@@ -21,6 +23,12 @@ cp idun/.env.idun .env
 
 # ── Data directories ──
 mkdir -p data/neo4j_data
+
+cleanup() {
+  echo "==> Stopping Neo4j ..."
+  apptainer instance stop neo4j_inst 2>/dev/null || true
+}
+trap cleanup EXIT
 
 # ── Start Neo4j (required for KG ingestion) ──
 echo "==> Starting Neo4j ..."
@@ -39,10 +47,6 @@ done
 
 # ── Run KG ingestion ──
 echo "==> Running KG ingestion ..."
-python -m scripts.ingest_kg
-
-# ── Cleanup ──
-echo "==> Stopping Neo4j ..."
-apptainer instance stop neo4j_inst
+python scripts/ingest_kg.py
 
 echo "==> Ingestion finished at $(date)"
