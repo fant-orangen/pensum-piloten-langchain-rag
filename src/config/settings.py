@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    api_reload: bool = True
 
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
