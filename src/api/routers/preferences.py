@@ -1,0 +1,32 @@
+"""Preferences endpoints."""
+
+from fastapi import APIRouter, Depends
+
+from src.api.dependencies import get_current_user
+from src.api.models.user import User
+from src.api.schemas.preferences import (
+    SystemPromptPreferenceUpdateRequest,
+    SystemPromptPreferenceUpdateResponse,
+)
+from src.api.services.preferences import update_system_prompt_mode
+
+router = APIRouter(prefix="/preferences", tags=["preferences"])
+
+
+@router.patch("/system-prompt", response_model=SystemPromptPreferenceUpdateResponse)
+async def set_system_prompt_mode(
+    request: SystemPromptPreferenceUpdateRequest,
+    current_user: User = Depends(get_current_user),
+) -> SystemPromptPreferenceUpdateResponse:
+    """Update the active system prompt mode for the authenticated user."""
+    success = await update_system_prompt_mode(current_user, request.mode)
+    message = (
+        "System prompt mode updated successfully."
+        if success
+        else "Failed to update system prompt mode."
+    )
+    return SystemPromptPreferenceUpdateResponse(
+        success=success,
+        message=message,
+        mode=request.mode,
+    )

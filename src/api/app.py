@@ -12,7 +12,7 @@ from src.config import get_settings
 from src.chain import build_kg_rag_chain, build_no_rag_chain
 from src.api.schemas import AskRequest, AskResponse
 from src.api.database import init_engine, create_tables, get_db
-from src.api.routers import admin, auth, conversations, courses
+from src.api.routers import admin, auth, conversations, courses, preferences
 from src.api.services.admin import ensure_admin_user
 from src.api.seed import seed
 
@@ -49,6 +49,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(courses.router)
 app.include_router(conversations.router)
+app.include_router(preferences.router)
 
 # Build chains lazily and reuse them across requests.
 _chain_cache: dict[str, Any] = {}

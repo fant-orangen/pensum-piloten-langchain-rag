@@ -221,7 +221,7 @@ TUTOR_PROMPT = ChatPromptTemplate.from_messages(
 # Automated tester prompt
 # ---------------------------------------------------------------------------
 
-_TESTER_TEMPLATE = """\
+_TESTER_TEMPLATE = f"""\
 <system_prompt>
 You are a curious student AI used to test a Socratic tutor AI.
 
@@ -241,6 +241,9 @@ Topic policy:
 - Pick one operating-systems topic at the start (for example scheduling, virtual memory, paging, processes vs threads, synchronization, deadlocks, file systems, or system calls).
 - Stay mostly on that topic and adjacent subtopics unless the tutor drifts. Have one thing you want to learn about the topic and ask the tutor about it.
 - Progress from basic understanding to deeper reasoning over turns.
+
+For this session, you are going to take on a specific role. Formulate your responses according to the instructions below:
+{mode}
 
 Turn input:
 - The latest tutor message is provided by the user message.
