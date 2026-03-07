@@ -14,6 +14,11 @@ from typing import Any
 import gradio as gr
 
 _TITLE_WIDTH = 56
+_MODE_CHOICES = [
+    ("Socratic mode", 1),
+    ("Direct mode", 2),
+    ("Example mode", 3),
+]
 
 
 @dataclass(slots=True)
@@ -118,6 +123,23 @@ def _refresh_sidebar(
         status_message,
         _open_conversation_text(title),
     )
+
+
+def _save_mode_handler(selected_mode: int | None, token: str | None, current_status: str) -> str:
+    """Persist the selected tutoring mode for the authenticated user."""
+    if not token:
+        return "Ikke innlogget."
+    if selected_mode not in {1, 2, 3}:
+        return "Velg en gyldig veiledningsmodus."
+
+    from src.ui.services.preferences_service import update_system_prompt_mode
+
+    success, message = update_system_prompt_mode(token, int(selected_mode))
+    if success:
+        return message
+    if current_status:
+        return f"{current_status}\n\n{message}"
+    return message
 
 
 def _load_conversation_handler(
@@ -288,7 +310,16 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 conversation_count = gr.Markdown(_conversation_count_text(0))
 
             with gr.Column(scale=4):
-                gr.Markdown("# Chat")
+                with gr.Row():
+                    gr.Markdown("# Chat")
+                    with gr.Column(scale=1, min_width=280):
+                        mode_selector = gr.Radio(
+                            choices=_MODE_CHOICES,
+                            value=1,
+                            label="Tutoring mode",
+                            info="Choose how the tutor should respond in upcoming messages.",
+                        )
+                        save_mode_button = gr.Button("Save mode", variant="secondary")
                 gr.Markdown("Chat med tutor (RAG).")
                 open_conversation = gr.Markdown(_open_conversation_text(None))
                 status = gr.Markdown("")
@@ -343,6 +374,11 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
             open_conversation,
             conversation_state,
         ],
+    )
+    save_mode_button.click(
+        fn=_save_mode_handler,
+        inputs=[mode_selector, token_state, status],
+        outputs=[status],
     )
 
     return ChatPageComponents(group=group, back_button=back_button, token_state=token_state, course_id_state=course_id_state)

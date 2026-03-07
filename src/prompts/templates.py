@@ -14,13 +14,40 @@ the prompt:
      are thinking, not just *what* they are thinking.
 """
 
+from src.api.schemas.preferences import SystemPromptMode
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+_SOCRATIC_MODE_INSTRUCTIONS = """\
+<mode_instructions name="Socratic Mode">
+Prioritise guided discovery. Default to asking a short sequence of focused questions that help the learner infer the answer themselves.
+Avoid giving the final answer immediately unless the user explicitly asks for it or is clearly blocked after several attempts.
+Keep each turn narrow and diagnostic so the student can think through one conceptual step at a time.
+</mode_instructions>"""
+
+_DIRECT_MODE_INSTRUCTIONS = """\
+<mode_instructions name="Direct Mode">
+Prioritise clarity and efficiency. Answer the user's question directly and concretely before offering any optional follow-up guidance.
+Use short explanations, explicit statements, and minimal indirection. Do not force a Socratic exchange when the user appears to want a straightforward answer.
+If useful, end with one brief follow-up question or suggestion, but only after the direct answer has already been delivered.
+</mode_instructions>"""
+
+_EXAMPLE_MODE_INSTRUCTIONS = """\
+<mode_instructions name="Example Mode">
+Prioritise learning through examples. Introduce or clarify concepts by giving one concrete, relevant example before generalising.
+Use small worked examples, miniature scenarios, or short code/data snippets when they help the learner see how the idea behaves in practice.
+After the example, briefly connect it back to the underlying concept and invite the learner to compare the example to their own problem.
+</mode_instructions>"""
+
+_SYSTEM_PROMPT_MODE_INSTRUCTIONS = {
+    SystemPromptMode.SOCRATIC: _SOCRATIC_MODE_INSTRUCTIONS,
+    SystemPromptMode.DIRECT: _DIRECT_MODE_INSTRUCTIONS,
+    SystemPromptMode.EXAMPLE: _EXAMPLE_MODE_INSTRUCTIONS,
+}
 
 # ---------------------------------------------------------------------------
 # Core system prompt
 # ---------------------------------------------------------------------------
 
-# TODO: これを修正して
 _SYSTEM_TEMPLATE = """\
 <system_prompt>
 
@@ -98,6 +125,8 @@ Let the pedagogical method remain invisible. Ask questions naturally, as a tutor
 - Stay within the scope of the user's question. Provide only what serves their current inquiry.
 - When the user requests a direct answer, provide one. Resume Socratic dialogue only when appropriate.
 </constraints>
+
+{mode}
 
 
 <examples>
@@ -243,7 +272,7 @@ Topic policy:
 - Progress from basic understanding to deeper reasoning over turns.
 
 For this session, you are going to take on a specific role. Formulate your responses according to the instructions below:
-{mode}
+{{mode}}
 
 Turn input:
 - The latest tutor message is provided by the user message.
@@ -270,6 +299,15 @@ def build_tutor_prompt() -> ChatPromptTemplate:
     without reaching into module-level state.
     """
     return TUTOR_PROMPT
+
+
+def resolve_system_prompt_mode(mode: int | SystemPromptMode | None) -> str:
+    """Return the system-prompt instructions for the selected tutoring mode."""
+    try:
+        resolved_mode = SystemPromptMode(mode or SystemPromptMode.SOCRATIC)
+    except ValueError:
+        resolved_mode = SystemPromptMode.SOCRATIC
+    return _SYSTEM_PROMPT_MODE_INSTRUCTIONS[resolved_mode]
 
 
 def build_tester_prompt() -> ChatPromptTemplate:

@@ -64,7 +64,12 @@ async def new_conversation(
     db: AsyncSession = Depends(get_db),
 ) -> ConversationRead:
     """Start a new conversation in a course the user is enrolled in."""
-    conversation = await create_conversation(current_user.id, request.course_id, db)
+    conversation = await create_conversation(
+        current_user.id,
+        request.course_id,
+        current_user.system_prompt_mode,
+        db,
+    )
     return ConversationRead.model_validate(conversation)
 
 

@@ -93,7 +93,11 @@ async def ask(request: AskRequest):
 
     try:
         answer = await chain.ainvoke(
-            {"question": request.question, "chat_history": history}
+            {
+                "question": request.question,
+                "chat_history": history,
+                "system_prompt_mode": request.system_prompt_mode,
+            }
         )
     except Exception as exc:
         logger.error("chain_error", error=str(exc))

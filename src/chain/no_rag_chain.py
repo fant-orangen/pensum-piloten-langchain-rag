@@ -10,6 +10,7 @@ from langchain_core.runnables import RunnableParallel, RunnableLambda
 
 from src.models import get_llm
 from src.prompts import build_tutor_prompt
+from src.prompts.templates import resolve_system_prompt_mode
 
 logger = structlog.get_logger(__name__)
 
@@ -30,6 +31,9 @@ def build_no_rag_chain():
             context=RunnableLambda(lambda _: ""),
             question=extract_question,
             chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
+            mode=RunnableLambda(
+                lambda x: resolve_system_prompt_mode(x.get("system_prompt_mode"))
+            ),
         )
         | prompt
         | llm

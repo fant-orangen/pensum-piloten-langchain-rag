@@ -64,6 +64,7 @@ async def get_conversation_for_user(
 async def create_conversation(
     user_id: uuid.UUID,
     course_id: uuid.UUID,
+    system_prompt_mode: int,
     db: AsyncSession,
 ) -> Conversation:
     """Create a new conversation for a user in a course.
@@ -83,7 +84,11 @@ async def create_conversation(
     if enrollment_result.scalars().first() is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enrolled in this course.")
 
-    conversation = Conversation(user_id=user_id, course_id=course_id)
+    conversation = Conversation(
+        user_id=user_id,
+        course_id=course_id,
+        system_prompt_mode=system_prompt_mode,
+    )
     db.add(conversation)
     await db.commit()
     await db.refresh(conversation)

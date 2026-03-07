@@ -1,7 +1,9 @@
 """Preferences endpoints."""
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.user import User
 from src.api.schemas.preferences import (
@@ -17,9 +19,10 @@ router = APIRouter(prefix="/preferences", tags=["preferences"])
 async def set_system_prompt_mode(
     request: SystemPromptPreferenceUpdateRequest,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SystemPromptPreferenceUpdateResponse:
     """Update the active system prompt mode for the authenticated user."""
-    success = await update_system_prompt_mode(current_user, request.mode)
+    success = await update_system_prompt_mode(current_user, request.mode, db)
     message = (
         "System prompt mode updated successfully."
         if success

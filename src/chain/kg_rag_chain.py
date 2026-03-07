@@ -12,6 +12,7 @@ from src.chain.rag_chain import _format_docs
 from src.kg.retriever import get_kg_retriever
 from src.models import get_llm
 from src.prompts import build_tutor_prompt
+from src.prompts.templates import resolve_system_prompt_mode
 
 from src.config import get_settings
 
@@ -40,6 +41,9 @@ def build_kg_rag_chain(chroma_collection: str | None = None):
             context=extract_question | retriever | _format_docs,
             question=extract_question,
             chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
+            mode=RunnableLambda(
+                lambda x: resolve_system_prompt_mode(x.get("system_prompt_mode"))
+            ),
         )
         | prompt
         | llm

@@ -8,9 +8,9 @@ from pydantic import BaseModel
 class SystemPromptMode(IntEnum):
     """Supported system prompt variants."""
 
-    DEFAULT = 1
-    GUIDED = 2
-    EXAM_PREP = 3
+    SOCRATIC = 1
+    DIRECT = 2
+    EXAMPLE = 3
 
 
 class SystemPromptPreferenceUpdateRequest(BaseModel):

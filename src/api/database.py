@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import text
 from sqlmodel import SQLModel
 
 from src.config import get_settings
@@ -41,6 +42,18 @@ async def create_tables() -> None:
     assert _engine is not None, "Call init_engine() before create_tables()"
     async with _engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.execute(
+            text(
+                "ALTER TABLE app_user "
+                "ADD COLUMN IF NOT EXISTS system_prompt_mode INTEGER NOT NULL DEFAULT 1"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE conversation "
+                "ADD COLUMN IF NOT EXISTS system_prompt_mode INTEGER NOT NULL DEFAULT 1"
+            )
+        )
     logger.info("database_tables_created")
 
 

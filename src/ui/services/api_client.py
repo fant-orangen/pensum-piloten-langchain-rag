@@ -97,5 +97,9 @@ def post(path: str, body: dict[str, Any] | None = None, *, token: str | None = N
     return request("POST", path, body=body, token=token)
 
 
+def patch(path: str, body: dict[str, Any] | None = None, *, token: str | None = None) -> Any:
+    return request("PATCH", path, body=body, token=token)
+
+
 def delete(path: str, *, token: str | None = None) -> Any:
     return request("DELETE", path, token=token)
