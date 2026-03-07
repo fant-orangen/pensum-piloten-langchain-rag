@@ -136,7 +136,7 @@ def _save_mode_handler(selected_mode: int | None, token: str | None, current_sta
 
     success, message = update_system_prompt_mode(token, int(selected_mode))
     if success:
-        return message
+        return f"{message} New conversations will use this mode."
     if current_status:
         return f"{current_status}\n\n{message}"
     return message
@@ -189,6 +189,7 @@ def _new_conversation_handler(
     token: str | None,
     course_id_input: str,
     course_id_state: str | None,
+    selected_mode: int | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
     """Create a new conversation for the resolved course ID and refresh the sidebar."""
     if not token:
@@ -200,6 +201,16 @@ def _new_conversation_handler(
             token, course_id=course_id_state, status_message="Skriv inn fag-ID for å starte en ny samtale."
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+
+    if selected_mode in {1, 2, 3}:
+        from src.ui.services.preferences_service import update_system_prompt_mode
+
+        mode_saved, mode_message = update_system_prompt_mode(token, int(selected_mode))
+        if not mode_saved:
+            selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                token, course_id=course_id_state, status_message=mode_message
+            )
+            return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
     from src.ui.services.conversation_service import create_conversation
     success, message, conv_data = create_conversation(token, course_id)
@@ -217,7 +228,10 @@ def _new_conversation_handler(
         "course_id": course_id,
     }
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
-        token, conv_id, course_id=course_id_state, status_message="Ny samtale opprettet."
+        token,
+        conv_id,
+        course_id=course_id_state,
+        status_message="Ny samtale opprettet med valgt veiledningsmodus.",
     )
     return "", [], status_text, conv_state, selector_update, count_text, open_text
 
@@ -317,7 +331,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                             choices=_MODE_CHOICES,
                             value=1,
                             label="Tutoring mode",
-                            info="Choose how the tutor should respond in upcoming messages.",
+                            info="Choose the mode for new conversations.",
                         )
                         save_mode_button = gr.Button("Save mode", variant="secondary")
                 gr.Markdown("Chat med tutor (RAG).")
@@ -361,8 +375,13 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
     )
     new_conversation_button.click(
         fn=_new_conversation_handler,
-        inputs=[token_state, course_id_input, course_id_state],
+        inputs=[token_state, course_id_input, course_id_state, mode_selector],
         outputs=chat_outputs,
+    )
+    mode_selector.change(
+        fn=_save_mode_handler,
+        inputs=[mode_selector, token_state, status],
+        outputs=[status],
     )
     refresh_button.click(
         fn=_refresh_handler,
