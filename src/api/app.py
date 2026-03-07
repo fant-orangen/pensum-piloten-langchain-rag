@@ -113,5 +113,5 @@ def start():
         "src.api.app:app",
         host=settings.api_host,
         port=settings.api_port,
-        reload=True,
+        reload=settings.api_reload,
     )

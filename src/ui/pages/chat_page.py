@@ -1,7 +1,8 @@
-"""Embedded chat page for the main Gradio app.
+"""Embedded RAG chat page for the main Gradio app.
 
-Conversations and messages are persisted through the FastAPI backend.
-A JWT token must be present in token_state for the page to function.
+Renders a conversation sidebar and a chat interface backed by the FastAPI
+conversation service. A valid JWT token must be present in token_state for the
+page to function. Conversations and messages are persisted through the backend.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ _TITLE_WIDTH = 56
 
 @dataclass(slots=True)
 class ChatPageComponents:
+    """Holds the top-level Gradio components and shared state objects for the chat page."""
+
     group: gr.Group
     back_button: gr.Button
     token_state: gr.State
@@ -24,14 +27,17 @@ class ChatPageComponents:
 
 
 def _default_conversation_state() -> dict[str, Any]:
+    """Return an empty conversation state dict with all fields set to None."""
     return {"conversation_id": None, "title": None, "course_id": None}
 
 
 def _open_conversation_text(title: str | None) -> str:
+    """Format the label shown above the chat area for the currently open conversation."""
     return f"Åpen samtale: {title or 'Ingen'}"
 
 
 def _conversation_count_text(count: int) -> str:
+    """Return a Norwegian summary string for the number of conversations found."""
     if count == 0:
         return "Ingen tidligere samtaler funnet."
     if count == 1:
@@ -40,6 +46,7 @@ def _conversation_count_text(count: int) -> str:
 
 
 def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Convert a list of conversation dicts into (label, id) pairs suitable for a Gradio Radio widget."""
     choices = []
     for conv in conversations:
         title = conv.get("title") or "Samtale"
@@ -91,6 +98,7 @@ def _refresh_sidebar(
     course_id: str | None = None,
     status_message: str = "",
 ) -> tuple[Any, str, str, str]:
+    """Fetch conversations and return Gradio updates for the sidebar selector, count, status, and open-conversation label."""
     conversations, err = _fetch_conversations(token, course_id)
     if err:
         status_message = err
@@ -117,6 +125,7 @@ def _load_conversation_handler(
     token: str | None,
     course_id: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Load message history for the selected conversation and update the chat UI."""
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
@@ -159,6 +168,7 @@ def _new_conversation_handler(
     course_id_input: str,
     course_id_state: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Create a new conversation for the resolved course ID and refresh the sidebar."""
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
@@ -197,6 +207,7 @@ def _chat_handler(
     token: str | None,
     course_id_state: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Send the user message to the backend and append both the user and AI turns to the chat history."""
     visible_history = [
         msg
         for msg in (history or [])
@@ -240,6 +251,7 @@ def _refresh_handler(
     token: str | None,
     course_id_state: str | None,
 ) -> tuple[Any, str, str, str, dict[str, Any]]:
+    """Re-fetch the conversation list and return updated sidebar components."""
     if not token:
         return gr.update(choices=[], value=None), "", "Ikke innlogget.", _open_conversation_text(None), _default_conversation_state()
 
@@ -251,6 +263,7 @@ def _refresh_handler(
 
 
 def build_chat_page(*, visible: bool) -> ChatPageComponents:
+    """Build the chat Gradio group, wire up all event handlers, and return the page components."""
     with gr.Group(visible=visible) as group:
         token_state = gr.State(None)
         course_id_state = gr.State(None)

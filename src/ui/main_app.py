@@ -24,6 +24,7 @@ from src.ui.pages import (
     handle_logout,
     handle_open_ab_compare,
     handle_open_chat,
+    handle_open_responsible_course,
     handle_open_student_course,
     handle_open_teacher_course,
     handle_register,
@@ -150,6 +151,11 @@ def _handle_add_student(state: dict[str, Any], student_username: str | None) -> 
 
 def _handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
     next_state, teacher_message = handle_open_teacher_course(state, course_id)
+    return _render_main_app(next_state, teacher_message=teacher_message)
+
+
+def _handle_open_responsible_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
+    next_state, teacher_message = handle_open_responsible_course(state, course_id)
     return _render_main_app(next_state, teacher_message=teacher_message)
 
 
@@ -310,7 +316,7 @@ def build_main_app() -> gr.Blocks:
             outputs=app_outputs,
         )
         teacher_page.responsible_list.change(
-            fn=_handle_open_teacher_course,
+            fn=_handle_open_responsible_course,
             inputs=[app_state, teacher_page.responsible_list],
             outputs=app_outputs,
         )

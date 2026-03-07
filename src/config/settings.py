@@ -13,16 +13,20 @@ class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
     # --- LLM provider ---
-    model_provider: str = "openai"  # "openai" | "local"
+    model_provider: str = "anthropic"  # "openai" | "anthropic" | "local"
 
     # --- IDUN LLM gateway (used when model_provider = "local") ---
     idun_base_url: str = "https://llm.hpc.ntnu.no/v1"
     idun_api_key: str = ""
 
-    # --- LLM ---
+    # --- OPENAI ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
-    openai_llm_model: str = "gpt-5.2"
+    openai_llm_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
+
+    # --- Anthropic ---
+    anthropic_api_key: str = Field(default="", description="Anthropic API key loaded from ANTHROPIC_API_KEY environment variable")
+    anthropic_llm_model: str = "claude-sonnet-4-6"
 
 
     # Change these if you want a different local model.
@@ -62,6 +66,7 @@ class Settings(BaseSettings):
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    api_reload: bool = True
 
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")

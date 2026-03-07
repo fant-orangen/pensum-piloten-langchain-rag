@@ -1,4 +1,8 @@
-"""Admin page UI and handlers."""
+"""Admin page UI and handlers.
+
+Provides the admin interface for listing non-admin users and upgrading them to
+the teacher role, accessible only to users with the admin role.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,8 @@ from src.ui.state import auth_token, is_logged_in, user_role
 
 @dataclass(slots=True)
 class AdminPageComponents:
+    """Holds references to every Gradio component on the admin page."""
+
     group: gr.Group
     users_dropdown: gr.Dropdown
     upgrade_button: gr.Button
@@ -41,7 +47,6 @@ def _non_admin_user_choices(token: str) -> tuple[list[tuple[str, str]], str]:
     users, error = _admin_api.list_users(token)
     if error:
         return [], error
-
     choices: list[tuple[str, str]] = []
     for user in users:
         user_id = str(user.get("id", "") or "").strip()
@@ -77,6 +82,7 @@ def build_admin_page(*, visible: bool) -> AdminPageComponents:
 
 
 def handle_admin_refresh(state: dict[str, Any]) -> tuple[Any, str]:
+    """Refresh the users dropdown, rejecting the request if the caller is not an admin."""
     if not is_logged_in(state) or user_role(state) != "admin":
         return gr.update(choices=[], value=None), "Ikke tillatt."
 
@@ -93,6 +99,7 @@ def handle_admin_refresh(state: dict[str, Any]) -> tuple[Any, str]:
 
 
 def handle_upgrade_user(state: dict[str, Any], username: str | None) -> tuple[Any, str]:
+    """Upgrade the selected user to the teacher role and refresh the dropdown."""
     if not is_logged_in(state) or user_role(state) != "admin":
         return gr.update(choices=[], value=None), "Ikke tillatt."
     token = auth_token(state)
