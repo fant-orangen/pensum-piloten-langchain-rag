@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # --- OPENAI ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
-    openai_llm_model: str = "gpt-5.2"
+    openai_llm_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
 
     # --- Anthropic ---
