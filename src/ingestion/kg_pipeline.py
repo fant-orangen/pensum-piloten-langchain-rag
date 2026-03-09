@@ -26,6 +26,7 @@ def _save_triplets_cache(path: Path, triplets: list[Triplet]) -> None:
 def run_kg_ingestion_pipeline(
     *,
     documents_dir: str | Path | None = None,
+    collection_name: str | None = None,
     triplets_cache_path: str | Path | None = None,
 ) -> dict[str, int]:
     """Run the full KG ingestion flow.
@@ -51,7 +52,7 @@ def run_kg_ingestion_pipeline(
         chunk.metadata["chunk_id"] = make_chunk_id(chunk)
 
     logger.info("step", name="build_vectorstore")
-    build_vectorstore(chunks)
+    build_vectorstore(chunks, collection_name=collection_name)
 
     logger.info("step", name="extract_triplets")
     triplets = extract_triplets(chunks)

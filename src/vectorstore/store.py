@@ -42,15 +42,16 @@ def get_vectorstore(collection_name: str | None = None) -> Chroma:
 _EMBED_BATCH_SIZE = 100
 
 
-def build_vectorstore(chunks: list[Document]) -> Chroma:
+def build_vectorstore(chunks: list[Document], *, collection_name: str | None = None) -> Chroma:
     """Create (or replace) the Chroma collection from a list of document chunks.
 
     This is the main write-path called by the ingestion pipeline.
     Chunks are added in batches so progress is visible in the logs.
     """
     settings = get_settings()
+    name = collection_name or settings.chroma_collection_name
     total = len(chunks)
-    logger.info("building_vectorstore", num_chunks=total)
+    logger.info("building_vectorstore", num_chunks=total, collection=name)
 
     embeddings = get_embeddings()
 
@@ -59,7 +60,7 @@ def build_vectorstore(chunks: list[Document]) -> Chroma:
     vectorstore = Chroma.from_documents(
         documents=first_batch,
         embedding=embeddings,
-        collection_name=settings.chroma_collection_name,
+        collection_name=name,
         persist_directory=settings.chroma_persist_dir,
     )
     logger.info("vectorstore_progress", done=len(first_batch), total=total)
@@ -69,5 +70,5 @@ def build_vectorstore(chunks: list[Document]) -> Chroma:
         vectorstore.add_documents(batch)
         logger.info("vectorstore_progress", done=min(i + _EMBED_BATCH_SIZE, total), total=total)
 
-    logger.info("vectorstore_ready", collection=settings.chroma_collection_name)
+    logger.info("vectorstore_ready", collection=name)
     return vectorstore
