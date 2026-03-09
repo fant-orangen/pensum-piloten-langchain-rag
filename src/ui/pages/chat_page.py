@@ -19,6 +19,7 @@ _MODE_CHOICES = [
     ("Direct mode", 2),
     ("Example mode", 3),
 ]
+_NO_COURSE_STATUS = "Velg et fag før du bruker chat."
 
 
 @dataclass(slots=True)
@@ -63,8 +64,12 @@ def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, st
 
 def _fetch_conversations(token: str, course_id: str | None = None) -> tuple[list[dict[str, Any]], str]:
     """Return (conversations, error_message). Conversations are ordered newest-first."""
+    resolved_course_id = (course_id or "").strip()
+    if not resolved_course_id:
+        return [], _NO_COURSE_STATUS
+
     from src.ui.services.conversation_service import list_conversations
-    items, _total, err = list_conversations(token, course_id=course_id or None)
+    items, _total, err = list_conversations(token, course_id=resolved_course_id)
     return items, err
 
 
@@ -104,7 +109,17 @@ def _refresh_sidebar(
     status_message: str = "",
 ) -> tuple[Any, str, str, str]:
     """Fetch conversations and return Gradio updates for the sidebar selector, count, status, and open-conversation label."""
-    conversations, err = _fetch_conversations(token, course_id)
+    resolved_course_id = (course_id or "").strip()
+    if not resolved_course_id:
+        status_text = status_message or _NO_COURSE_STATUS
+        return (
+            gr.update(choices=[], value=None),
+            _conversation_count_text(0),
+            status_text,
+            _open_conversation_text(None),
+        )
+
+    conversations, err = _fetch_conversations(token, resolved_course_id)
     if err:
         status_message = err
 
@@ -151,6 +166,15 @@ def _load_conversation_handler(
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
+    resolved_course_id = (course_id or "").strip()
+    if not resolved_course_id:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id,
+            status_message=_NO_COURSE_STATUS,
+        )
+        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+
     if not conversation_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id, status_message="Ingen samtale valgt."
@@ -195,10 +219,10 @@ def _new_conversation_handler(
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
-    course_id = (course_id_input or "").strip() or (course_id_state or "").strip()
+    course_id = (course_id_state or "").strip()
     if not course_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, course_id=course_id_state, status_message="Skriv inn fag-ID for å starte en ny samtale."
+            token, course_id=course_id_state, status_message=_NO_COURSE_STATUS
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
@@ -254,6 +278,14 @@ def _chat_handler(
     if not token:
         return "", visible_history, "Ikke innlogget.", conversation_state or _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
+    if not (course_id_state or "").strip():
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id_state,
+            status_message=_NO_COURSE_STATUS,
+        )
+        return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
+
     if not text:
         conv_id = (conversation_state or {}).get("conversation_id")
         selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
@@ -290,6 +322,15 @@ def _refresh_handler(
     """Re-fetch the conversation list and return updated sidebar components."""
     if not token:
         return gr.update(choices=[], value=None), "", "Ikke innlogget.", _open_conversation_text(None), _default_conversation_state()
+
+    if not (course_id_state or "").strip():
+        return (
+            gr.update(choices=[], value=None),
+            _conversation_count_text(0),
+            _NO_COURSE_STATUS,
+            _open_conversation_text(None),
+            _default_conversation_state(),
+        )
 
     conv_id = (conversation_state or {}).get("conversation_id")
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
