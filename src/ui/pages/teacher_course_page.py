@@ -12,7 +12,9 @@ from typing import Any
 import gradio as gr
 
 import src.ui.services.course_service as _course_api
+from src.ui.router import ROUTE_CHAT
 from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token
+from src.ui.state import with_route
 
 
 @dataclass(slots=True)
@@ -23,6 +25,7 @@ class TeacherCoursePageComponents:
     back_button: gr.Button
     course_title: gr.Markdown
     students_list: gr.Markdown
+    view_as_student_button: gr.Button
     add_student_username: gr.Textbox
     add_student_button: gr.Button
     status_text: gr.Markdown
@@ -33,6 +36,7 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
     with gr.Group(visible=visible) as group:
         gr.Markdown("# Fag")
         course_title = gr.Markdown("Fag: -")
+        view_as_student_button = gr.Button("Se som student", variant="secondary")
         gr.Markdown("## Studenter")
         students_list = gr.Markdown("Ingen studenter ennå.")
         add_student_username = gr.Textbox(
@@ -48,6 +52,7 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
         back_button=back_button,
         course_title=course_title,
         students_list=students_list,
+        view_as_student_button=view_as_student_button,
         add_student_username=add_student_username,
         add_student_button=add_student_button,
         status_text=status_text,
@@ -114,3 +119,11 @@ def handle_add_student(state: dict[str, Any], student_email: str | None) -> tupl
         teacher_course_students_text(state),
         message,
     )
+
+
+def handle_view_as_student(state: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    """Route a teacher from the selected course detail page to the student chat view."""
+    course_id = str(state.get(COURSE_ID_KEY) or "").strip()
+    if not course_id:
+        return state, "Fant ikke faget."
+    return with_route(state, ROUTE_CHAT), ""

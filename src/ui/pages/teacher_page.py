@@ -33,7 +33,6 @@ class TeacherPageComponents:
     group: gr.Group
     name_text: gr.Markdown
     responsible_list: gr.Radio
-    available_list: gr.Radio
     add_course_name: gr.Textbox
     add_course_button: gr.Button
     status_text: gr.Markdown
@@ -96,8 +95,6 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
         name_text = gr.Markdown("Navn: -")
         gr.Markdown("## Ansvarlig for")
         responsible_list = gr.Radio(choices=[], value=None, label="Ansvarlig for")
-        gr.Markdown("## Tilgjengelige fag")
-        available_list = gr.Radio(choices=[], value=None, label="Tilgjengelige fag")
         gr.Markdown("## Legg til fag")
         add_course_name = gr.Textbox(label="Nytt fag")
         add_course_button = gr.Button("Legg til fag", variant="primary")
@@ -108,7 +105,6 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
         group=group,
         name_text=name_text,
         responsible_list=responsible_list,
-        available_list=available_list,
         add_course_name=add_course_name,
         add_course_button=add_course_button,
         status_text=status_text,
@@ -116,13 +112,12 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
     )
 
 
-def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, Any, str]:
-    """Create a new course from the given name, refresh both course lists, and return a status message."""
+def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, str]:
+    """Create a new course from the given name, refresh the teacher course list, and return a status message."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return (
             course_name,
             teacher_responsible_courses_update(state),
-            teacher_available_courses_update(state),
             "Ikke tillatt.",
         )
 
@@ -131,7 +126,6 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
         return (
             course_name,
             teacher_responsible_courses_update(state),
-            teacher_available_courses_update(state),
             "Sessionen er utløpt — logg inn på nytt.",
         )
 
@@ -140,7 +134,6 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
         return (
             course_name,
             teacher_responsible_courses_update(state),
-            teacher_available_courses_update(state),
             "Fyll ut fagnavnet.",
         )
 
@@ -157,7 +150,6 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
     return (
         next_input_value,
         teacher_responsible_courses_update(state),
-        teacher_available_courses_update(state),
         message,
     )
 

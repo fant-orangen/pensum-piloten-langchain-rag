@@ -65,7 +65,7 @@ def build_student_page(*, visible: bool) -> StudentPageComponents:
 
 def student_courses_update(state: dict[str, Any]) -> Any:
     """Fetch the student's enrolled courses from the API and return a dropdown update."""
-    if not is_logged_in(state):
+    if not is_logged_in(state) or user_role(state) != "student":
         return gr.update(choices=[], value=None)
 
     token = auth_token(state)
