@@ -5,7 +5,6 @@ from pathlib import Path
 import structlog
 from langchain_core.documents import Document
 from langchain_community.document_loaders import (
-    BSHTMLLoader,
     PyPDFLoader,
     Docx2txtLoader,
     TextLoader,
@@ -58,8 +57,8 @@ _TEXT_EXTENSIONS = {
 _LOADER_MAP: dict[str, type] = {
     ".pdf": PyPDFLoader,
     ".docx": Docx2txtLoader,
-    ".html": BSHTMLLoader,
-    ".htm": BSHTMLLoader,
+    ".html": TextLoader,
+    ".htm": TextLoader,
     **{ext: TextLoader for ext in sorted(_TEXT_EXTENSIONS)},
 }
 

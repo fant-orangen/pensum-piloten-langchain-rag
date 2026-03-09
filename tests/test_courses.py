@@ -180,6 +180,21 @@ def main() -> None:
     section("POST/GET /courses/{course_id}/ingestions")
     # ------------------------------------------------------------------
 
+    code, body = post_multipart(
+        f"/courses/{course_id}/materials",
+        files=[("file", "subset_a.txt", b"alpha", "text/plain")],
+        token=teacher_token,
+    )
+    check(code == 201, "Upload ingestion material A for first course → 201")
+    subset_material_id = body["id"] if body else None
+
+    code, _ = post_multipart(
+        f"/courses/{course_id}/materials",
+        files=[("file", "subset_b.txt", b"beta", "text/plain")],
+        token=teacher_token,
+    )
+    check(code == 201, "Upload ingestion material B for first course → 201")
+
     code, body = post(f"/courses/{course_id}/ingestions", token=teacher_token)
     check(code == 201, "Teacher starts ingestion job → 201")
     check(body is not None and body.get("status") == "queued", "Ingestion job starts in queued status")
@@ -187,12 +202,12 @@ def main() -> None:
 
     code, _ = post(
         f"/courses/{course_id}/ingestions",
-        {"material_ids": []},
+        {"material_ids": [subset_material_id]},
         token=teacher_token,
     )
     check(
-        code in (201, 409),
-        "Ingestion start accepts optional material_ids payload",
+        code in (201, 409, 400),
+        "Ingestion start accepts optional material_ids payload for subset ingestion",
     )
 
     code, _ = post(f"/courses/{course_id}/ingestions", token=teacher_token)
@@ -214,6 +229,14 @@ def main() -> None:
     check(body is not None and body.get("id") == ingestion_job_id, "Teacher gets the correct ingestion job")
 
     second_course_id = second_course["id"]
+
+    code, _ = post_multipart(
+        f"/courses/{second_course_id}/materials",
+        files=[("file", "all_materials.txt", b"all", "text/plain")],
+        token=teacher_token,
+    )
+    check(code == 201, "Upload ingestion material for second course → 201")
+
     code, body = post(f"/courses/{second_course_id}/ingestions", token=teacher_token)
     check(code == 201, "Teacher starts ingestion job for second course → 201")
     second_ingestion_job_id = body["id"] if body else None
@@ -243,6 +266,43 @@ def main() -> None:
 
     code, _ = post(f"/courses/{str(uuid.uuid4())}/ingestions", token=teacher_token)
     check(code == 404, "Start ingestion for nonexistent course → 404")
+
+    invalid_course_code = f"TSI{RUN_ID}"
+    code, body = post("/courses", {
+        "name": f"Invalid Ingestion Course {RUN_ID}",
+        "code": invalid_course_code,
+        "chroma_collection": f"invalid_ingest_{RUN_ID}",
+        "documents_dir": f"docs/invalid_ingest_{RUN_ID}",
+    }, token=teacher_token)
+    check(code == 201, "Teacher creates invalid-ingestion test course → 201")
+    invalid_ingestion_course_id = body["id"] if body else None
+
+    code, _ = post_multipart(
+        f"/courses/{invalid_ingestion_course_id}/materials",
+        files=[("file", "valid.txt", b"valid", "text/plain")],
+        token=teacher_token,
+    )
+    check(code == 201, "Upload material for invalid-selection test → 201")
+
+    code, _ = post(
+        f"/courses/{invalid_ingestion_course_id}/ingestions",
+        {"material_ids": [str(uuid.uuid4())]},
+        token=teacher_token,
+    )
+    check(code == 400, "Ingestion with invalid material_ids → 400")
+
+    empty_course_code = f"TSE{RUN_ID}"
+    code, body = post("/courses", {
+        "name": f"Empty Ingestion Course {RUN_ID}",
+        "code": empty_course_code,
+        "chroma_collection": f"empty_ingest_{RUN_ID}",
+        "documents_dir": f"docs/empty_ingest_{RUN_ID}",
+    }, token=teacher_token)
+    check(code == 201, "Teacher creates empty-ingestion test course → 201")
+    empty_ingestion_course_id = body["id"] if body else None
+
+    code, _ = post(f"/courses/{empty_ingestion_course_id}/ingestions", token=teacher_token)
+    check(code == 400, "Ingestion with no uploaded materials → 400")
 
     code, _ = get(f"/courses/{course_id}/ingestions")
     check(code == 401, "Unauthenticated list ingestion jobs → 401")
@@ -350,6 +410,12 @@ def main() -> None:
 
     code, _ = delete(f"/courses/{second_course_id}", token=teacher_token)
     check(code == 204, "Owner deletes second course → 204")
+
+    code, _ = delete(f"/courses/{invalid_ingestion_course_id}", token=teacher_token)
+    check(code == 204, "Owner deletes invalid-ingestion test course → 204")
+
+    code, _ = delete(f"/courses/{empty_ingestion_course_id}", token=teacher_token)
+    check(code == 204, "Owner deletes empty-ingestion test course → 204")
 
     summarise()
 
