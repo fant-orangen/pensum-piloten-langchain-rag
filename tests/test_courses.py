@@ -84,6 +84,17 @@ def main() -> None:
     check(body is not None and body.get("code") == course_code, "Response contains correct course code")
     course = body
 
+    second_course_code = f"TSB{RUN_ID}"
+    code, body = post("/courses", {
+        "name": f"Second Test Course {RUN_ID}",
+        "code": second_course_code,
+        "chroma_collection": f"test_col_second_{RUN_ID}",
+        "documents_dir": f"docs/test_second_{RUN_ID}",
+    }, token=teacher_token)
+    check(code == 201, "Teacher creates second course → 201")
+    check(body is not None and body.get("code") == second_course_code, "Second course response contains correct code")
+    second_course = body
+
     code, _ = post("/courses", {
         "name": "Forbidden",
         "code": f"FRB{RUN_ID}",
@@ -155,6 +166,13 @@ def main() -> None:
     )
     check(code == 404, "Upload material to nonexistent course → 404")
 
+    code, _ = post_multipart(
+        f"/courses/{course_id}/materials",
+        files=[("file", "empty.txt", b"", "text/plain")],
+        token=teacher_token,
+    )
+    check(code == 400, "Upload empty material file → 400")
+
     code, _ = get(f"/courses/{course_id}/materials")
     check(code == 401, "Unauthenticated list materials → 401")
 
@@ -184,6 +202,19 @@ def main() -> None:
     code, body = get(f"/courses/{course_id}/ingestions/{ingestion_job_id}", token=teacher_token)
     check(code == 200, "Teacher gets ingestion job by id → 200")
     check(body is not None and body.get("id") == ingestion_job_id, "Teacher gets the correct ingestion job")
+
+    second_course_id = second_course["id"]
+    code, body = post(f"/courses/{second_course_id}/ingestions", token=teacher_token)
+    check(code == 201, "Teacher starts ingestion job for second course → 201")
+    second_ingestion_job_id = body["id"] if body else None
+
+    code, body = get(f"/courses/{course_id}/ingestions", token=teacher_token)
+    first_ids = [item.get("id") for item in body] if isinstance(body, list) else []
+    check(second_ingestion_job_id not in first_ids, "First course ingestion list excludes second course jobs")
+
+    code, body = get(f"/courses/{second_course_id}/ingestions", token=teacher_token)
+    second_ids = [item.get("id") for item in body] if isinstance(body, list) else []
+    check(ingestion_job_id not in second_ids, "Second course ingestion list excludes first course jobs")
 
     code, _ = get(f"/courses/{course_id}/ingestions/{ingestion_job_id}", token=student_token)
     check(code == 403, "Student gets ingestion job → 403")
@@ -306,6 +337,9 @@ def main() -> None:
 
     code, _ = delete(f"/courses/{course_id}", token=teacher_token)
     check(code == 404, "Delete already-deleted course → 404")
+
+    code, _ = delete(f"/courses/{second_course_id}", token=teacher_token)
+    check(code == 204, "Owner deletes second course → 204")
 
     summarise()
 
