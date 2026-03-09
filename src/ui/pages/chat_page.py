@@ -772,21 +772,52 @@ def _chat_handler(
             _REFERENCE_DEFAULT_STATUS,
         )
     if not conv_id:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, course_id=course_id_state, status_message="Velg eller opprett en samtale først."
-        )
-        return (
-            "",
-            visible_history,
-            status_text,
-            conversation_state or _default_conversation_state(),
-            selector_update,
-            count_text,
-            open_text,
-            resolved_source_history,
-            reference_rows,
-            reference_status,
-        )
+        # Auto-create the first conversation so the user's first send is actionable.
+        from src.ui.services.conversation_service import create_conversation
+
+        created, created_message, conv_data = create_conversation(token, active_course_id)
+        if not created or conv_data is None:
+            selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                token,
+                course_id=course_id_state,
+                status_message=created_message,
+            )
+            return (
+                "",
+                visible_history,
+                status_text,
+                conversation_state or _default_conversation_state(),
+                selector_update,
+                count_text,
+                open_text,
+                resolved_source_history,
+                reference_rows,
+                reference_status,
+            )
+        conv_id = str(conv_data.get("id", "")).strip()
+        if not conv_id:
+            selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                token,
+                course_id=course_id_state,
+                status_message="Kunne ikke opprette ny samtale.",
+            )
+            return (
+                "",
+                visible_history,
+                status_text,
+                conversation_state or _default_conversation_state(),
+                selector_update,
+                count_text,
+                open_text,
+                resolved_source_history,
+                reference_rows,
+                reference_status,
+            )
+        conversation_state = {
+            "conversation_id": conv_id,
+            "title": conv_data.get("title") or "Ny samtale",
+            "course_id": active_course_id,
+        }
 
     from src.ui.services.conversation_service import send_message
     success, err, ai_msg_data = send_message(token, conv_id, text)
