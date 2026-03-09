@@ -296,10 +296,17 @@ def delete_material(token: str, course_id: str, material_id: str) -> tuple[bool,
     return True, "Materiale slettet."
 
 
-def start_ingestion(token: str, course_id: str) -> tuple[bool, str, dict[str, Any] | None]:
+def start_ingestion(
+    token: str,
+    course_id: str,
+    *,
+    material_ids: list[str] | None = None,
+) -> tuple[bool, str, dict[str, Any] | None]:
     """Queue a new ingestion job for a course."""
+    cleaned_ids = [item.strip() for item in (material_ids or []) if item and item.strip()]
+    body = {"material_ids": cleaned_ids} if cleaned_ids else None
     try:
-        data = post(f"/courses/{course_id}/ingestions", token=token)
+        data = post(f"/courses/{course_id}/ingestions", body=body, token=token)
     except ApiUnauthorizedError:
         return False, "Sessionen er utløpt — logg inn på nytt.", None
     except ApiError as exc:
@@ -315,7 +322,9 @@ def start_ingestion(token: str, course_id: str) -> tuple[bool, str, dict[str, An
 
     if not isinstance(data, dict):
         return False, "Uventet svar fra serveren.", None
-    return True, "Ingestion startet.", data
+    if cleaned_ids:
+        return True, f"Ingestion startet for {len(cleaned_ids)} valgt(e) fil(er).", data
+    return True, "Ingestion startet for alt opplastet materiale.", data
 
 
 def list_ingestions(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:

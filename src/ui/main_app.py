@@ -181,8 +181,11 @@ def _handle_refresh_materials(state: dict[str, Any]) -> tuple[Any, Any]:
     )
 
 
-def _handle_start_ingestion(state: dict[str, Any]) -> tuple[str, str]:
-    return handle_start_ingestion(state)
+def _handle_start_ingestion(
+    state: dict[str, Any],
+    selected_material_ids: list[str] | None,
+) -> tuple[str, str]:
+    return handle_start_ingestion(state, selected_material_ids)
 
 
 def _handle_refresh_ingestion(state: dict[str, Any]) -> tuple[str, str]:
@@ -426,7 +429,7 @@ def build_main_app() -> gr.Blocks:
         )
         teacher_course_page.start_ingestion_button.click(
             fn=_handle_start_ingestion,
-            inputs=[app_state],
+            inputs=[app_state, teacher_course_page.ingestion_materials],
             outputs=[
                 teacher_course_page.ingestion_status,
                 teacher_course_page.status_text,

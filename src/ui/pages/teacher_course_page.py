@@ -332,7 +332,10 @@ def handle_delete_material(state: dict[str, Any], material_id: str | None) -> tu
     )
 
 
-def handle_start_ingestion(state: dict[str, Any]) -> tuple[str, str]:
+def handle_start_ingestion(
+    state: dict[str, Any],
+    selected_material_ids: list[str] | None,
+) -> tuple[str, str]:
     course_id = _current_course_id(state)
     if not course_id:
         return teacher_course_ingestion_status_text(state), "Fant ikke faget."
@@ -341,7 +344,12 @@ def handle_start_ingestion(state: dict[str, Any]) -> tuple[str, str]:
     if not token:
         return teacher_course_ingestion_status_text(state), "Sessionen er utløpt — logg inn på nytt."
 
-    success, message, _job = _course_api.start_ingestion(token, course_id)
+    selected_ids = [item.strip() for item in (selected_material_ids or []) if item and item.strip()]
+    success, message, _job = _course_api.start_ingestion(
+        token,
+        course_id,
+        material_ids=selected_ids or None,
+    )
     return teacher_course_ingestion_status_text(state), message if success else message
 
 
