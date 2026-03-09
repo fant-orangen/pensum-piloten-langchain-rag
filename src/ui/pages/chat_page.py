@@ -298,6 +298,24 @@ def _refresh_handler(
     return selector_update, count_text, status_text, open_text, conversation_state or _default_conversation_state()
 
 
+def _reset_scope_handler(
+    token: str | None,
+    course_id_state: str | None,
+) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Reset local chat state when auth/course scope changes."""
+    del token
+    del course_id_state
+    return (
+        "",
+        [],
+        "",
+        _default_conversation_state(),
+        gr.update(choices=[], value=None),
+        _conversation_count_text(0),
+        _open_conversation_text(None),
+    )
+
+
 def build_chat_page(*, visible: bool) -> ChatPageComponents:
     """Build the chat Gradio group, wire up all event handlers, and return the page components."""
     with gr.Group(visible=visible) as group:
@@ -398,6 +416,16 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         fn=_save_mode_handler,
         inputs=[mode_selector, token_state, status],
         outputs=[status],
+    )
+    token_state.change(
+        fn=_reset_scope_handler,
+        inputs=[token_state, course_id_state],
+        outputs=chat_outputs,
+    )
+    course_id_state.change(
+        fn=_reset_scope_handler,
+        inputs=[token_state, course_id_state],
+        outputs=chat_outputs,
     )
 
     return ChatPageComponents(group=group, back_button=back_button, token_state=token_state, course_id_state=course_id_state)
