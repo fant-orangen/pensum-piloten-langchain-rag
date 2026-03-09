@@ -6,6 +6,84 @@ from typing import Any
 
 from src.ui.services.api_client import ApiError, ApiUnauthorizedError, get, post
 
+_EXCERPT_PREVIEW_CHARS = 220
+
+
+def _normalize_excerpt(value: Any) -> str:
+    """Return a compact one-line preview for display in the references panel."""
+    text = " ".join(str(value or "").split())
+    if len(text) <= _EXCERPT_PREVIEW_CHARS:
+        return text
+    return text[: _EXCERPT_PREVIEW_CHARS - 3].rstrip() + "..."
+
+
+def _extract_document(value: dict[str, Any]) -> str:
+    for key in ("document", "source_file", "filename", "file", "source", "name"):
+        candidate = value.get(key)
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    return "Ukjent dokument"
+
+
+def _extract_page(value: dict[str, Any]) -> str:
+    page = value.get("page")
+    if page is None:
+        return ""
+    if isinstance(page, str):
+        return page.strip()
+    return str(page)
+
+
+def _extract_excerpt(value: dict[str, Any]) -> str:
+    for key in ("excerpt", "text", "content", "chunk", "snippet"):
+        candidate = value.get(key)
+        if isinstance(candidate, str) and candidate.strip():
+            return _normalize_excerpt(candidate)
+    return ""
+
+
+def normalize_sources_payload(value: Any) -> list[dict[str, str]]:
+    """Normalize backend source payloads to a frontend-safe shape."""
+    if isinstance(value, str):
+        document = value.strip()
+        return [{"document": document or "Ukjent dokument", "page": "", "excerpt": ""}]
+    if isinstance(value, dict):
+        return [
+            {
+                "document": _extract_document(value),
+                "page": _extract_page(value),
+                "excerpt": _extract_excerpt(value),
+            }
+        ]
+    if not isinstance(value, list):
+        return []
+
+    normalized: list[dict[str, str]] = []
+    for item in value:
+        if isinstance(item, str):
+            document = item.strip()
+            normalized.append(
+                {"document": document or "Ukjent dokument", "page": "", "excerpt": ""}
+            )
+            continue
+        if isinstance(item, dict):
+            normalized.append(
+                {
+                    "document": _extract_document(item),
+                    "page": _extract_page(item),
+                    "excerpt": _extract_excerpt(item),
+                }
+            )
+    return normalized
+
+
+def _normalize_message_payload(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    normalized = dict(value)
+    normalized["sources"] = normalize_sources_payload(value.get("sources"))
+    return normalized
+
 
 def list_conversations(
     token: str,
@@ -85,7 +163,12 @@ def get_messages(
     total = data.get("total", 0)
     if not isinstance(items, list):
         return [], 0, "Uventet svar fra serveren."
-    return items, int(total), ""
+    normalized_items = [
+        normalized
+        for item in items
+        if (normalized := _normalize_message_payload(item)) is not None
+    ]
+    return normalized_items, int(total), ""
 
 
 def create_conversation(
@@ -155,4 +238,7 @@ def send_message(
 
     if not isinstance(data, dict):
         return False, "Uventet svar fra serveren.", None
-    return True, "", data
+    normalized = _normalize_message_payload(data)
+    if normalized is None:
+        return False, "Uventet svar fra serveren.", None
+    return True, "", normalized
