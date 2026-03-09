@@ -13,7 +13,7 @@ from typing import Any
 import gradio as gr
 
 import src.ui.services.course_service as _course_api
-from src.ui.router import ROUTE_TEACHER_COURSE
+from src.ui.router import ROUTE_CHAT, ROUTE_TEACHER_COURSE
 from src.ui.state import (
     COURSE_ID_KEY,
     NAME_KEY,
@@ -33,6 +33,7 @@ class TeacherPageComponents:
     group: gr.Group
     name_text: gr.Markdown
     responsible_list: gr.Radio
+    available_list: gr.Radio
     add_course_name: gr.Textbox
     add_course_button: gr.Button
     status_text: gr.Markdown
@@ -72,7 +73,7 @@ def teacher_responsible_courses_update(state: dict[str, Any]) -> Any:
 
 
 def teacher_available_courses_update(state: dict[str, Any]) -> Any:
-    """Fetch all courses available to the teacher and return a Radio update, preserving any previously selected course."""
+    """Fetch student-only courses for the teacher and return a Radio update."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return gr.update(choices=[], value=None)
 
@@ -80,8 +81,19 @@ def teacher_available_courses_update(state: dict[str, Any]) -> Any:
     if not token:
         return gr.update(choices=[], value=None)
 
-    courses, _err = _course_api.list_available_courses(token)
-    choices = _course_choices(courses)
+    available_courses, _err = _course_api.list_available_courses(token)
+    responsible_courses, _err = _course_api.list_responsible_courses(token)
+    responsible_ids = {
+        str(course.get("id"))
+        for course in responsible_courses
+        if isinstance(course, dict) and course.get("id")
+    }
+    student_only_courses = [
+        course
+        for course in available_courses
+        if isinstance(course, dict) and str(course.get("id")) not in responsible_ids
+    ]
+    choices = _course_choices(student_only_courses)
     selected_course_id = str(state.get(COURSE_ID_KEY) or "").strip()
     if selected_course_id and any(course_id == selected_course_id for _, course_id in choices):
         return gr.update(choices=choices, value=selected_course_id)
@@ -95,6 +107,8 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
         name_text = gr.Markdown("Navn: -")
         gr.Markdown("## Ansvarlig for")
         responsible_list = gr.Radio(choices=[], value=None, label="Ansvarlig for")
+        gr.Markdown("## Tilgjengelige fag")
+        available_list = gr.Radio(choices=[], value=None, label="Tilgjengelige fag")
         gr.Markdown("## Legg til fag")
         add_course_name = gr.Textbox(label="Nytt fag")
         add_course_button = gr.Button("Legg til fag", variant="primary")
@@ -105,6 +119,7 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
         group=group,
         name_text=name_text,
         responsible_list=responsible_list,
+        available_list=available_list,
         add_course_name=add_course_name,
         add_course_button=add_course_button,
         status_text=status_text,
@@ -112,12 +127,13 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
     )
 
 
-def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, str]:
-    """Create a new course from the given name, refresh the teacher course list, and return a status message."""
+def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any, Any, str]:
+    """Create a new course from the given name and refresh both teacher lists."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return (
             course_name,
             teacher_responsible_courses_update(state),
+            teacher_available_courses_update(state),
             "Ikke tillatt.",
         )
 
@@ -126,6 +142,7 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
         return (
             course_name,
             teacher_responsible_courses_update(state),
+            teacher_available_courses_update(state),
             "Sessionen er utløpt — logg inn på nytt.",
         )
 
@@ -134,6 +151,7 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
         return (
             course_name,
             teacher_responsible_courses_update(state),
+            teacher_available_courses_update(state),
             "Fyll ut fagnavnet.",
         )
 
@@ -150,12 +168,13 @@ def handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, Any
     return (
         next_input_value,
         teacher_responsible_courses_update(state),
+        teacher_available_courses_update(state),
         message,
     )
 
 
 def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> tuple[dict[str, Any], str]:
-    """Validate the selected available course and route the teacher to the course detail page."""
+    """Validate the selected student-only course and route the teacher to chat."""
     if not is_logged_in(state) or user_role(state) != "teacher":
         return clear_selected_course(state), "Ikke tillatt."
     if not isinstance(course_id, str) or not course_id.strip():
@@ -168,7 +187,18 @@ def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> 
     if not token:
         return clear_selected_course(state), "Sessionen er utløpt — logg inn på nytt."
 
-    courses, _err = _course_api.list_available_courses(token)
+    available_courses, _err = _course_api.list_available_courses(token)
+    responsible_courses, _err = _course_api.list_responsible_courses(token)
+    responsible_ids = {
+        str(item.get("id"))
+        for item in responsible_courses
+        if isinstance(item, dict) and item.get("id")
+    }
+    courses = [
+        course
+        for course in available_courses
+        if isinstance(course, dict) and str(course.get("id")) not in responsible_ids
+    ]
     course = next(
         (c for c in courses if isinstance(c, dict) and c.get("id") == course_id),
         None,
@@ -179,7 +209,7 @@ def handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> 
     return with_selected_course(
         clear_selected_course(state),
         course["id"],
-        route=ROUTE_TEACHER_COURSE,
+        route=ROUTE_CHAT,
         course_name=course.get("name", ""),
     ), ""
 

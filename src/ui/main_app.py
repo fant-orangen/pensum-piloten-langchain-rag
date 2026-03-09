@@ -26,11 +26,13 @@ from src.ui.pages import (
     handle_open_chat,
     handle_open_responsible_course,
     handle_open_student_course,
+    handle_open_teacher_course,
     handle_register,
     handle_upgrade_user,
     handle_view_as_student,
     student_course_title_text,
     student_courses_update,
+    teacher_available_courses_update,
     teacher_course_student_choices_update,
     teacher_course_students_text,
     teacher_course_title_text,
@@ -122,6 +124,7 @@ def _render_main_app(
         student_status,
         teacher_name_text(state),
         teacher_responsible_courses_update(state),
+        teacher_available_courses_update(state),
         teacher_status,
         teacher_course_title_text(state),
         teacher_course_students_text(state),
@@ -149,6 +152,11 @@ def _handle_add_student(state: dict[str, Any], student_username: str | None) -> 
 
 def _handle_open_responsible_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
     next_state, teacher_message = handle_open_responsible_course(state, course_id)
+    return _render_main_app(next_state, teacher_message=teacher_message)
+
+
+def _handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
+    next_state, teacher_message = handle_open_teacher_course(state, course_id)
     return _render_main_app(next_state, teacher_message=teacher_message)
 
 
@@ -264,6 +272,7 @@ def build_main_app() -> gr.Blocks:
             student_page.status_text,
             teacher_page.name_text,
             teacher_page.responsible_list,
+            teacher_page.available_list,
             teacher_page.status_text,
             teacher_course_page.course_title,
             teacher_course_page.students_list,
@@ -317,12 +326,18 @@ def build_main_app() -> gr.Blocks:
             inputs=[app_state, teacher_page.responsible_list],
             outputs=app_outputs,
         )
+        teacher_page.available_list.change(
+            fn=_handle_open_teacher_course,
+            inputs=[app_state, teacher_page.available_list],
+            outputs=app_outputs,
+        )
         teacher_page.add_course_button.click(
             fn=_handle_add_course,
             inputs=[app_state, teacher_page.add_course_name],
             outputs=[
                 teacher_page.add_course_name,
                 teacher_page.responsible_list,
+                teacher_page.available_list,
                 teacher_page.status_text,
             ],
         )

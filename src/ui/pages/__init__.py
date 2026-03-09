@@ -21,6 +21,8 @@ from src.ui.pages.teacher_page import (
     build_teacher_page,
     handle_add_course,
     handle_open_responsible_course,
+    handle_open_teacher_course,
+    teacher_available_courses_update,
     teacher_name_text,
     teacher_responsible_courses_update,
 )
@@ -54,6 +56,7 @@ __all__ = [
     "handle_open_chat",
     "handle_open_responsible_course",
     "handle_open_student_course",
+    "handle_open_teacher_course",
     "handle_register",
     "handle_upgrade_user",
     "handle_view_as_student",
@@ -62,6 +65,7 @@ __all__ = [
     "student_courses_update",
     "teacher_course_students_text",
     "teacher_course_title_text",
+    "teacher_available_courses_update",
     "teacher_name_text",
     "teacher_responsible_courses_update",
 ]
