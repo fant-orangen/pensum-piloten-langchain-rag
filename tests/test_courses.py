@@ -185,6 +185,16 @@ def main() -> None:
     check(body is not None and body.get("status") == "queued", "Ingestion job starts in queued status")
     ingestion_job_id = body["id"] if body else None
 
+    code, _ = post(
+        f"/courses/{course_id}/ingestions",
+        {"material_ids": []},
+        token=teacher_token,
+    )
+    check(
+        code in (201, 409),
+        "Ingestion start accepts optional material_ids payload",
+    )
+
     code, _ = post(f"/courses/{course_id}/ingestions", token=teacher_token)
     check(code in (201, 409), "Second ingestion start is allowed only if previous job already reached a terminal state")
 

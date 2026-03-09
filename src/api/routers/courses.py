@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
@@ -11,6 +11,7 @@ from src.api.models.user import User
 from src.api.schemas.course import (
     CourseCreate,
     CourseIngestionJobRead,
+    CourseIngestionStartRequest,
     CourseMaterialRead,
     CourseRead,
     EnrollmentCreate,
@@ -183,11 +184,18 @@ async def remove_course_material(
 async def start_course_ingestion(
     course_id: uuid.UUID,
     background_tasks: BackgroundTasks,
+    body: CourseIngestionStartRequest | None = Body(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseIngestionJobRead:
     """Create a queued ingestion job for a course."""
-    job = await create_course_ingestion_job(current_user, course_id, db)
+    material_ids = body.material_ids if body is not None else None
+    job = await create_course_ingestion_job(
+        current_user,
+        course_id,
+        db,
+        material_ids=material_ids,
+    )
     background_tasks.add_task(execute_course_ingestion_job, job.id)
     return CourseIngestionJobRead.model_validate(job)
 

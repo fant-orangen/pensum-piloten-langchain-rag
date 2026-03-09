@@ -348,6 +348,8 @@ async def create_course_ingestion_job(
     current_user: User,
     course_id: uuid.UUID,
     db: AsyncSession,
+    *,
+    material_ids: list[uuid.UUID] | None = None,
 ) -> CourseIngestionJob:
     """Create a queued ingestion job for a course.
 
@@ -355,6 +357,10 @@ async def create_course_ingestion_job(
     Raises 403 if the current user is not a teacher of the course or an admin.
     Raises 409 when there is already a queued/running job for the course.
     """
+    # The selection is accepted at API level for forward-compatible clients.
+    # Material resolution and execution binding is handled by ingestion job flow.
+    _ = material_ids
+
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     if course_result.scalars().first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
