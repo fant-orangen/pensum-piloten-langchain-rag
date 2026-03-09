@@ -129,6 +129,38 @@ def _reference_panel_from_history(
     return _reference_panel_from_sources(sources)
 
 
+def _selected_message_index(index: Any) -> int | None:
+    if isinstance(index, int):
+        return index
+    if isinstance(index, (tuple, list)) and index:
+        first = index[0]
+        if isinstance(first, int):
+            return first
+    return None
+
+
+def _chatbot_select_handler(
+    source_history: list[dict[str, Any]] | None,
+    evt: gr.SelectData,
+) -> tuple[list[list[str]], str]:
+    if getattr(evt, "selected", True) is False:
+        return _reference_panel_from_history(source_history)
+
+    selected_index = _selected_message_index(getattr(evt, "index", None))
+    if selected_index is None:
+        return _empty_reference_rows(), _REFERENCE_DEFAULT_STATUS
+
+    messages = list(source_history or [])
+    if selected_index < 0 or selected_index >= len(messages):
+        return _empty_reference_rows(), _REFERENCE_DEFAULT_STATUS
+
+    selected_message = messages[selected_index]
+    if selected_message.get("role") != "assistant":
+        return _empty_reference_rows(), _REFERENCE_USER_SELECTED_STATUS
+
+    return _reference_panel_from_sources(list(selected_message.get("sources") or []))
+
+
 def _open_conversation_text(title: str | None) -> str:
     """Format the label shown above the chat area for the currently open conversation."""
     return f"Åpen samtale: {title or 'Ingen'}"
@@ -872,6 +904,11 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         fn=_chat_handler,
         inputs=[message, chatbot, source_history_state, conversation_state, token_state, course_id_state],
         outputs=chat_outputs,
+    )
+    chatbot.select(
+        fn=_chatbot_select_handler,
+        inputs=[source_history_state],
+        outputs=[references_table, references_status],
     )
     conversation_selector.change(
         fn=_load_conversation_handler,
