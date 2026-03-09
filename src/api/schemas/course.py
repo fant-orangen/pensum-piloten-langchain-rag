@@ -63,3 +63,16 @@ class CourseMaterialRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CourseIngestionJobRead(BaseModel):
+    id: uuid.UUID
+    course_id: uuid.UUID
+    triggered_by_id: uuid.UUID
+    status: str
+    error_message: Optional[str]
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

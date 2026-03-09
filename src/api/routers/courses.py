@@ -10,6 +10,7 @@ from src.api.dependencies import get_current_user
 from src.api.models.user import User
 from src.api.schemas.course import (
     CourseCreate,
+    CourseIngestionJobRead,
     CourseMaterialRead,
     CourseRead,
     EnrollmentCreate,
@@ -18,6 +19,7 @@ from src.api.schemas.course import (
 )
 from src.api.services.courses import (
     create_course,
+    create_course_ingestion_job,
     delete_course,
     delete_course_material,
     enroll_user,
@@ -25,7 +27,9 @@ from src.api.services.courses import (
     get_available_courses,
     get_enrolled_courses,
     list_course_materials,
+    list_course_ingestion_jobs,
     get_responsible_courses,
+    get_course_ingestion_job,
     unenroll_user,
     upload_course_material,
 )
@@ -168,6 +172,44 @@ async def remove_course_material(
 ) -> None:
     """Delete one uploaded material from a course."""
     await delete_course_material(current_user, course_id, material_id, db)
+
+
+@router.post(
+    "/{course_id}/ingestions",
+    response_model=CourseIngestionJobRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_course_ingestion(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseIngestionJobRead:
+    """Create a queued ingestion job for a course."""
+    job = await create_course_ingestion_job(current_user, course_id, db)
+    return CourseIngestionJobRead.model_validate(job)
+
+
+@router.get("/{course_id}/ingestions", response_model=list[CourseIngestionJobRead])
+async def get_course_ingestions(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseIngestionJobRead]:
+    """Return ingestion jobs for a course."""
+    jobs = await list_course_ingestion_jobs(current_user, course_id, db)
+    return [CourseIngestionJobRead.model_validate(job) for job in jobs]
+
+
+@router.get("/{course_id}/ingestions/{job_id}", response_model=CourseIngestionJobRead)
+async def get_course_ingestion(
+    course_id: uuid.UUID,
+    job_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseIngestionJobRead:
+    """Return one ingestion job for a course."""
+    job = await get_course_ingestion_job(current_user, course_id, job_id, db)
+    return CourseIngestionJobRead.model_validate(job)
 
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

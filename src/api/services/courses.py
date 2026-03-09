@@ -15,10 +15,13 @@ from src.api.authorization import (
 )
 from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
+from src.api.models.course_ingestion_job import CourseIngestionJob
 from src.api.models.course_material import CourseMaterial
 from src.api.models.user import User
 from src.api.schemas.course import CourseCreate, EnrollmentCreate
 from src.config import get_settings
+
+_ACTIVE_INGESTION_STATUSES = ("queued", "running")
 
 
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
@@ -113,6 +116,7 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     # Remove all enrollments first to avoid FK constraint violations.
     await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
     await db.execute(sa_delete(CourseMaterial).where(CourseMaterial.course_id == course_id))
+    await db.execute(sa_delete(CourseIngestionJob).where(CourseIngestionJob.course_id == course_id))
     await db.delete(course)
     await db.commit()
 
@@ -338,3 +342,88 @@ async def delete_course_material(
 
     await db.delete(material)
     await db.commit()
+
+
+async def create_course_ingestion_job(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> CourseIngestionJob:
+    """Create a queued ingestion job for a course.
+
+    Raises 404 if the course does not exist.
+    Raises 403 if the current user is not a teacher of the course or an admin.
+    Raises 409 when there is already a queued/running job for the course.
+    """
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    active_result = await db.execute(
+        select(CourseIngestionJob).where(
+            CourseIngestionJob.course_id == course_id,
+            CourseIngestionJob.status.in_(_ACTIVE_INGESTION_STATUSES),
+        )
+    )
+    if active_result.scalars().first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An ingestion job is already running for this course.",
+        )
+
+    job = CourseIngestionJob(
+        course_id=course_id,
+        triggered_by_id=current_user.id,
+        status="queued",
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+    return job
+
+
+async def list_course_ingestion_jobs(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> list[CourseIngestionJob]:
+    """List ingestion jobs for a course, newest first."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    result = await db.execute(
+        select(CourseIngestionJob)
+        .where(CourseIngestionJob.course_id == course_id)
+        .order_by(CourseIngestionJob.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_course_ingestion_job(
+    current_user: User,
+    course_id: uuid.UUID,
+    job_id: uuid.UUID,
+    db: AsyncSession,
+) -> CourseIngestionJob:
+    """Return one ingestion job by ID for a course."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    result = await db.execute(
+        select(CourseIngestionJob).where(
+            CourseIngestionJob.id == job_id,
+            CourseIngestionJob.course_id == course_id,
+        )
+    )
+    job = result.scalars().first()
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingestion job not found.")
+    return job

@@ -159,6 +159,54 @@ def main() -> None:
     check(code == 401, "Unauthenticated list materials → 401")
 
     # ------------------------------------------------------------------
+    section("POST/GET /courses/{course_id}/ingestions")
+    # ------------------------------------------------------------------
+
+    code, body = post(f"/courses/{course_id}/ingestions", token=teacher_token)
+    check(code == 201, "Teacher starts ingestion job → 201")
+    check(body is not None and body.get("status") == "queued", "Ingestion job starts in queued status")
+    ingestion_job_id = body["id"] if body else None
+
+    code, _ = post(f"/courses/{course_id}/ingestions", token=teacher_token)
+    check(code == 409, "Second active ingestion job for same course → 409")
+
+    code, body = get(f"/courses/{course_id}/ingestions", token=teacher_token)
+    check(code == 200, "Teacher lists ingestion jobs → 200")
+    check(
+        isinstance(body, list) and any(item.get("id") == ingestion_job_id for item in body),
+        "Teacher sees created ingestion job in list",
+    )
+
+    code, body = get(f"/courses/{course_id}/ingestions", token=admin_token)
+    check(code == 200, "Admin lists ingestion jobs → 200")
+    check(isinstance(body, list), "Admin receives ingestion job list")
+
+    code, body = get(f"/courses/{course_id}/ingestions/{ingestion_job_id}", token=teacher_token)
+    check(code == 200, "Teacher gets ingestion job by id → 200")
+    check(body is not None and body.get("id") == ingestion_job_id, "Teacher gets the correct ingestion job")
+
+    code, _ = get(f"/courses/{course_id}/ingestions/{ingestion_job_id}", token=student_token)
+    check(code == 403, "Student gets ingestion job → 403")
+
+    code, _ = post(f"/courses/{course_id}/ingestions", token=student_token)
+    check(code == 403, "Student starts ingestion job → 403")
+
+    code, _ = get(f"/courses/{str(uuid.uuid4())}/ingestions", token=teacher_token)
+    check(code == 404, "List ingestion jobs for nonexistent course → 404")
+
+    code, _ = get(
+        f"/courses/{course_id}/ingestions/{str(uuid.uuid4())}",
+        token=teacher_token,
+    )
+    check(code == 404, "Get nonexistent ingestion job → 404")
+
+    code, _ = post(f"/courses/{str(uuid.uuid4())}/ingestions", token=teacher_token)
+    check(code == 404, "Start ingestion for nonexistent course → 404")
+
+    code, _ = get(f"/courses/{course_id}/ingestions")
+    check(code == 401, "Unauthenticated list ingestion jobs → 401")
+
+    # ------------------------------------------------------------------
     section("POST /courses/{course_id}/enrollments")
     # ------------------------------------------------------------------
 
