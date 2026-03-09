@@ -24,6 +24,81 @@ from src.config import get_settings
 _ACTIVE_INGESTION_STATUSES = ("queued", "running")
 
 
+def _dedupe_material_ids(material_ids: list[uuid.UUID] | None) -> list[uuid.UUID]:
+    if not material_ids:
+        return []
+    seen: set[uuid.UUID] = set()
+    ordered: list[uuid.UUID] = []
+    for material_id in material_ids:
+        if material_id in seen:
+            continue
+        seen.add(material_id)
+        ordered.append(material_id)
+    return ordered
+
+
+async def _resolve_ingestion_materials(
+    course_id: uuid.UUID,
+    db: AsyncSession,
+    *,
+    material_ids: list[uuid.UUID] | None,
+) -> list[CourseMaterial]:
+    selected_ids = _dedupe_material_ids(material_ids)
+    if selected_ids:
+        selected_result = await db.execute(
+            select(CourseMaterial).where(
+                CourseMaterial.course_id == course_id,
+                CourseMaterial.id.in_(selected_ids),
+            )
+        )
+        selected_materials = list(selected_result.scalars().all())
+        selected_by_id = {item.id: item for item in selected_materials}
+        missing_ids = [item for item in selected_ids if item not in selected_by_id]
+        if missing_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="One or more selected materials were not found for this course.",
+            )
+        ordered_selected = [selected_by_id[item] for item in selected_ids]
+    else:
+        all_result = await db.execute(
+            select(CourseMaterial)
+            .where(CourseMaterial.course_id == course_id)
+            .order_by(CourseMaterial.created_at.asc())
+        )
+        ordered_selected = list(all_result.scalars().all())
+
+    if not ordered_selected:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No uploaded materials found for this course.",
+        )
+
+    readable_materials: list[CourseMaterial] = []
+    unreadable_ids: list[uuid.UUID] = []
+    for material in ordered_selected:
+        try:
+            path = Path(material.storage_path)
+            if path.exists() and path.is_file() and path.stat().st_size > 0:
+                readable_materials.append(material)
+            else:
+                unreadable_ids.append(material.id)
+        except OSError:
+            unreadable_ids.append(material.id)
+
+    if selected_ids and unreadable_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more selected materials are missing or unreadable on disk.",
+        )
+    if not readable_materials:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No readable material files found for ingestion.",
+        )
+    return readable_materials
+
+
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
     """Return all courses the given user is enrolled in."""
     result = await db.execute(
@@ -350,17 +425,13 @@ async def create_course_ingestion_job(
     db: AsyncSession,
     *,
     material_ids: list[uuid.UUID] | None = None,
-) -> CourseIngestionJob:
+) -> tuple[CourseIngestionJob, list[uuid.UUID]]:
     """Create a queued ingestion job for a course.
 
     Raises 404 if the course does not exist.
     Raises 403 if the current user is not a teacher of the course or an admin.
     Raises 409 when there is already a queued/running job for the course.
     """
-    # The selection is accepted at API level for forward-compatible clients.
-    # Material resolution and execution binding is handled by ingestion job flow.
-    _ = material_ids
-
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     if course_result.scalars().first() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -379,6 +450,12 @@ async def create_course_ingestion_job(
             detail="An ingestion job is already running for this course.",
         )
 
+    selected_materials = await _resolve_ingestion_materials(
+        course_id,
+        db,
+        material_ids=material_ids,
+    )
+
     job = CourseIngestionJob(
         course_id=course_id,
         triggered_by_id=current_user.id,
@@ -387,7 +464,7 @@ async def create_course_ingestion_job(
     db.add(job)
     await db.commit()
     await db.refresh(job)
-    return job
+    return job, [item.id for item in selected_materials]
 
 
 async def list_course_ingestion_jobs(

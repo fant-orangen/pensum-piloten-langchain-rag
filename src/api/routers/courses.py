@@ -190,7 +190,7 @@ async def start_course_ingestion(
 ) -> CourseIngestionJobRead:
     """Create a queued ingestion job for a course."""
     material_ids = body.material_ids if body is not None else None
-    job = await create_course_ingestion_job(
+    job, _selected_material_ids = await create_course_ingestion_job(
         current_user,
         course_id,
         db,
