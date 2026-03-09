@@ -179,7 +179,7 @@ def _handle_refresh_materials(state: dict[str, Any]) -> tuple[Any]:
 def _handle_start_ingestion(
     state: dict[str, Any],
     selected_material_ids: list[str] | None,
-) -> tuple[str, str]:
+) -> tuple[Any, str, str]:
     return handle_start_ingestion(state, selected_material_ids)
 
 
@@ -422,6 +422,7 @@ def build_main_app() -> gr.Blocks:
             fn=_handle_start_ingestion,
             inputs=[app_state, teacher_course_page.materials_list],
             outputs=[
+                teacher_course_page.materials_list,
                 teacher_course_page.ingestion_status,
                 teacher_course_page.status_text,
             ],

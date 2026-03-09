@@ -89,7 +89,8 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
             type="filepath",
         )
         upload_button = gr.Button("Last opp filer", variant="primary")
-        gr.Markdown("Velg ett eller flere materialer under for sletting eller ingestering.")
+        gr.Markdown("Velg ett eller flere materialer under for sletting.")
+        gr.Markdown("Ingestering starter for alle stagede endringer i kurset.")
         materials_list = gr.CheckboxGroup(
             choices=[],
             value=[],
@@ -339,23 +340,22 @@ def handle_delete_material(
 
 def handle_start_ingestion(
     state: dict[str, Any],
-    selected_material_ids: list[str] | None,
-) -> tuple[str, str]:
+    _selected_material_ids: list[str] | None,
+) -> tuple[Any, str, str]:
     course_id = _current_course_id(state)
     if not course_id:
-        return teacher_course_ingestion_status_text(state), "Fant ikke faget."
+        return gr.update(value=[]), teacher_course_ingestion_status_text(state), "Fant ikke faget."
 
     token = auth_token(state)
     if not token:
-        return teacher_course_ingestion_status_text(state), "Sessionen er utløpt — logg inn på nytt."
+        return (
+            gr.update(value=[]),
+            teacher_course_ingestion_status_text(state),
+            "Sessionen er utløpt — logg inn på nytt.",
+        )
 
-    selected_ids = [item.strip() for item in (selected_material_ids or []) if item and item.strip()]
-    success, message, _job = _course_api.start_ingestion(
-        token,
-        course_id,
-        material_ids=selected_ids or None,
-    )
-    return teacher_course_ingestion_status_text(state), message if success else message
+    success, message, _job = _course_api.start_ingestion(token, course_id)
+    return gr.update(value=[]), teacher_course_ingestion_status_text(state), message if success else message
 
 
 def handle_refresh_ingestion(state: dict[str, Any]) -> tuple[str, str]:

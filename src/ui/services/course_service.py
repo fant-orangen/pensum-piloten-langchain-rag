@@ -314,7 +314,10 @@ def start_ingestion(
     *,
     material_ids: list[str] | None = None,
 ) -> tuple[bool, str, dict[str, Any] | None]:
-    """Queue a new ingestion job for a course."""
+    """Queue a new ingestion job for a course.
+
+    Note: current backend applies all staged changes and ignores material_ids.
+    """
     try:
         data = post(f"/courses/{course_id}/documents/confirm", token=token)
     except ApiUnauthorizedError:
@@ -332,9 +335,8 @@ def start_ingestion(
 
     if not isinstance(data, dict):
         return False, "Uventet svar fra serveren.", None
-    if material_ids:
-        return True, "Endringer bekreftet. Oppdatering av kursmateriale er startet.", data
-    return True, "Oppdatering av kursmateriale er startet.", data
+    _ = material_ids
+    return True, "Ingestering av stagede materialendringer er startet.", data
 
 
 def list_ingestions(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:
