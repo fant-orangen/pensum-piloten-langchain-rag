@@ -1,6 +1,7 @@
 """Course business logic and database queries."""
 
 import uuid
+from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete as sa_delete, select
@@ -14,8 +15,10 @@ from src.api.authorization import (
 )
 from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
+from src.api.models.course_material import CourseMaterial
 from src.api.models.user import User
 from src.api.schemas.course import CourseCreate, EnrollmentCreate
+from src.config import get_settings
 
 
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
@@ -97,8 +100,19 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
 
     require_course_owner_or_admin(current_user, course.created_by_id)
 
+    materials_result = await db.execute(select(CourseMaterial).where(CourseMaterial.course_id == course_id))
+    materials = list(materials_result.scalars().all())
+    for material in materials:
+        try:
+            path = Path(material.storage_path)
+            if path.exists():
+                path.unlink()
+        except Exception:
+            pass
+
     # Remove all enrollments first to avoid FK constraint violations.
     await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
+    await db.execute(sa_delete(CourseMaterial).where(CourseMaterial.course_id == course_id))
     await db.delete(course)
     await db.commit()
 
@@ -210,3 +224,117 @@ async def get_course_enrollments(
         .order_by(User.email)
     )
     return list(result.all())
+
+
+async def upload_course_material(
+    current_user: User,
+    course_id: uuid.UUID,
+    *,
+    filename: str,
+    content: bytes,
+    mime_type: str | None,
+    db: AsyncSession,
+) -> CourseMaterial:
+    """Store one uploaded file as course material.
+
+    Raises 404 if the course does not exist.
+    Raises 403 if the current user is not a teacher of the course or an admin.
+    Raises 400 if the upload is empty or the filename is invalid.
+    """
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    clean_name = Path(filename or "").name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing filename.")
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty.")
+
+    settings = get_settings()
+    materials_dir = Path(settings.course_materials_dir) / str(course_id)
+    materials_dir.mkdir(parents=True, exist_ok=True)
+
+    material_id = uuid.uuid4()
+    suffix = Path(clean_name).suffix
+    stored_path = materials_dir / f"{material_id}{suffix}"
+    stored_path.write_bytes(content)
+
+    material = CourseMaterial(
+        id=material_id,
+        course_id=course_id,
+        uploaded_by_id=current_user.id,
+        original_filename=clean_name,
+        storage_path=str(stored_path),
+        mime_type=mime_type or None,
+        size_bytes=len(content),
+    )
+    db.add(material)
+    await db.commit()
+    await db.refresh(material)
+    return material
+
+
+async def list_course_materials(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> list[CourseMaterial]:
+    """Return all materials for a course.
+
+    Raises 404 if the course does not exist.
+    Raises 403 if the current user is not a teacher of the course or an admin.
+    """
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    result = await db.execute(
+        select(CourseMaterial)
+        .where(CourseMaterial.course_id == course_id)
+        .order_by(CourseMaterial.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def delete_course_material(
+    current_user: User,
+    course_id: uuid.UUID,
+    material_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """Delete one course material and its stored file.
+
+    Raises 404 if the course or material does not exist.
+    Raises 403 if the current user is not a teacher of the course or an admin.
+    """
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    material_result = await db.execute(
+        select(CourseMaterial).where(
+            CourseMaterial.id == material_id,
+            CourseMaterial.course_id == course_id,
+        )
+    )
+    material = material_result.scalars().first()
+    if material is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
+
+    try:
+        path = Path(material.storage_path)
+        if path.exists():
+            path.unlink()
+    except Exception:
+        # Best effort file cleanup; database state remains source of truth.
+        pass
+
+    await db.delete(material)
+    await db.commit()

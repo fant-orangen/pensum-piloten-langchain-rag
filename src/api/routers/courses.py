@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
@@ -10,6 +10,7 @@ from src.api.dependencies import get_current_user
 from src.api.models.user import User
 from src.api.schemas.course import (
     CourseCreate,
+    CourseMaterialRead,
     CourseRead,
     EnrollmentCreate,
     EnrollmentRead,
@@ -18,12 +19,15 @@ from src.api.schemas.course import (
 from src.api.services.courses import (
     create_course,
     delete_course,
+    delete_course_material,
     enroll_user,
     get_course_enrollments,
     get_available_courses,
     get_enrolled_courses,
+    list_course_materials,
     get_responsible_courses,
     unenroll_user,
+    upload_course_material,
 )
 
 router = APIRouter(prefix="/courses", tags=["courses"])
@@ -118,6 +122,52 @@ async def list_enrollments(
         )
         for enrollment, user in rows
     ]
+
+
+@router.post(
+    "/{course_id}/materials",
+    response_model=CourseMaterialRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_course_material(
+    course_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseMaterialRead:
+    """Upload one material file for a course."""
+    content = await file.read()
+    material = await upload_course_material(
+        current_user,
+        course_id,
+        filename=file.filename or "",
+        content=content,
+        mime_type=file.content_type,
+        db=db,
+    )
+    return CourseMaterialRead.model_validate(material)
+
+
+@router.get("/{course_id}/materials", response_model=list[CourseMaterialRead])
+async def get_course_materials(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseMaterialRead]:
+    """Return all uploaded materials for a course."""
+    materials = await list_course_materials(current_user, course_id, db)
+    return [CourseMaterialRead.model_validate(item) for item in materials]
+
+
+@router.delete("/{course_id}/materials/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_course_material(
+    course_id: uuid.UUID,
+    material_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete one uploaded material from a course."""
+    await delete_course_material(current_user, course_id, material_id, db)
 
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

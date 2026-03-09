@@ -11,7 +11,7 @@ import os
 import uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from tests.http_client import RUN_ID, check, delete, get, login, post, section, summarise
+from tests.http_client import RUN_ID, check, delete, get, login, post, post_multipart, section, summarise
 
 TEACHER_EMAIL = "teacher@test.com"
 TEACHER_PASSWORD = "password123"
@@ -101,10 +101,66 @@ def main() -> None:
     check(code == 409, "Duplicate course code → 409")
 
     # ------------------------------------------------------------------
-    section("POST /courses/{course_id}/enrollments")
+    section("POST/GET/DELETE /courses/{course_id}/materials")
     # ------------------------------------------------------------------
 
     course_id = course["id"]
+    material_content = b"Course notes for integration test."
+    code, body = post_multipart(
+        f"/courses/{course_id}/materials",
+        files=[("file", "notes.txt", material_content, "text/plain")],
+        token=teacher_token,
+    )
+    check(code == 201, "Teacher uploads material → 201")
+    check(body is not None and body.get("original_filename") == "notes.txt", "Upload returns file metadata")
+    material_id = body["id"] if body else None
+
+    code, body = get(f"/courses/{course_id}/materials", token=teacher_token)
+    check(code == 200, "Teacher lists materials → 200")
+    check(
+        isinstance(body, list) and any(item.get("id") == material_id for item in body),
+        "Uploaded material appears in teacher listing",
+    )
+
+    code, body = get(f"/courses/{course_id}/materials", token=admin_token)
+    check(code == 200, "Admin lists materials → 200")
+    check(isinstance(body, list), "Admin receives materials list")
+
+    code, _ = post_multipart(
+        f"/courses/{course_id}/materials",
+        files=[("file", "blocked.txt", b"forbidden", "text/plain")],
+        token=student_token,
+    )
+    check(code == 403, "Student uploads material → 403")
+
+    code, _ = get(f"/courses/{course_id}/materials", token=student_token)
+    check(code == 403, "Student lists materials → 403")
+
+    code, _ = delete(f"/courses/{course_id}/materials/{material_id}", token=student_token)
+    check(code == 403, "Student deletes material → 403")
+
+    code, _ = delete(f"/courses/{course_id}/materials/{material_id}", token=teacher_token)
+    check(code == 204, "Teacher deletes material → 204")
+
+    code, _ = delete(f"/courses/{course_id}/materials/{material_id}", token=teacher_token)
+    check(code == 404, "Delete already-deleted material → 404")
+
+    code, _ = get(f"/courses/{str(uuid.uuid4())}/materials", token=teacher_token)
+    check(code == 404, "List materials for nonexistent course → 404")
+
+    code, _ = post_multipart(
+        f"/courses/{str(uuid.uuid4())}/materials",
+        files=[("file", "missing-course.txt", b"x", "text/plain")],
+        token=teacher_token,
+    )
+    check(code == 404, "Upload material to nonexistent course → 404")
+
+    code, _ = get(f"/courses/{course_id}/materials")
+    check(code == 401, "Unauthenticated list materials → 401")
+
+    # ------------------------------------------------------------------
+    section("POST /courses/{course_id}/enrollments")
+    # ------------------------------------------------------------------
 
     # Register a fresh user as enrollment target.
     enroll_email = f"enroll_{RUN_ID}@example.com"

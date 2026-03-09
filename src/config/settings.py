@@ -70,6 +70,7 @@ class Settings(BaseSettings):
 
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
+    course_materials_dir: str = str(PROJECT_ROOT / "data" / "course_materials")
 
     # --- Ingestion filtering ---
     toc_line_threshold: float = 0.5 # If more than 50% of the lines in a document match the TOC line pattern, the document is removed.

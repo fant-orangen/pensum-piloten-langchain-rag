@@ -1,6 +1,7 @@
 """Schemas for course endpoints."""
 
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -50,3 +51,15 @@ class EnrollmentWithUserRead(BaseModel):
     course_id: uuid.UUID
     role: str
     user: EnrollmentUserRead
+
+
+class CourseMaterialRead(BaseModel):
+    id: uuid.UUID
+    course_id: uuid.UUID
+    uploaded_by_id: uuid.UUID
+    original_filename: str
+    mime_type: Optional[str]
+    size_bytes: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
