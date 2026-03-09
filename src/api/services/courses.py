@@ -1,7 +1,6 @@
 """Course business logic and database queries."""
 
 import uuid
-from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete as sa_delete, select
@@ -13,90 +12,17 @@ from src.api.authorization import (
     require_teacher_or_admin,
     require_unenroll_permission,
 )
+from src.api.models.conversation import Conversation
 from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
-from src.api.models.course_ingestion_job import CourseIngestionJob
-from src.api.models.course_material import CourseMaterial
+from src.api.models.message import Message
 from src.api.models.user import User
-from src.api.schemas.course import CourseCreate, EnrollmentCreate
-from src.config import get_settings
-
-_ACTIVE_INGESTION_STATUSES = ("queued", "running")
-
-
-def _dedupe_material_ids(material_ids: list[uuid.UUID] | None) -> list[uuid.UUID]:
-    if not material_ids:
-        return []
-    seen: set[uuid.UUID] = set()
-    ordered: list[uuid.UUID] = []
-    for material_id in material_ids:
-        if material_id in seen:
-            continue
-        seen.add(material_id)
-        ordered.append(material_id)
-    return ordered
-
-
-async def _resolve_ingestion_materials(
-    course_id: uuid.UUID,
-    db: AsyncSession,
-    *,
-    material_ids: list[uuid.UUID] | None,
-) -> list[CourseMaterial]:
-    selected_ids = _dedupe_material_ids(material_ids)
-    if selected_ids:
-        selected_result = await db.execute(
-            select(CourseMaterial).where(
-                CourseMaterial.course_id == course_id,
-                CourseMaterial.id.in_(selected_ids),
-            )
-        )
-        selected_materials = list(selected_result.scalars().all())
-        selected_by_id = {item.id: item for item in selected_materials}
-        missing_ids = [item for item in selected_ids if item not in selected_by_id]
-        if missing_ids:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="One or more selected materials were not found for this course.",
-            )
-        ordered_selected = [selected_by_id[item] for item in selected_ids]
-    else:
-        all_result = await db.execute(
-            select(CourseMaterial)
-            .where(CourseMaterial.course_id == course_id)
-            .order_by(CourseMaterial.created_at.asc())
-        )
-        ordered_selected = list(all_result.scalars().all())
-
-    if not ordered_selected:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No uploaded materials found for this course.",
-        )
-
-    readable_materials: list[CourseMaterial] = []
-    unreadable_ids: list[uuid.UUID] = []
-    for material in ordered_selected:
-        try:
-            path = Path(material.storage_path)
-            if path.exists() and path.is_file() and path.stat().st_size > 0:
-                readable_materials.append(material)
-            else:
-                unreadable_ids.append(material.id)
-        except OSError:
-            unreadable_ids.append(material.id)
-
-    if selected_ids and unreadable_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="One or more selected materials are missing or unreadable on disk.",
-        )
-    if not readable_materials:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No readable material files found for ingestion.",
-        )
-    return readable_materials
+from src.api.services.course_documents import (
+    COURSE_REBUILD_BUILDING,
+    COURSE_REBUILD_QUEUED,
+    purge_course_materials,
+)
+from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
 
 
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
@@ -149,6 +75,7 @@ async def create_course(current_user: User, body: CourseCreate, db: AsyncSession
         documents_dir=body.documents_dir,
         description=body.description,
         rag_mode=body.rag_mode,
+        course_specific_instructions=body.course_specific_instructions,
         created_by_id=current_user.id,
     )
     db.add(course)
@@ -177,23 +104,51 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
     require_course_owner_or_admin(current_user, course.created_by_id)
+    if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete a course while its materials are rebuilding.",
+        )
 
-    materials_result = await db.execute(select(CourseMaterial).where(CourseMaterial.course_id == course_id))
-    materials = list(materials_result.scalars().all())
-    for material in materials:
-        try:
-            path = Path(material.storage_path)
-            if path.exists():
-                path.unlink()
-        except Exception:
-            pass
+    conversation_ids = (
+        select(Conversation.id)
+        .where(Conversation.course_id == course_id)
+        .scalar_subquery()
+    )
 
-    # Remove all enrollments first to avoid FK constraint violations.
+    # Remove dependent rows in FK-safe order before deleting the course itself.
+    await db.execute(sa_delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+    await db.execute(sa_delete(Conversation).where(Conversation.course_id == course_id))
+    await purge_course_materials(course, db)
     await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
-    await db.execute(sa_delete(CourseMaterial).where(CourseMaterial.course_id == course_id))
-    await db.execute(sa_delete(CourseIngestionJob).where(CourseIngestionJob.course_id == course_id))
     await db.delete(course)
     await db.commit()
+
+
+async def update_course_specific_instructions(
+    current_user: User,
+    course_id: uuid.UUID,
+    body: CourseInstructionsUpdate,
+    db: AsyncSession,
+) -> Course:
+    """Update teacher-authored prompt instructions for a course."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    course = course_result.scalars().first()
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    cleaned_instructions = (
+        body.course_specific_instructions.strip()
+        if body.course_specific_instructions is not None
+        else None
+    )
+    course.course_specific_instructions = cleaned_instructions or None
+    db.add(course)
+    await db.commit()
+    await db.refresh(course)
+    return course
 
 
 async def enroll_user(
@@ -278,235 +233,3 @@ async def unenroll_user(
 
     await db.delete(enrollment)
     await db.commit()
-
-
-async def get_course_enrollments(
-    current_user: User,
-    course_id: uuid.UUID,
-    db: AsyncSession,
-) -> list[tuple[CourseEnrollment, User]]:
-    """Return all enrollments for a course with basic user details.
-
-    Raises 404 if the course does not exist.
-    Raises 403 if the current user is not a teacher of the course or an admin.
-    """
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-
-    await require_course_teacher_or_admin(current_user, course_id, db)
-
-    result = await db.execute(
-        select(CourseEnrollment, User)
-        .join(User, User.id == CourseEnrollment.user_id)
-        .where(CourseEnrollment.course_id == course_id)
-        .order_by(User.email)
-    )
-    return list(result.all())
-
-
-async def upload_course_material(
-    current_user: User,
-    course_id: uuid.UUID,
-    *,
-    filename: str,
-    content: bytes,
-    mime_type: str | None,
-    db: AsyncSession,
-) -> CourseMaterial:
-    """Store one uploaded file as course material.
-
-    Raises 404 if the course does not exist.
-    Raises 403 if the current user is not a teacher of the course or an admin.
-    Raises 400 if the upload is empty or the filename is invalid.
-    """
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-
-    await require_course_teacher_or_admin(current_user, course_id, db)
-
-    clean_name = Path(filename or "").name.strip()
-    if not clean_name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing filename.")
-    if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty.")
-
-    settings = get_settings()
-    materials_dir = Path(settings.course_materials_dir) / str(course_id)
-    materials_dir.mkdir(parents=True, exist_ok=True)
-
-    material_id = uuid.uuid4()
-    suffix = Path(clean_name).suffix
-    stored_path = materials_dir / f"{material_id}{suffix}"
-    stored_path.write_bytes(content)
-
-    material = CourseMaterial(
-        id=material_id,
-        course_id=course_id,
-        uploaded_by_id=current_user.id,
-        original_filename=clean_name,
-        storage_path=str(stored_path),
-        mime_type=mime_type or None,
-        size_bytes=len(content),
-    )
-    db.add(material)
-    await db.commit()
-    await db.refresh(material)
-    return material
-
-
-async def list_course_materials(
-    current_user: User,
-    course_id: uuid.UUID,
-    db: AsyncSession,
-) -> list[CourseMaterial]:
-    """Return all materials for a course.
-
-    Raises 404 if the course does not exist.
-    Raises 403 if the current user is not a teacher of the course or an admin.
-    """
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-
-    await require_course_teacher_or_admin(current_user, course_id, db)
-
-    result = await db.execute(
-        select(CourseMaterial)
-        .where(CourseMaterial.course_id == course_id)
-        .order_by(CourseMaterial.created_at.desc())
-    )
-    return list(result.scalars().all())
-
-
-async def delete_course_material(
-    current_user: User,
-    course_id: uuid.UUID,
-    material_id: uuid.UUID,
-    db: AsyncSession,
-) -> None:
-    """Delete one course material and its stored file.
-
-    Raises 404 if the course or material does not exist.
-    Raises 403 if the current user is not a teacher of the course or an admin.
-    """
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-
-    await require_course_teacher_or_admin(current_user, course_id, db)
-
-    material_result = await db.execute(
-        select(CourseMaterial).where(
-            CourseMaterial.id == material_id,
-            CourseMaterial.course_id == course_id,
-        )
-    )
-    material = material_result.scalars().first()
-    if material is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
-
-    try:
-        path = Path(material.storage_path)
-        if path.exists():
-            path.unlink()
-    except Exception:
-        # Best effort file cleanup; database state remains source of truth.
-        pass
-
-    await db.delete(material)
-    await db.commit()
-
-
-async def create_course_ingestion_job(
-    current_user: User,
-    course_id: uuid.UUID,
-    db: AsyncSession,
-    *,
-    material_ids: list[uuid.UUID] | None = None,
-) -> tuple[CourseIngestionJob, list[uuid.UUID]]:
-    """Create a queued ingestion job for a course.
-
-    Raises 404 if the course does not exist.
-    Raises 403 if the current user is not a teacher of the course or an admin.
-    Raises 409 when there is already a queued/running job for the course.
-    """
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-
-    await require_course_teacher_or_admin(current_user, course_id, db)
-
-    active_result = await db.execute(
-        select(CourseIngestionJob).where(
-            CourseIngestionJob.course_id == course_id,
-            CourseIngestionJob.status.in_(_ACTIVE_INGESTION_STATUSES),
-        )
-    )
-    if active_result.scalars().first() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An ingestion job is already running for this course.",
-        )
-
-    selected_materials = await _resolve_ingestion_materials(
-        course_id,
-        db,
-        material_ids=material_ids,
-    )
-
-    job = CourseIngestionJob(
-        course_id=course_id,
-        triggered_by_id=current_user.id,
-        status="queued",
-    )
-    db.add(job)
-    await db.commit()
-    await db.refresh(job)
-    return job, [item.id for item in selected_materials]
-
-
-async def list_course_ingestion_jobs(
-    current_user: User,
-    course_id: uuid.UUID,
-    db: AsyncSession,
-) -> list[CourseIngestionJob]:
-    """List ingestion jobs for a course, newest first."""
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-
-    await require_course_teacher_or_admin(current_user, course_id, db)
-
-    result = await db.execute(
-        select(CourseIngestionJob)
-        .where(CourseIngestionJob.course_id == course_id)
-        .order_by(CourseIngestionJob.created_at.desc())
-    )
-    return list(result.scalars().all())
-
-
-async def get_course_ingestion_job(
-    current_user: User,
-    course_id: uuid.UUID,
-    job_id: uuid.UUID,
-    db: AsyncSession,
-) -> CourseIngestionJob:
-    """Return one ingestion job by ID for a course."""
-    course_result = await db.execute(select(Course).where(Course.id == course_id))
-    if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-
-    await require_course_teacher_or_admin(current_user, course_id, db)
-
-    result = await db.execute(
-        select(CourseIngestionJob).where(
-            CourseIngestionJob.id == job_id,
-            CourseIngestionJob.course_id == course_id,
-        )
-    )
-    job = result.scalars().first()
-    if job is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingestion job not found.")
-    return job

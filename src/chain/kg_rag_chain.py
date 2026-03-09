@@ -12,7 +12,10 @@ from src.chain.rag_chain import _format_docs
 from src.kg.retriever import get_kg_retriever
 from src.models import get_llm
 from src.prompts import build_tutor_prompt
-from src.prompts.templates import resolve_system_prompt_mode
+from src.prompts.templates import (
+    format_course_specific_instructions,
+    resolve_system_prompt_mode,
+)
 
 from src.config import get_settings
 
@@ -21,8 +24,7 @@ logger = structlog.get_logger(__name__)
 
 def build_kg_rag_chain(
     chroma_collection: str | None = None,
-    *,
-    course_scope: str | None = None,
+    graph_scope: str | None = None,
 ):
     """Construct and return the KG-guided Socratic-tutor RAG chain.
 
@@ -35,7 +37,7 @@ def build_kg_rag_chain(
     """
     retriever = get_kg_retriever(
         collection_name=chroma_collection,
-        course_scope=course_scope or chroma_collection,
+        graph_scope=graph_scope,
     )
     prompt = build_tutor_prompt()
     settings = get_settings()
@@ -50,6 +52,11 @@ def build_kg_rag_chain(
             chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
             mode=RunnableLambda(
                 lambda x: resolve_system_prompt_mode(x.get("system_prompt_mode"))
+            ),
+            course_specific_instructions=RunnableLambda(
+                lambda x: format_course_specific_instructions(
+                    x.get("course_specific_instructions")
+                )
             ),
         )
         | prompt

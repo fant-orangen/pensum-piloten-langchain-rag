@@ -54,7 +54,70 @@ async def create_tables() -> None:
                 "ADD COLUMN IF NOT EXISTS system_prompt_mode INTEGER NOT NULL DEFAULT 1"
             )
         )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS course_specific_instructions TEXT"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS index_version INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS rebuild_status VARCHAR NOT NULL DEFAULT 'idle'"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS rebuild_error TEXT"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ALTER COLUMN chroma_collection DROP NOT NULL"
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_name = 'course'
+                          AND column_name = 'system_prompt_addon'
+                    ) THEN
+                        UPDATE course
+                        SET course_specific_instructions = system_prompt_addon
+                        WHERE course_specific_instructions IS NULL;
+                    END IF;
+                END $$;
+                """
+            )
+        )
+        # TODO: restore this uniqueness constraint once each course has its own
+        # provisioned Chroma collection instead of sharing one for test setup.
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "DROP CONSTRAINT IF EXISTS course_chroma_collection_key"
+            )
+        )
     logger.info("database_tables_created")
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the configured async session factory."""
+    assert _session_factory is not None, "Call init_engine() before requesting sessions"
+    return _session_factory
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
