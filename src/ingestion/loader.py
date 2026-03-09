@@ -5,6 +5,7 @@ from pathlib import Path
 import structlog
 from langchain_core.documents import Document
 from langchain_community.document_loaders import (
+    BSHTMLLoader,
     PyPDFLoader,
     Docx2txtLoader,
     TextLoader,
@@ -16,11 +17,50 @@ from src.ingestion.filter import remove_table_of_contents
 logger = structlog.get_logger(__name__)
 
 # Map file extensions to the LangChain loader class that can handle them.
+_TEXT_EXTENSIONS = {
+    ".txt",
+    ".md",
+    ".rst",
+    ".csv",
+    ".tsv",
+    ".json",
+    ".jsonl",
+    ".yaml",
+    ".yml",
+    ".xml",
+    ".sql",
+    ".py",
+    ".java",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".go",
+    ".rs",
+    ".kt",
+    ".swift",
+    ".php",
+    ".rb",
+    ".sh",
+    ".css",
+    ".scss",
+    ".sass",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".toml",
+    ".log",
+}
 _LOADER_MAP: dict[str, type] = {
     ".pdf": PyPDFLoader,
     ".docx": Docx2txtLoader,
-    ".txt": TextLoader,
-    ".md": TextLoader,
+    ".html": BSHTMLLoader,
+    ".htm": BSHTMLLoader,
+    **{ext: TextLoader for ext in sorted(_TEXT_EXTENSIONS)},
 }
 
 def load_single_file(file_path: Path) -> list[Document]:
