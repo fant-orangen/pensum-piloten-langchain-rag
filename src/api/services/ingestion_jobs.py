@@ -55,6 +55,7 @@ async def execute_course_ingestion_job(job_id: uuid.UUID) -> None:
             run_kg_ingestion_pipeline,
             documents_dir=documents_dir,
             collection_name=collection_name,
+            course_scope=collection_name,
         )
     except Exception as exc:
         logger.exception("ingestion_job_failed", job_id=str(job_id))

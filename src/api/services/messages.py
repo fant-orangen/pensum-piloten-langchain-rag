@@ -25,7 +25,8 @@ _chain_cache: dict[str, Any] = {}
 def _get_chain(chroma_collection: str) -> Any:
     if chroma_collection not in _chain_cache:
         _chain_cache[chroma_collection] = build_kg_rag_chain(
-            chroma_collection=chroma_collection
+            chroma_collection=chroma_collection,
+            course_scope=chroma_collection,
         )
     return _chain_cache[chroma_collection]
 

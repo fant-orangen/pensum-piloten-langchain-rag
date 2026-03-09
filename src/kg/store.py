@@ -39,13 +39,24 @@ class KGStore:
             session.run("MATCH (n) DETACH DELETE n")
         logger.info("neo4j_cleared")
 
+    def clear_course(self, course_scope: str) -> None:
+        """Remove only relationships belonging to one course scope."""
+        with self._driver.session() as session:
+            session.run(
+                "MATCH ()-[r:RELATED_TO {course_scope: $course_scope}]->() DELETE r",
+                course_scope=course_scope,
+            )
+            # Remove entity nodes left without any relationships.
+            session.run("MATCH (e:Entity) WHERE NOT (e)--() DELETE e")
+        logger.info("neo4j_course_cleared", course_scope=course_scope)
+
     def _create_indexes(self) -> None:
         with self._driver.session() as session:
             session.run(
                 "CREATE INDEX IF NOT EXISTS FOR (e:Entity) ON (e.name)"
             )
 
-    def build_kg(self, triplets: list[Triplet]) -> None:
+    def build_kg(self, triplets: list[Triplet], *, course_scope: str | None = None) -> None:
         """Populate the knowledge graph from extracted triplets.
 
         Each triplet becomes one RELATED_TO edge between two Entity nodes.
@@ -53,7 +64,8 @@ class KGStore:
         with CREATE so that multiple edges between the same entity pair
         (from different source chunks) are all preserved.
         """
-        self.clear()
+        scope = course_scope or "default"
+        self.clear_course(scope)
         self._create_indexes()
 
         with self._driver.session() as session:
@@ -63,12 +75,17 @@ class KGStore:
                     MERGE (h:Entity {name: $head})
                     MERGE (t:Entity {name: $tail})
                     WITH h, t
-                    CREATE (h)-[:RELATED_TO {relation: $relation, chunk_id: $chunk_id}]->(t)
+                    CREATE (h)-[:RELATED_TO {
+                        relation: $relation,
+                        chunk_id: $chunk_id,
+                        course_scope: $course_scope
+                    }]->(t)
                     """,
                     head=t.head,
                     tail=t.tail,
                     relation=t.relation,
                     chunk_id=t.chunk_id,
+                    course_scope=scope,
                 )
 
         with self._driver.session() as session:
@@ -84,11 +101,13 @@ class KGStore:
             entities=entity_count,
             edges=edge_count,
             triplets_ingested=len(triplets),
+            course_scope=scope,
         )
 
     def get_expanded_subgraph(
         self,
         seed_chunk_ids: list[str],
+        course_scope: str,
         hops: int | None = None,
     ) -> list[tuple[str, str, str, str]]:
         """Return all edges in the m-hop expanded subgraph of the seed chunks.
@@ -103,20 +122,20 @@ class KGStore:
 
         query = f"""
             MATCH (h:Entity)-[r:RELATED_TO]->(t:Entity)
-            WHERE r.chunk_id IN $seed_ids
+            WHERE r.chunk_id IN $seed_ids AND r.course_scope = $course_scope
             WITH COLLECT(DISTINCT h) + COLLECT(DISTINCT t) AS seed_entities
             UNWIND seed_entities AS se
             MATCH (se)-[:RELATED_TO*0..{int(hops)}]-(neighbor:Entity)
             WITH COLLECT(DISTINCT neighbor) AS all_entities
             UNWIND all_entities AS ae
             MATCH (ae)-[r2:RELATED_TO]->(other:Entity)
-            WHERE other IN all_entities
+            WHERE other IN all_entities AND r2.course_scope = $course_scope
             RETURN ae.name AS head, other.name AS tail,
                    r2.relation AS relation, r2.chunk_id AS chunk_id
         """
 
         with self._driver.session() as session:
-            result = session.run(query, seed_ids=seed_chunk_ids)
+            result = session.run(query, seed_ids=seed_chunk_ids, course_scope=course_scope)
             edges = [
                 (rec["head"], rec["tail"], rec["relation"], rec["chunk_id"])
                 for rec in result
@@ -126,5 +145,6 @@ class KGStore:
             "kg_subgraph_fetched",
             seed_count=len(seed_chunk_ids),
             edge_count=len(edges),
+            course_scope=course_scope,
         )
         return edges

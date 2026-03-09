@@ -27,6 +27,7 @@ def run_kg_ingestion_pipeline(
     *,
     documents_dir: str | Path | None = None,
     collection_name: str | None = None,
+    course_scope: str | None = None,
     triplets_cache_path: str | Path | None = None,
 ) -> dict[str, int]:
     """Run the full KG ingestion flow.
@@ -63,7 +64,7 @@ def run_kg_ingestion_pipeline(
     logger.info("step", name="build_knowledge_graph")
     kg_store = KGStore()
     try:
-        kg_store.build_kg(triplets)
+        kg_store.build_kg(triplets, course_scope=course_scope or collection_name)
     finally:
         kg_store.close()
 
