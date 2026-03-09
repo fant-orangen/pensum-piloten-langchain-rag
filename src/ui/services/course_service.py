@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+import mimetypes
+from pathlib import Path
 from typing import Any
 
-from src.ui.services.api_client import ApiError, ApiUnauthorizedError, delete, get, post
+from src.ui.services.api_client import (
+    ApiError,
+    ApiUnauthorizedError,
+    delete,
+    get,
+    post,
+    post_multipart,
+)
 
 
 def list_courses(token: str) -> tuple[list[dict[str, Any]], str]:
@@ -191,3 +200,139 @@ def unenroll_user(token: str, course_id: str, user_id: str) -> tuple[bool, str]:
         return False, f"Kunne ikke nå API-serveren: {exc}"
 
     return True, "Bruker fjernet fra faget."
+
+
+def list_enrollments(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:
+    """Fetch enrollments in a course."""
+    try:
+        data = get(f"/courses/{course_id}/enrollments", token=token)
+    except ApiUnauthorizedError:
+        return [], "Sessionen er utløpt — logg inn på nytt."
+    except ApiError as exc:
+        if exc.status == 403:
+            return [], "Ikke tillatt."
+        if exc.status == 404:
+            return [], "Fant ikke faget."
+        return [], f"Kunne ikke hente registreringer: {exc.detail}"
+    except Exception as exc:
+        return [], f"Kunne ikke nå API-serveren: {exc}"
+
+    if not isinstance(data, list):
+        return [], "Uventet svar fra serveren."
+    return [item for item in data if isinstance(item, dict)], ""
+
+
+def list_materials(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:
+    """Fetch uploaded materials for a course."""
+    try:
+        data = get(f"/courses/{course_id}/materials", token=token)
+    except ApiUnauthorizedError:
+        return [], "Sessionen er utløpt — logg inn på nytt."
+    except ApiError as exc:
+        if exc.status == 403:
+            return [], "Ikke tillatt."
+        if exc.status == 404:
+            return [], "Fant ikke faget."
+        return [], f"Kunne ikke hente materiale: {exc.detail}"
+    except Exception as exc:
+        return [], f"Kunne ikke nå API-serveren: {exc}"
+
+    if not isinstance(data, list):
+        return [], "Uventet svar fra serveren."
+    return [item for item in data if isinstance(item, dict)], ""
+
+
+def upload_material(
+    token: str,
+    course_id: str,
+    file_path: str,
+) -> tuple[bool, str, dict[str, Any] | None]:
+    """Upload one local file as course material."""
+    path = Path(file_path)
+    if not path.exists():
+        return False, f"Fant ikke filen: {file_path}", None
+
+    content = path.read_bytes()
+    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    try:
+        data = post_multipart(
+            f"/courses/{course_id}/materials",
+            files=[("file", path.name, content, mime)],
+            token=token,
+        )
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt.", None
+    except ApiError as exc:
+        if exc.status == 400:
+            return False, f"Kunne ikke laste opp filen: {exc.detail}", None
+        if exc.status == 403:
+            return False, "Ikke tillatt.", None
+        if exc.status == 404:
+            return False, "Fant ikke faget.", None
+        return False, f"Kunne ikke laste opp filen: {exc.detail}", None
+    except Exception as exc:
+        return False, f"Kunne ikke nå API-serveren: {exc}", None
+
+    if not isinstance(data, dict):
+        return False, "Uventet svar fra serveren.", None
+    return True, "Materiale lastet opp.", data
+
+
+def delete_material(token: str, course_id: str, material_id: str) -> tuple[bool, str]:
+    """Delete one uploaded course material."""
+    try:
+        delete(f"/courses/{course_id}/materials/{material_id}", token=token)
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt."
+    except ApiError as exc:
+        if exc.status == 403:
+            return False, "Ikke tillatt."
+        if exc.status == 404:
+            return False, "Fant ikke materialet."
+        return False, f"Kunne ikke slette materialet: {exc.detail}"
+    except Exception as exc:
+        return False, f"Kunne ikke nå API-serveren: {exc}"
+
+    return True, "Materiale slettet."
+
+
+def start_ingestion(token: str, course_id: str) -> tuple[bool, str, dict[str, Any] | None]:
+    """Queue a new ingestion job for a course."""
+    try:
+        data = post(f"/courses/{course_id}/ingestions", token=token)
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt.", None
+    except ApiError as exc:
+        if exc.status == 403:
+            return False, "Ikke tillatt.", None
+        if exc.status == 404:
+            return False, "Fant ikke faget.", None
+        if exc.status == 409:
+            return False, "Et ingest-jobb kjører allerede for dette faget.", None
+        return False, f"Kunne ikke starte ingestion: {exc.detail}", None
+    except Exception as exc:
+        return False, f"Kunne ikke nå API-serveren: {exc}", None
+
+    if not isinstance(data, dict):
+        return False, "Uventet svar fra serveren.", None
+    return True, "Ingestion startet.", data
+
+
+def list_ingestions(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:
+    """Fetch ingestion jobs for a course, newest first."""
+    try:
+        data = get(f"/courses/{course_id}/ingestions", token=token)
+    except ApiUnauthorizedError:
+        return [], "Sessionen er utløpt — logg inn på nytt."
+    except ApiError as exc:
+        if exc.status == 403:
+            return [], "Ikke tillatt."
+        if exc.status == 404:
+            return [], "Fant ikke faget."
+        return [], f"Kunne ikke hente ingestion-jobber: {exc.detail}"
+    except Exception as exc:
+        return [], f"Kunne ikke nå API-serveren: {exc}"
+
+    if not isinstance(data, list):
+        return [], "Uventet svar fra serveren."
+    return [item for item in data if isinstance(item, dict)], ""
