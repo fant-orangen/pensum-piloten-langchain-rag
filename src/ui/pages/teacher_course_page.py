@@ -23,7 +23,7 @@ class TeacherCoursePageComponents:
     add_student_button: gr.Button
     upload_files: gr.File
     upload_button: gr.Button
-    materials_list: gr.Radio
+    materials_list: gr.CheckboxGroup
     ingestion_materials: gr.CheckboxGroup
     delete_material_button: gr.Button
     refresh_materials_button: gr.Button
@@ -58,7 +58,7 @@ def teacher_course_material_choices_update(state: dict[str, Any]) -> Any:
         for item in materials
         if isinstance(item, dict) and item.get("id")
     ]
-    return gr.update(choices=choices, value=None)
+    return gr.update(choices=choices, value=[])
 
 
 def teacher_course_ingestion_material_choices_update(state: dict[str, Any]) -> Any:
@@ -99,14 +99,19 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
             type="filepath",
         )
         upload_button = gr.Button("Last opp filer", variant="primary")
-        materials_list = gr.Radio(choices=[], value=None, label="Opplastet materiale")
+        gr.Markdown("Velg ett eller flere materialer under for sletting.")
+        materials_list = gr.CheckboxGroup(
+            choices=[],
+            value=[],
+            label="Materiale for sletting",
+        )
         ingestion_materials = gr.CheckboxGroup(
             choices=[],
             value=[],
             label="Materiale for neste ingestion",
         )
         with gr.Row():
-            delete_material_button = gr.Button("Slett valgt materiale")
+            delete_material_button = gr.Button("Slett valgte materialer")
             refresh_materials_button = gr.Button("Oppdater materialliste")
 
         gr.Markdown("## Ingestion")
@@ -299,7 +304,10 @@ def handle_upload_materials(
     )
 
 
-def handle_delete_material(state: dict[str, Any], material_id: str | None) -> tuple[Any, Any, str]:
+def handle_delete_material(
+    state: dict[str, Any],
+    material_ids: list[str] | None,
+) -> tuple[Any, Any, str]:
     course_id = _current_course_id(state)
     if not course_id:
         return (
@@ -316,19 +324,30 @@ def handle_delete_material(state: dict[str, Any], material_id: str | None) -> tu
             "Sessionen er utløpt — logg inn på nytt.",
         )
 
-    selected_id = str(material_id or "").strip()
-    if not selected_id:
+    selected_ids = [item.strip() for item in (material_ids or []) if item and item.strip()]
+    if not selected_ids:
         return (
             teacher_course_material_choices_update(state),
             teacher_course_ingestion_material_choices_update(state),
-            "Velg materiale som skal slettes.",
+            "Velg minst ett materiale som skal slettes.",
         )
 
-    success, message = _course_api.delete_material(token, course_id, selected_id)
+    deleted = 0
+    errors: list[str] = []
+    for selected_id in selected_ids:
+        success, message = _course_api.delete_material(token, course_id, selected_id)
+        if success:
+            deleted += 1
+        else:
+            errors.append(message)
+
+    status_message = f"Slettet {deleted} materiale(r)."
+    if errors:
+        status_message += f" Feil: {' | '.join(errors)}"
     return (
         teacher_course_material_choices_update(state),
         teacher_course_ingestion_material_choices_update(state),
-        message if success else message,
+        status_message,
     )
 
 

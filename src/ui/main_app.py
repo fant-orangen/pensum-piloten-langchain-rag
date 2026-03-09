@@ -169,9 +169,9 @@ def _handle_upload_materials(
 
 def _handle_delete_material(
     state: dict[str, Any],
-    material_id: str | None,
+    material_ids: list[str] | None,
 ) -> tuple[Any, Any, str]:
-    return handle_delete_material(state, material_id)
+    return handle_delete_material(state, material_ids)
 
 
 def _handle_refresh_materials(state: dict[str, Any]) -> tuple[Any, Any]:

@@ -77,12 +77,12 @@ def test_handle_start_ingestion_without_selection_uses_all_materials(monkeypatch
     assert captured["material_ids"] is None
 
 
-def test_handle_delete_material_keeps_single_selected_id(monkeypatch) -> None:
+def test_handle_delete_material_supports_multi_selection(monkeypatch) -> None:
     state: dict[str, Any] = {
         COURSE_ID_KEY: "course-3",
         TOKEN_KEY: "token-3",
     }
-    captured: dict[str, Any] = {}
+    captured: list[str] = []
 
     monkeypatch.setattr(
         teacher_course_page,
@@ -96,19 +96,19 @@ def test_handle_delete_material_keeps_single_selected_id(monkeypatch) -> None:
     )
 
     def _fake_delete_material(token: str, course_id: str, material_id: str) -> tuple[bool, str]:
-        captured["token"] = token
-        captured["course_id"] = course_id
-        captured["material_id"] = material_id
+        assert token == "token-3"
+        assert course_id == "course-3"
+        captured.append(material_id)
         return True, "deleted"
 
     monkeypatch.setattr(teacher_course_page._course_api, "delete_material", _fake_delete_material)
 
     delete_update, ingestion_update, message = teacher_course_page.handle_delete_material(
         state,
-        "material-single",
+        ["material-a", " ", "material-b"],
     )
 
     assert delete_update == "delete-update"
     assert ingestion_update == "ingestion-update"
-    assert message == "deleted"
-    assert captured["material_id"] == "material-single"
+    assert message == "Slettet 2 materiale(r)."
+    assert captured == ["material-a", "material-b"]
