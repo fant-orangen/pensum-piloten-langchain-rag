@@ -62,3 +62,12 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     assert _session_factory is not None, "Call init_engine() before get_db()"
     async with _session_factory() as session:
         yield session
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the initialized async session factory.
+
+    Useful for background tasks that run outside FastAPI dependency injection.
+    """
+    assert _session_factory is not None, "Call init_engine() before get_session_factory()"
+    return _session_factory

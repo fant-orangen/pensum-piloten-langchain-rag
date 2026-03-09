@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
@@ -33,6 +33,7 @@ from src.api.services.courses import (
     unenroll_user,
     upload_course_material,
 )
+from src.api.services.ingestion_jobs import execute_course_ingestion_job
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -181,11 +182,13 @@ async def remove_course_material(
 )
 async def start_course_ingestion(
     course_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseIngestionJobRead:
     """Create a queued ingestion job for a course."""
     job = await create_course_ingestion_job(current_user, course_id, db)
+    background_tasks.add_task(execute_course_ingestion_job, job.id)
     return CourseIngestionJobRead.model_validate(job)
 
 

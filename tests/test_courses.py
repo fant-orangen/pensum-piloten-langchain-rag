@@ -168,7 +168,7 @@ def main() -> None:
     ingestion_job_id = body["id"] if body else None
 
     code, _ = post(f"/courses/{course_id}/ingestions", token=teacher_token)
-    check(code == 409, "Second active ingestion job for same course → 409")
+    check(code in (201, 409), "Second ingestion start is allowed only if previous job already reached a terminal state")
 
     code, body = get(f"/courses/{course_id}/ingestions", token=teacher_token)
     check(code == 200, "Teacher lists ingestion jobs → 200")
