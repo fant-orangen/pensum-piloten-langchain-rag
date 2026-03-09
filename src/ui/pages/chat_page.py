@@ -13,6 +13,8 @@ from typing import Any
 
 import gradio as gr
 
+from src.ui.router import ROUTE_CHAT
+
 _TITLE_WIDTH = 56
 _MODE_CHOICES = [
     ("Socratic mode", 1),
@@ -22,6 +24,7 @@ _MODE_CHOICES = [
 _NO_COURSE_STATUS = "Velg et fag før du bruker chat."
 _SCOPE_CHANGED_STATUS = "Fagkonteksten ble endret. Velg eller opprett en ny samtale."
 _OUT_OF_SCOPE_STATUS = "Samtalen er ikke i aktivt fag. Velg eller opprett en ny samtale."
+_AUTO_COURSE_STATUS = "Fag valgt automatisk. Velg eller opprett en samtale først."
 _REFERENCE_HEADERS = ["Dokument", "Side", "Utdrag"]
 _REFERENCE_DEFAULT_STATUS = "Velg et tutorsvar for å se kilder."
 _REFERENCE_NO_SOURCES_STATUS = "Ingen kilder registrert for dette svaret."
@@ -36,6 +39,7 @@ class ChatPageComponents:
     back_button: gr.Button
     token_state: gr.State
     course_id_state: gr.State
+    route_state: gr.State
 
 
 def _default_conversation_state() -> dict[str, Any]:
@@ -127,6 +131,115 @@ def _reference_panel_from_history(
     if not sources:
         return _empty_reference_rows(), _REFERENCE_DEFAULT_STATUS
     return _reference_panel_from_sources(sources)
+
+
+def _resolve_course_for_chat_entry(
+    token: str,
+    course_id_state: str | None,
+) -> tuple[str | None, str, bool]:
+    resolved_course_id = (course_id_state or "").strip()
+    if resolved_course_id:
+        return resolved_course_id, "", False
+
+    from src.ui.services.course_service import list_courses
+
+    courses, err = list_courses(token)
+    if err:
+        return None, err, False
+
+    first_course = next(
+        (
+            course
+            for course in courses
+            if isinstance(course, dict) and str(course.get("id", "")).strip()
+        ),
+        None,
+    )
+    if first_course is None:
+        return None, _NO_COURSE_STATUS, False
+
+    return str(first_course.get("id", "")).strip(), _AUTO_COURSE_STATUS, True
+
+
+def _skip_chat_bootstrap_updates() -> tuple[Any, ...]:
+    return tuple(gr.skip() for _ in range(11))
+
+
+def _bootstrap_chat_on_route_handler(
+    route: str | None,
+    token: str | None,
+    course_id_state: str | None,
+) -> tuple[
+    str,
+    list[dict[str, str]],
+    str,
+    dict[str, Any],
+    Any,
+    str,
+    str,
+    list[dict[str, Any]],
+    list[list[str]],
+    str,
+    str | None,
+]:
+    # Route-based bootstrap is required because token/course values may remain
+    # unchanged across page navigation, which means .change handlers will not fire.
+    if route != ROUTE_CHAT:
+        return _skip_chat_bootstrap_updates()  # type: ignore[return-value]
+
+    if not token:
+        return (
+            "",
+            [],
+            "Ikke innlogget.",
+            _default_conversation_state(),
+            gr.update(choices=[], value=None),
+            _conversation_count_text(0),
+            _open_conversation_text(None),
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+            None,
+        )
+
+    resolved_course_id, resolve_status, _auto_selected = _resolve_course_for_chat_entry(
+        token,
+        course_id_state,
+    )
+    if not resolved_course_id:
+        return (
+            "",
+            [],
+            resolve_status or _NO_COURSE_STATUS,
+            _default_conversation_state(),
+            gr.update(choices=[], value=None),
+            _conversation_count_text(0),
+            _open_conversation_text(None),
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+            None,
+        )
+
+    status_seed = resolve_status or "Velg eller opprett en samtale først."
+    selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        token,
+        course_id=resolved_course_id,
+        status_message=status_seed,
+    )
+    return (
+        "",
+        [],
+        status_text,
+        _default_conversation_state(),
+        selector_update,
+        count_text,
+        open_text,
+        [],
+        _empty_reference_rows(),
+        _REFERENCE_DEFAULT_STATUS,
+        resolved_course_id,
+    )
 
 
 def _selected_message_index(index: Any) -> int | None:
@@ -822,6 +935,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
     with gr.Group(visible=visible) as group:
         token_state = gr.State(None)
         course_id_state = gr.State(None)
+        route_state = gr.State(None)
         conversation_state = gr.State(_default_conversation_state())
         source_history_state = gr.State([])
 
@@ -894,6 +1008,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         references_table,
         references_status,
     ]
+    route_bootstrap_outputs = chat_outputs + [course_id_state]
 
     send_button.click(
         fn=_chat_handler,
@@ -944,6 +1059,11 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         inputs=[mode_selector, token_state, status],
         outputs=[status],
     )
+    route_state.change(
+        fn=_bootstrap_chat_on_route_handler,
+        inputs=[route_state, token_state, course_id_state],
+        outputs=route_bootstrap_outputs,
+    )
     token_state.change(
         fn=_reset_scope_handler,
         inputs=[token_state, course_id_state],
@@ -955,4 +1075,10 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         outputs=chat_outputs,
     )
 
-    return ChatPageComponents(group=group, back_button=back_button, token_state=token_state, course_id_state=course_id_state)
+    return ChatPageComponents(
+        group=group,
+        back_button=back_button,
+        token_state=token_state,
+        course_id_state=course_id_state,
+        route_state=route_state,
+    )
