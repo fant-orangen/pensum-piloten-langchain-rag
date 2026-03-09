@@ -161,8 +161,33 @@ def _resolve_course_for_chat_entry(
     return str(first_course.get("id", "")).strip(), _AUTO_COURSE_STATUS, True
 
 
-def _skip_chat_bootstrap_updates() -> tuple[Any, ...]:
-    return tuple(gr.skip() for _ in range(11))
+def _skip_chat_bootstrap_updates() -> tuple[
+    str,
+    list[dict[str, str]],
+    str,
+    dict[str, Any],
+    Any,
+    str,
+    str,
+    list[dict[str, Any]],
+    list[list[str]],
+    str,
+    str | None,
+]:
+    skip = gr.skip()
+    return (
+        skip,
+        skip,
+        skip,
+        skip,
+        skip,
+        skip,
+        skip,
+        skip,
+        skip,
+        skip,
+        skip,
+    )
 
 
 def _bootstrap_chat_on_route_handler(
@@ -185,7 +210,7 @@ def _bootstrap_chat_on_route_handler(
     # Route-based bootstrap is required because token/course values may remain
     # unchanged across page navigation, which means .change handlers will not fire.
     if route != ROUTE_CHAT:
-        return _skip_chat_bootstrap_updates()  # type: ignore[return-value]
+        return _skip_chat_bootstrap_updates()
 
     if not token:
         return (

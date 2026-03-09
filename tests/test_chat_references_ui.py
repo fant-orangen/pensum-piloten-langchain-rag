@@ -181,3 +181,70 @@ def test_chat_handler_updates_reference_panel_from_ai_sources(monkeypatch) -> No
     ]
     assert ref_rows == [["doc2.pdf", "6", "chunk 2"]]
     assert ref_status == "Viser 1 kildehenvisninger."
+
+
+def test_chat_handler_auto_create_preserves_reference_panel_behavior(monkeypatch) -> None:
+    def _fake_create_conversation(token: str, course_id: str):
+        assert token == "token-1"
+        assert course_id == "course-1"
+        return True, "", {"id": "conv-new", "title": "Ny samtale"}
+
+    def _fake_send_message(token: str, conversation_id: str, content: str):
+        assert token == "token-1"
+        assert conversation_id == "conv-new"
+        assert content == "Q1"
+        return True, "", {
+            "content": "A1",
+            "sources": [{"document": "doc3.pdf", "page": "9", "excerpt": "chunk 3"}],
+        }
+
+    def _fake_list_conversations(
+        token: str,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        course_id: str | None = None,
+    ):
+        del token, page, page_size
+        if course_id == "course-1":
+            return [
+                {
+                    "id": "conv-new",
+                    "title": "Ny samtale",
+                    "course_id": "course-1",
+                    "updated_at": "2026-03-09T16:00",
+                }
+            ], 1, ""
+        return [], 0, ""
+
+    monkeypatch.setattr(conversation_service, "create_conversation", _fake_create_conversation)
+    monkeypatch.setattr(conversation_service, "send_message", _fake_send_message)
+    monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
+
+    (
+        _message,
+        history,
+        _status,
+        conv_state,
+        _selector,
+        _count,
+        _open,
+        source_history,
+        ref_rows,
+        ref_status,
+    ) = chat_page._chat_handler(
+        user_message="Q1",
+        history=[],
+        source_history=[],
+        conversation_state=chat_page._default_conversation_state(),
+        token="token-1",
+        course_id_state="course-1",
+    )
+
+    assert conv_state["conversation_id"] == "conv-new"
+    assert history[-1] == {"role": "assistant", "content": "A1"}
+    assert source_history[-1]["sources"] == [
+        {"document": "doc3.pdf", "page": "9", "excerpt": "chunk 3"}
+    ]
+    assert ref_rows == [["doc3.pdf", "9", "chunk 3"]]
+    assert ref_status == "Viser 1 kildehenvisninger."
