@@ -36,3 +36,17 @@ class EnrollmentRead(BaseModel):
     role: str
 
     model_config = {"from_attributes": True}
+
+
+class EnrollmentUserRead(BaseModel):
+    id: uuid.UUID
+    email: str
+    first_name: str
+    last_name: str
+
+
+class EnrollmentWithUserRead(BaseModel):
+    user_id: uuid.UUID
+    course_id: uuid.UUID
+    role: str
+    user: EnrollmentUserRead

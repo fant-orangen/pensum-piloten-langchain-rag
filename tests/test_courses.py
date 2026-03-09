@@ -17,6 +17,8 @@ TEACHER_EMAIL = "teacher@test.com"
 TEACHER_PASSWORD = "password123"
 STUDENT_EMAIL = "student@test.com"
 STUDENT_PASSWORD = "password123"
+ADMIN_EMAIL = "admin@test.com"
+ADMIN_PASSWORD = "password123"
 
 
 def main() -> None:
@@ -24,6 +26,7 @@ def main() -> None:
 
     teacher_token = login(TEACHER_EMAIL, TEACHER_PASSWORD)
     student_token = login(STUDENT_EMAIL, STUDENT_PASSWORD)
+    admin_token = login(ADMIN_EMAIL, ADMIN_PASSWORD)
 
     # ------------------------------------------------------------------
     section("GET /courses")
@@ -145,6 +148,30 @@ def main() -> None:
         "role": "student",
     }, token=teacher_token)
     check(code == 404, "Enroll into nonexistent course → 404")
+
+    # ------------------------------------------------------------------
+    section("GET /courses/{course_id}/enrollments")
+    # ------------------------------------------------------------------
+
+    code, body = get(f"/courses/{course_id}/enrollments", token=teacher_token)
+    check(code == 200, "Teacher lists enrollments → 200")
+    check(
+        isinstance(body, list) and any(item.get("user", {}).get("email") == enroll_email for item in body),
+        "Teacher sees newly enrolled user in enrollment list",
+    )
+
+    code, body = get(f"/courses/{course_id}/enrollments", token=admin_token)
+    check(code == 200, "Admin lists enrollments → 200")
+    check(isinstance(body, list), "Admin receives enrollment list")
+
+    code, _ = get(f"/courses/{course_id}/enrollments", token=student_token)
+    check(code == 403, "Non-teacher lists enrollments → 403")
+
+    code, _ = get(f"/courses/{str(uuid.uuid4())}/enrollments", token=teacher_token)
+    check(code == 404, "List enrollments for nonexistent course → 404")
+
+    code, _ = get(f"/courses/{course_id}/enrollments")
+    check(code == 401, "Unauthenticated list enrollments → 401")
 
     # ------------------------------------------------------------------
     section("DELETE /courses/{course_id}/enrollments/{user_id}")

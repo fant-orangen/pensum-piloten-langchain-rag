@@ -8,11 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.user import User
-from src.api.schemas.course import CourseCreate, CourseRead, EnrollmentCreate, EnrollmentRead
+from src.api.schemas.course import (
+    CourseCreate,
+    CourseRead,
+    EnrollmentCreate,
+    EnrollmentRead,
+    EnrollmentWithUserRead,
+)
 from src.api.services.courses import (
     create_course,
     delete_course,
     enroll_user,
+    get_course_enrollments,
     get_available_courses,
     get_enrolled_courses,
     get_responsible_courses,
@@ -87,6 +94,30 @@ async def add_enrollment(
     """Enroll a user in a course by email."""
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
+
+
+@router.get("/{course_id}/enrollments", response_model=list[EnrollmentWithUserRead])
+async def list_enrollments(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[EnrollmentWithUserRead]:
+    """Return all enrollments in a course with basic user details."""
+    rows = await get_course_enrollments(current_user, course_id, db)
+    return [
+        EnrollmentWithUserRead(
+            user_id=enrollment.user_id,
+            course_id=enrollment.course_id,
+            role=enrollment.role,
+            user={
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+            },
+        )
+        for enrollment, user in rows
+    ]
 
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

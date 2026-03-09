@@ -185,3 +185,28 @@ async def unenroll_user(
 
     await db.delete(enrollment)
     await db.commit()
+
+
+async def get_course_enrollments(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> list[tuple[CourseEnrollment, User]]:
+    """Return all enrollments for a course with basic user details.
+
+    Raises 404 if the course does not exist.
+    Raises 403 if the current user is not a teacher of the course or an admin.
+    """
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    result = await db.execute(
+        select(CourseEnrollment, User)
+        .join(User, User.id == CourseEnrollment.user_id)
+        .where(CourseEnrollment.course_id == course_id)
+        .order_by(User.email)
+    )
+    return list(result.all())
