@@ -79,6 +79,14 @@ async def create_tables() -> None:
                 """
             )
         )
+        # TODO: restore this uniqueness constraint once each course has its own
+        # provisioned Chroma collection instead of sharing one for test setup.
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "DROP CONSTRAINT IF EXISTS course_chroma_collection_key"
+            )
+        )
     logger.info("database_tables_created")
 
 

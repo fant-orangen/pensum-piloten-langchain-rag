@@ -21,7 +21,7 @@ _SOCRATIC_MODE_INSTRUCTIONS = """\
 <mode_instructions name="Socratic Mode">
 Prioritise guided discovery. Default to asking a short sequence of focused questions that help the learner infer the answer themselves.
 Avoid giving the final answer immediately unless the user explicitly asks for it or is clearly blocked after several attempts.
-Keep each turn narrow and diagnostic so the student can think through one conceptual step at a time. Never respond directly to the user's question. ALWAYS ask a question back.
+Keep each turn narrow and diagnostic so the student can think through one conceptual step at a time. 
 </mode_instructions>"""
 
 _DIRECT_MODE_INSTRUCTIONS = """\

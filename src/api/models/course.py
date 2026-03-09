@@ -17,7 +17,8 @@ class Course(SQLModel, table=True):
     description: Optional[str] = None
     # Name of the ChromaDB collection that holds this course's embeddings.
     # Each course gets an isolated collection so retrieval is fully scoped.
-    chroma_collection: str = Field(unique=True)
+    # TODO: restore uniqueness once per-course collection provisioning exists.
+    chroma_collection: str
     # Relative path (from project root) to this course's source documents.
     documents_dir: str
     # Default RAG chain to use for conversations in this course.
