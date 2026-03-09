@@ -143,6 +143,7 @@ def _render_main_app(
         register_message,
         token,
         course_id,
+        current_route,
     )
 
 
@@ -322,6 +323,7 @@ def build_main_app() -> gr.Blocks:
             auth_page.register_status,
             chat_page.token_state,
             chat_page.course_id_state,
+            chat_page.route_state,
         ]
 
         auth_page.login_button.click(
