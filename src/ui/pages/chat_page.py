@@ -181,6 +181,25 @@ def _load_conversation_handler(
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
+    conversations, err = _fetch_conversations(token, resolved_course_id)
+    if err:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token, course_id=course_id, status_message=err
+        )
+        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+
+    selected_conv = next(
+        (c for c in conversations if str(c.get("id", "")) == conversation_id),
+        None,
+    )
+    if selected_conv is None:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id,
+            status_message="Samtalen finnes ikke i aktivt fag.",
+        )
+        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+
     history, err = _fetch_messages(token, conversation_id)
     if err:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
@@ -188,11 +207,6 @@ def _load_conversation_handler(
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
-    conversations, _ = _fetch_conversations(token, course_id)
-    selected_conv = next(
-        (c for c in conversations if str(c.get("id", "")) == conversation_id),
-        None,
-    )
     title = selected_conv.get("title") if selected_conv else "Samtale"
     conv_state = {
         "conversation_id": conversation_id,
@@ -286,12 +300,21 @@ def _chat_handler(
         )
         return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
 
+    active_course_id = str(course_id_state or "").strip()
     if not text:
         conv_id = (conversation_state or {}).get("conversation_id")
         selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
         return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
 
     conv_id = (conversation_state or {}).get("conversation_id")
+    conv_course_id = str((conversation_state or {}).get("course_id") or "").strip()
+    if conv_id and conv_course_id != active_course_id:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id_state,
+            status_message="Samtalen er ikke i aktivt fag.",
+        )
+        return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
     if not conv_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message="Velg eller opprett en samtale først."
@@ -332,11 +355,28 @@ def _refresh_handler(
             _default_conversation_state(),
         )
 
-    conv_id = (conversation_state or {}).get("conversation_id")
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(
-        token, conv_id, course_id=course_id_state, status_message="Samtalelisten er oppdatert."
+    active_course_id = str(course_id_state or "").strip()
+    conv_id = str((conversation_state or {}).get("conversation_id") or "").strip()
+    conversations, err = _fetch_conversations(token, active_course_id)
+    choices = _selector_choices(conversations)
+    resolved_value = conv_id if conv_id and any(item[1] == conv_id for item in choices) else None
+    selected_conv = next(
+        (item for item in conversations if str(item.get("id", "")) == resolved_value),
+        None,
     )
-    return selector_update, count_text, status_text, open_text, conversation_state or _default_conversation_state()
+    next_state = {
+        "conversation_id": resolved_value,
+        "title": selected_conv.get("title") if selected_conv else None,
+        "course_id": active_course_id if selected_conv else None,
+    }
+    status_text = err or "Samtalelisten er oppdatert."
+    return (
+        gr.update(choices=choices, value=resolved_value),
+        _conversation_count_text(len(conversations)),
+        status_text,
+        _open_conversation_text(next_state.get("title")),
+        next_state if resolved_value else _default_conversation_state(),
+    )
 
 
 def _reset_scope_handler(
