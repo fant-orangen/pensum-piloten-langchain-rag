@@ -24,7 +24,6 @@ class TeacherCoursePageComponents:
     upload_files: gr.File
     upload_button: gr.Button
     materials_list: gr.CheckboxGroup
-    ingestion_materials: gr.CheckboxGroup
     delete_material_button: gr.Button
     refresh_materials_button: gr.Button
     start_ingestion_button: gr.Button
@@ -45,23 +44,6 @@ def _material_label(material: dict[str, Any]) -> str:
 
 
 def teacher_course_material_choices_update(state: dict[str, Any]) -> Any:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return gr.update(choices=[], value=None)
-    token = auth_token(state)
-    if not token:
-        return gr.update(choices=[], value=None)
-
-    materials, _err = _course_api.list_materials(token, course_id)
-    choices = [
-        (_material_label(item), str(item["id"]))
-        for item in materials
-        if isinstance(item, dict) and item.get("id")
-    ]
-    return gr.update(choices=choices, value=[])
-
-
-def teacher_course_ingestion_material_choices_update(state: dict[str, Any]) -> Any:
     course_id = _current_course_id(state)
     if not course_id:
         return gr.update(choices=[], value=[])
@@ -99,16 +81,11 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
             type="filepath",
         )
         upload_button = gr.Button("Last opp filer", variant="primary")
-        gr.Markdown("Velg ett eller flere materialer under for sletting.")
+        gr.Markdown("Velg ett eller flere materialer under for sletting eller ingestering.")
         materials_list = gr.CheckboxGroup(
             choices=[],
             value=[],
-            label="Materiale for sletting",
-        )
-        ingestion_materials = gr.CheckboxGroup(
-            choices=[],
-            value=[],
-            label="Materiale for neste ingestion",
+            label="Kursmateriell",
         )
         with gr.Row():
             delete_material_button = gr.Button("Slett valgte materialer")
@@ -134,7 +111,6 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
         upload_files=upload_files,
         upload_button=upload_button,
         materials_list=materials_list,
-        ingestion_materials=ingestion_materials,
         delete_material_button=delete_material_button,
         refresh_materials_button=refresh_materials_button,
         start_ingestion_button=start_ingestion_button,
@@ -250,13 +226,12 @@ def handle_add_student(state: dict[str, Any], student_email: str | None) -> tupl
 def handle_upload_materials(
     state: dict[str, Any],
     file_paths: str | list[str] | None,
-) -> tuple[Any, Any, Any, str]:
+) -> tuple[Any, Any, str]:
     course_id = _current_course_id(state)
     if not course_id:
         return (
             gr.update(value=None),
             teacher_course_material_choices_update(state),
-            teacher_course_ingestion_material_choices_update(state),
             "Fant ikke faget.",
         )
 
@@ -265,7 +240,6 @@ def handle_upload_materials(
         return (
             gr.update(value=None),
             teacher_course_material_choices_update(state),
-            teacher_course_ingestion_material_choices_update(state),
             "Sessionen er utløpt — logg inn på nytt.",
         )
 
@@ -280,7 +254,6 @@ def handle_upload_materials(
         return (
             gr.update(value=None),
             teacher_course_material_choices_update(state),
-            teacher_course_ingestion_material_choices_update(state),
             "Velg minst én fil.",
         )
 
@@ -299,7 +272,6 @@ def handle_upload_materials(
     return (
         gr.update(value=None),
         teacher_course_material_choices_update(state),
-        teacher_course_ingestion_material_choices_update(state),
         status_message,
     )
 
@@ -307,12 +279,11 @@ def handle_upload_materials(
 def handle_delete_material(
     state: dict[str, Any],
     material_ids: list[str] | None,
-) -> tuple[Any, Any, str]:
+) -> tuple[Any, str]:
     course_id = _current_course_id(state)
     if not course_id:
         return (
             teacher_course_material_choices_update(state),
-            teacher_course_ingestion_material_choices_update(state),
             "Fant ikke faget.",
         )
 
@@ -320,7 +291,6 @@ def handle_delete_material(
     if not token:
         return (
             teacher_course_material_choices_update(state),
-            teacher_course_ingestion_material_choices_update(state),
             "Sessionen er utløpt — logg inn på nytt.",
         )
 
@@ -328,7 +298,6 @@ def handle_delete_material(
     if not selected_ids:
         return (
             teacher_course_material_choices_update(state),
-            teacher_course_ingestion_material_choices_update(state),
             "Velg minst ett materiale som skal slettes.",
         )
 
@@ -346,7 +315,6 @@ def handle_delete_material(
         status_message += f" Feil: {' | '.join(errors)}"
     return (
         teacher_course_material_choices_update(state),
-        teacher_course_ingestion_material_choices_update(state),
         status_message,
     )
 
