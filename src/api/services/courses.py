@@ -12,8 +12,10 @@ from src.api.authorization import (
     require_teacher_or_admin,
     require_unenroll_permission,
 )
+from src.api.models.conversation import Conversation
 from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
+from src.api.models.message import Message
 from src.api.models.user import User
 from src.api.schemas.course import CourseCreate, EnrollmentCreate
 
@@ -97,7 +99,15 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
 
     require_course_owner_or_admin(current_user, course.created_by_id)
 
-    # Remove all enrollments first to avoid FK constraint violations.
+    conversation_ids = (
+        select(Conversation.id)
+        .where(Conversation.course_id == course_id)
+        .scalar_subquery()
+    )
+
+    # Remove dependent rows in FK-safe order before deleting the course itself.
+    await db.execute(sa_delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+    await db.execute(sa_delete(Conversation).where(Conversation.course_id == course_id))
     await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
     await db.delete(course)
     await db.commit()
