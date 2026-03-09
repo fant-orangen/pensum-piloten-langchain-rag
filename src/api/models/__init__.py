@@ -7,17 +7,8 @@ metadata, which is required before ``SQLModel.metadata.create_all`` is called.
 from src.api.models.user import User
 from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
-from src.api.models.course_material import CourseMaterial
-from src.api.models.course_ingestion_job import CourseIngestionJob
 from src.api.models.conversation import Conversation
+from src.api.models.course_document import CourseDocument
 from src.api.models.message import Message
 
-__all__ = [
-    "User",
-    "Course",
-    "CourseEnrollment",
-    "CourseMaterial",
-    "CourseIngestionJob",
-    "Conversation",
-    "Message",
-]
+__all__ = ["User", "Course", "CourseEnrollment", "Conversation", "CourseDocument", "Message"]

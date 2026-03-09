@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
@@ -10,31 +10,31 @@ from src.api.dependencies import get_current_user
 from src.api.models.user import User
 from src.api.schemas.course import (
     CourseCreate,
-    CourseIngestionJobRead,
-    CourseIngestionStartRequest,
-    CourseMaterialRead,
+    CourseDocumentRead,
+    CourseInstructionsUpdate,
+    CourseMaterialsStatusRead,
     CourseRead,
     EnrollmentCreate,
     EnrollmentRead,
-    EnrollmentWithUserRead,
+)
+from src.api.services.course_documents import (
+    get_course_materials_status,
+    list_course_documents,
+    queue_course_material_rebuild,
+    run_course_material_rebuild,
+    stage_course_document_removal,
+    stage_course_documents,
 )
 from src.api.services.courses import (
     create_course,
-    create_course_ingestion_job,
     delete_course,
-    delete_course_material,
     enroll_user,
-    get_course_enrollments,
     get_available_courses,
     get_enrolled_courses,
-    list_course_materials,
-    list_course_ingestion_jobs,
     get_responsible_courses,
-    get_course_ingestion_job,
     unenroll_user,
-    upload_course_material,
+    update_course_specific_instructions,
 )
-from src.api.services.ingestion_jobs import execute_course_ingestion_job
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -80,6 +80,71 @@ async def new_course(
     return CourseRead.model_validate(course)
 
 
+@router.get("/{course_id}/documents", response_model=list[CourseDocumentRead])
+async def list_documents(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseDocumentRead]:
+    """List staged and active source materials for a course."""
+    documents = await list_course_documents(current_user, course_id, db)
+    return [CourseDocumentRead.model_validate(document) for document in documents]
+
+
+@router.post(
+    "/{course_id}/documents",
+    response_model=list[CourseDocumentRead],
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_documents(
+    course_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseDocumentRead]:
+    """Stage new source materials for a course."""
+    documents = await stage_course_documents(current_user, course_id, files, db)
+    return [CourseDocumentRead.model_validate(document) for document in documents]
+
+
+@router.delete("/{course_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_document(
+    course_id: uuid.UUID,
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Stage removal of a source document from a course."""
+    await stage_course_document_removal(current_user, course_id, document_id, db)
+
+
+@router.get("/{course_id}/documents/status", response_model=CourseMaterialsStatusRead)
+async def get_documents_status(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseMaterialsStatusRead:
+    """Return current rebuild state and pending document counts for a course."""
+    return await get_course_materials_status(current_user, course_id, db)
+
+
+@router.post(
+    "/{course_id}/documents/confirm",
+    response_model=CourseMaterialsStatusRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def confirm_document_changes(
+    course_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseMaterialsStatusRead:
+    """Confirm all staged add/remove changes and start a versioned rebuild."""
+    course_status = await queue_course_material_rebuild(current_user, course_id, db)
+    background_tasks.add_task(run_course_material_rebuild, course_id)
+    return course_status
+
+
 @router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_course(
     course_id: uuid.UUID,
@@ -88,6 +153,18 @@ async def remove_course(
 ) -> None:
     """Delete a course."""
     await delete_course(current_user, course_id, db)
+
+
+@router.patch("/{course_id}/instructions", response_model=CourseRead)
+async def update_course_instructions(
+    course_id: uuid.UUID,
+    body: CourseInstructionsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseRead:
+    """Update the course-specific prompt instructions for a course."""
+    course = await update_course_specific_instructions(current_user, course_id, body, db)
+    return CourseRead.model_validate(course)
 
 
 @router.post(
@@ -104,123 +181,6 @@ async def add_enrollment(
     """Enroll a user in a course by email."""
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
-
-
-@router.get("/{course_id}/enrollments", response_model=list[EnrollmentWithUserRead])
-async def list_enrollments(
-    course_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> list[EnrollmentWithUserRead]:
-    """Return all enrollments in a course with basic user details."""
-    rows = await get_course_enrollments(current_user, course_id, db)
-    return [
-        EnrollmentWithUserRead(
-            user_id=enrollment.user_id,
-            course_id=enrollment.course_id,
-            role=enrollment.role,
-            user={
-                "id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-            },
-        )
-        for enrollment, user in rows
-    ]
-
-
-@router.post(
-    "/{course_id}/materials",
-    response_model=CourseMaterialRead,
-    status_code=status.HTTP_201_CREATED,
-)
-async def add_course_material(
-    course_id: uuid.UUID,
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> CourseMaterialRead:
-    """Upload one material file for a course."""
-    content = await file.read()
-    material = await upload_course_material(
-        current_user,
-        course_id,
-        filename=file.filename or "",
-        content=content,
-        mime_type=file.content_type,
-        db=db,
-    )
-    return CourseMaterialRead.model_validate(material)
-
-
-@router.get("/{course_id}/materials", response_model=list[CourseMaterialRead])
-async def get_course_materials(
-    course_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> list[CourseMaterialRead]:
-    """Return all uploaded materials for a course."""
-    materials = await list_course_materials(current_user, course_id, db)
-    return [CourseMaterialRead.model_validate(item) for item in materials]
-
-
-@router.delete("/{course_id}/materials/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_course_material(
-    course_id: uuid.UUID,
-    material_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    """Delete one uploaded material from a course."""
-    await delete_course_material(current_user, course_id, material_id, db)
-
-
-@router.post(
-    "/{course_id}/ingestions",
-    response_model=CourseIngestionJobRead,
-    status_code=status.HTTP_201_CREATED,
-)
-async def start_course_ingestion(
-    course_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
-    body: CourseIngestionStartRequest | None = Body(default=None),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> CourseIngestionJobRead:
-    """Create a queued ingestion job for a course."""
-    material_ids = body.material_ids if body is not None else None
-    job, selected_material_ids = await create_course_ingestion_job(
-        current_user,
-        course_id,
-        db,
-        material_ids=material_ids,
-    )
-    background_tasks.add_task(execute_course_ingestion_job, job.id, selected_material_ids)
-    return CourseIngestionJobRead.model_validate(job)
-
-
-@router.get("/{course_id}/ingestions", response_model=list[CourseIngestionJobRead])
-async def get_course_ingestions(
-    course_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> list[CourseIngestionJobRead]:
-    """Return ingestion jobs for a course."""
-    jobs = await list_course_ingestion_jobs(current_user, course_id, db)
-    return [CourseIngestionJobRead.model_validate(job) for job in jobs]
-
-
-@router.get("/{course_id}/ingestions/{job_id}", response_model=CourseIngestionJobRead)
-async def get_course_ingestion(
-    course_id: uuid.UUID,
-    job_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> CourseIngestionJobRead:
-    """Return one ingestion job for a course."""
-    job = await get_course_ingestion_job(current_user, course_id, job_id, db)
-    return CourseIngestionJobRead.model_validate(job)
 
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

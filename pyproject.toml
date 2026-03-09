@@ -31,6 +31,7 @@ dependencies = [
     # --- API layer ---
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30,<1",
+    "python-multipart>=0.0.9",
     "pydantic>=2,<3",
     "pydantic-settings>=2,<3",
     "gradio>=4,<6",
