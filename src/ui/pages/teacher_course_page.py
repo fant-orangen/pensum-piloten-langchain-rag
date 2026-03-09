@@ -99,11 +99,11 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
             delete_material_button = gr.Button("Slett valgte materialer")
             refresh_materials_button = gr.Button("Oppdater materialliste")
 
-        gr.Markdown("## Ingestion")
+        gr.Markdown("## Ingestering (oppsummering)")
         with gr.Row():
-            start_ingestion_button = gr.Button("Start ingestion", variant="primary")
+            start_ingestion_button = gr.Button("Start ingestering", variant="primary")
             refresh_ingestion_button = gr.Button("Oppdater status")
-        ingestion_status = gr.Markdown("Ingen ingestion-jobber ennå.")
+        ingestion_status = gr.Markdown("Ingen ingesteringstatus ennå.")
 
         status_text = gr.Markdown()
         back_button = gr.Button("Tilbake")
@@ -179,7 +179,7 @@ def teacher_course_students_text(state: dict[str, Any]) -> str:
 def teacher_course_ingestion_status_text(state: dict[str, Any]) -> str:
     course_id = _current_course_id(state)
     if not course_id:
-        return "Ingen ingestion-jobber ennå."
+        return "Velg et fag for å se ingesteringstatus."
 
     token = auth_token(state)
     if not token:
@@ -189,20 +189,30 @@ def teacher_course_ingestion_status_text(state: dict[str, Any]) -> str:
     if err:
         return err
     if not jobs:
-        return "Ingen ingestion-jobber ennå."
+        return "Ingen ingesteringstatus tilgjengelig."
 
     latest = jobs[0]
-    status = str(latest.get("status") or "ukjent")
-    created = str(latest.get("created_at") or "")[:19]
-    finished = str(latest.get("finished_at") or "")[:19]
-    error = str(latest.get("error_message") or "").strip()
+    status = str(latest.get("status") or "ukjent").strip().lower()
+    status_label = {
+        "idle": "Klar",
+        "queued": "Venter i kø",
+        "building": "Bygger indeks",
+        "failed": "Feilet",
+    }.get(status, status or "ukjent")
+    pending_additions = int(latest.get("pending_additions") or 0)
+    pending_removals = int(latest.get("pending_removals") or 0)
+    index_version = int(latest.get("index_version") or 0)
+    rebuild_error = str(latest.get("rebuild_error") or "").strip()
 
-    text = f"Siste jobb: {status} (startet: {created or '-'})"
-    if finished:
-        text += f"\nFerdig: {finished}"
-    if error:
-        text += f"\nFeil: {error}"
-    return text
+    lines = [
+        f"Status: {status_label}",
+        f"Venter på ingestering: {pending_additions}",
+        f"Markert for sletting: {pending_removals}",
+        f"Aktiv indeksversjon: {index_version}",
+    ]
+    if rebuild_error:
+        lines.append(f"Siste feil: {rebuild_error}")
+    return "\n".join(lines)
 
 
 def teacher_course_student_choices_update(state: dict[str, Any], *, selected_username: str | None = None) -> Any:
