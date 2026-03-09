@@ -39,8 +39,16 @@ def _current_course_id(state: dict[str, Any]) -> str:
 def _material_label(material: dict[str, Any]) -> str:
     filename = str(material.get("original_filename") or "ukjent")
     size_bytes = int(material.get("size_bytes") or 0)
-    size_kb = max(1, size_bytes // 1024) if size_bytes > 0 else 0
-    return f"{filename} ({size_kb} KB)"
+    status = str(material.get("status") or "").strip().lower()
+    status_label = {
+        "pending_add": "Venter på ingestering",
+        "active": "Ingestert",
+        "pending_remove": "Markert for sletting",
+    }.get(status, "Ukjent status")
+    if size_bytes > 0:
+        size_kb = max(1, size_bytes // 1024)
+        return f"{filename} ({size_kb} KB) - {status_label}"
+    return f"{filename} - {status_label}"
 
 
 def teacher_course_material_choices_update(state: dict[str, Any]) -> Any:

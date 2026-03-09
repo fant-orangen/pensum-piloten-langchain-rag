@@ -244,14 +244,8 @@ def list_materials(token: str, course_id: str) -> tuple[list[dict[str, Any]], st
     for item in data:
         if not isinstance(item, dict):
             continue
-        status = str(item.get("status") or "").strip()
-        if status == "pending_remove":
-            continue
         material = dict(item)
         material["size_bytes"] = 0
-        if status == "pending_add":
-            filename = str(material.get("original_filename") or "ukjent")
-            material["original_filename"] = f"{filename} [ny]"
         materials.append(material)
     return materials, ""
 
