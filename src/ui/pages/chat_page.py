@@ -22,6 +22,10 @@ _MODE_CHOICES = [
 _NO_COURSE_STATUS = "Velg et fag før du bruker chat."
 _SCOPE_CHANGED_STATUS = "Fagkonteksten ble endret. Velg eller opprett en ny samtale."
 _OUT_OF_SCOPE_STATUS = "Samtalen er ikke i aktivt fag. Velg eller opprett en ny samtale."
+_REFERENCE_HEADERS = ["Dokument", "Side", "Utdrag"]
+_REFERENCE_DEFAULT_STATUS = "Velg et tutorsvar for å se kilder."
+_REFERENCE_NO_SOURCES_STATUS = "Ingen kilder registrert for dette svaret."
+_REFERENCE_USER_SELECTED_STATUS = "Kilder vises bare for tutorsvar."
 
 
 @dataclass(slots=True)
@@ -37,6 +41,92 @@ class ChatPageComponents:
 def _default_conversation_state() -> dict[str, Any]:
     """Return an empty conversation state dict with all fields set to None."""
     return {"conversation_id": None, "title": None, "course_id": None}
+
+
+def _empty_reference_rows() -> list[list[str]]:
+    return []
+
+
+def _normalize_reference_entry(value: Any) -> dict[str, str] | None:
+    if not isinstance(value, dict):
+        return None
+    document = str(value.get("document") or "Ukjent dokument").strip() or "Ukjent dokument"
+    page = str(value.get("page") or "").strip()
+    excerpt = str(value.get("excerpt") or "").strip()
+    return {"document": document, "page": page, "excerpt": excerpt}
+
+
+def _reference_rows_for_sources(sources: list[dict[str, Any]] | None) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for source in sources or []:
+        normalized = _normalize_reference_entry(source)
+        if normalized is None:
+            continue
+        rows.append([normalized["document"], normalized["page"], normalized["excerpt"]])
+    return rows
+
+
+def _visible_history_from_source_history(
+    source_history: list[dict[str, Any]] | None,
+) -> list[dict[str, str]]:
+    return [
+        {"role": str(msg.get("role", "")), "content": str(msg.get("content", ""))}
+        for msg in (source_history or [])
+        if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
+    ]
+
+
+def _coerce_source_history(
+    visible_history: list[dict[str, Any]],
+    source_history: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    if source_history:
+        return [
+            {
+                "role": str(msg.get("role", "")),
+                "content": str(msg.get("content", "")),
+                "sources": list(msg.get("sources") or []),
+            }
+            for msg in source_history
+            if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
+        ]
+    return [
+        {
+            "role": str(msg.get("role", "")),
+            "content": str(msg.get("content", "")),
+            "sources": [],
+        }
+        for msg in visible_history
+        if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
+    ]
+
+
+def _latest_assistant_sources(
+    source_history: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    for msg in reversed(source_history or []):
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") != "assistant":
+            continue
+        return list(msg.get("sources") or [])
+    return []
+
+
+def _reference_panel_from_sources(sources: list[dict[str, Any]] | None) -> tuple[list[list[str]], str]:
+    rows = _reference_rows_for_sources(sources)
+    if not rows:
+        return _empty_reference_rows(), _REFERENCE_NO_SOURCES_STATUS
+    return rows, f"Viser {len(rows)} kildehenvisninger."
+
+
+def _reference_panel_from_history(
+    source_history: list[dict[str, Any]] | None,
+) -> tuple[list[list[str]], str]:
+    sources = _latest_assistant_sources(source_history)
+    if not sources:
+        return _empty_reference_rows(), _REFERENCE_DEFAULT_STATUS
+    return _reference_panel_from_sources(sources)
 
 
 def _open_conversation_text(title: str | None) -> str:
@@ -75,7 +165,7 @@ def _fetch_conversations(token: str, course_id: str | None = None) -> tuple[list
     return items, err
 
 
-def _fetch_messages(token: str, conversation_id: str) -> tuple[list[dict[str, str]], str]:
+def _fetch_messages(token: str, conversation_id: str) -> tuple[list[dict[str, Any]], str]:
     """Return (messages_in_chronological_order, error_message)."""
     from src.ui.services.conversation_service import get_messages
 
@@ -92,14 +182,20 @@ def _fetch_messages(token: str, conversation_id: str) -> tuple[list[dict[str, st
 
     # API returns newest-first; reverse to chronological order.
     all_messages.reverse()
-    history = []
+    history: list[dict[str, Any]] = []
     for msg in all_messages:
         role = msg.get("role", "")
         content = msg.get("content", "")
         if role == "human":
-            history.append({"role": "user", "content": content})
+            history.append({"role": "user", "content": content, "sources": []})
         elif role == "ai":
-            history.append({"role": "assistant", "content": content})
+            history.append(
+                {
+                    "role": "assistant",
+                    "content": content,
+                    "sources": list(msg.get("sources") or []),
+                }
+            )
     return history, ""
 
 
@@ -163,10 +259,32 @@ def _load_conversation_handler(
     conversation_id: str | None,
     token: str | None,
     course_id: str | None,
-) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+) -> tuple[
+    str,
+    list[dict[str, str]],
+    str,
+    dict[str, Any],
+    Any,
+    str,
+    str,
+    list[dict[str, Any]],
+    list[list[str]],
+    str,
+]:
     """Load message history for the selected conversation and update the chat UI."""
     if not token:
-        return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
+        return (
+            "",
+            [],
+            "Ikke innlogget.",
+            _default_conversation_state(),
+            gr.update(),
+            "",
+            _open_conversation_text(None),
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     resolved_course_id = (course_id or "").strip()
     if not resolved_course_id:
@@ -175,20 +293,53 @@ def _load_conversation_handler(
             course_id=course_id,
             status_message=_NO_COURSE_STATUS,
         )
-        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     if not conversation_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id, status_message="Ingen samtale valgt."
         )
-        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     conversations, err = _fetch_conversations(token, resolved_course_id)
     if err:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id, status_message=err
         )
-        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     selected_conv = next(
         (c for c in conversations if str(c.get("id", "")) == conversation_id),
@@ -200,14 +351,36 @@ def _load_conversation_handler(
             course_id=course_id,
             status_message=_OUT_OF_SCOPE_STATUS,
         )
-        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
-    history, err = _fetch_messages(token, conversation_id)
+    source_history, err = _fetch_messages(token, conversation_id)
     if err:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id, status_message=err
         )
-        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     title = selected_conv.get("title") if selected_conv else "Samtale"
     conv_state = {
@@ -222,7 +395,19 @@ def _load_conversation_handler(
         course_id=course_id,
         status_message=f"Lastet samtale: {title}.",
     )
-    return "", history, status_text, conv_state, selector_update, count_text, open_text
+    reference_rows, reference_status = _reference_panel_from_history(source_history)
+    return (
+        "",
+        _visible_history_from_source_history(source_history),
+        status_text,
+        conv_state,
+        selector_update,
+        count_text,
+        open_text,
+        source_history,
+        reference_rows,
+        reference_status,
+    )
 
 
 def _new_conversation_handler(
@@ -230,17 +415,50 @@ def _new_conversation_handler(
     course_id_input: str,
     course_id_state: str | None,
     selected_mode: int | None,
-) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+) -> tuple[
+    str,
+    list[dict[str, str]],
+    str,
+    dict[str, Any],
+    Any,
+    str,
+    str,
+    list[dict[str, Any]],
+    list[list[str]],
+    str,
+]:
     """Create a new conversation for the resolved course ID and refresh the sidebar."""
     if not token:
-        return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
+        return (
+            "",
+            [],
+            "Ikke innlogget.",
+            _default_conversation_state(),
+            gr.update(),
+            "",
+            _open_conversation_text(None),
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     course_id = (course_id_state or "").strip()
     if not course_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message=_NO_COURSE_STATUS
         )
-        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     if selected_mode in {1, 2, 3}:
         from src.ui.services.preferences_service import update_system_prompt_mode
@@ -250,7 +468,18 @@ def _new_conversation_handler(
             selector_update, count_text, status_text, open_text = _refresh_sidebar(
                 token, course_id=course_id_state, status_message=mode_message
             )
-            return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+            return (
+                "",
+                [],
+                status_text,
+                _default_conversation_state(),
+                selector_update,
+                count_text,
+                open_text,
+                [],
+                _empty_reference_rows(),
+                _REFERENCE_DEFAULT_STATUS,
+            )
 
     from src.ui.services.conversation_service import create_conversation
     success, message, conv_data = create_conversation(token, course_id)
@@ -258,7 +487,18 @@ def _new_conversation_handler(
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message=message
         )
-        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     conv_id = str(conv_data.get("id", ""))
     title = conv_data.get("title") or "Ny samtale"
@@ -273,26 +513,62 @@ def _new_conversation_handler(
         course_id=course_id_state,
         status_message="Ny samtale opprettet med valgt veiledningsmodus.",
     )
-    return "", [], status_text, conv_state, selector_update, count_text, open_text
+    return (
+        "",
+        [],
+        status_text,
+        conv_state,
+        selector_update,
+        count_text,
+        open_text,
+        [],
+        _empty_reference_rows(),
+        _REFERENCE_DEFAULT_STATUS,
+    )
 
 
 def _chat_handler(
     user_message: str,
     history: list[dict[str, Any]] | None,
+    source_history: list[dict[str, Any]] | None,
     conversation_state: dict[str, Any] | None,
     token: str | None,
     course_id_state: str | None,
-) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+) -> tuple[
+    str,
+    list[dict[str, str]],
+    str,
+    dict[str, Any],
+    Any,
+    str,
+    str,
+    list[dict[str, Any]],
+    list[list[str]],
+    str,
+]:
     """Send the user message to the backend and append both the user and AI turns to the chat history."""
     visible_history = [
         msg
         for msg in (history or [])
         if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
     ]
+    resolved_source_history = _coerce_source_history(visible_history, source_history)
+    reference_rows, reference_status = _reference_panel_from_history(resolved_source_history)
     text = (user_message or "").strip()
 
     if not token:
-        return "", visible_history, "Ikke innlogget.", conversation_state or _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
+        return (
+            "",
+            visible_history,
+            "Ikke innlogget.",
+            conversation_state or _default_conversation_state(),
+            gr.update(),
+            "",
+            _open_conversation_text(None),
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     if not (course_id_state or "").strip():
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
@@ -300,13 +576,35 @@ def _chat_handler(
             course_id=course_id_state,
             status_message=_NO_COURSE_STATUS,
         )
-        return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            visible_history,
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     active_course_id = str(course_id_state or "").strip()
     if not text:
         conv_id = (conversation_state or {}).get("conversation_id")
         selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
-        return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            visible_history,
+            status_text,
+            conversation_state or _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            resolved_source_history,
+            reference_rows,
+            reference_status,
+        )
 
     conv_id = (conversation_state or {}).get("conversation_id")
     conv_course_id = str((conversation_state or {}).get("course_id") or "").strip()
@@ -316,37 +614,99 @@ def _chat_handler(
             course_id=course_id_state,
             status_message=_OUT_OF_SCOPE_STATUS,
         )
-        return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            visible_history,
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
     if not conv_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message="Velg eller opprett en samtale først."
         )
-        return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            visible_history,
+            status_text,
+            conversation_state or _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            resolved_source_history,
+            reference_rows,
+            reference_status,
+        )
 
     from src.ui.services.conversation_service import send_message
     success, err, ai_msg_data = send_message(token, conv_id, text)
     if not success or ai_msg_data is None:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state, status_message=err)
-        return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
+        return (
+            "",
+            visible_history,
+            status_text,
+            conversation_state or _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            resolved_source_history,
+            reference_rows,
+            reference_status,
+        )
 
     ai_content = ai_msg_data.get("content", "")
-    updated_history = visible_history + [
-        {"role": "user", "content": text},
-        {"role": "assistant", "content": ai_content},
+    updated_source_history = resolved_source_history + [
+        {"role": "user", "content": text, "sources": []},
+        {
+            "role": "assistant",
+            "content": ai_content,
+            "sources": list(ai_msg_data.get("sources") or []),
+        },
     ]
+    updated_history = _visible_history_from_source_history(updated_source_history)
+    updated_reference_rows, updated_reference_status = _reference_panel_from_history(
+        updated_source_history
+    )
 
     selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
-    return "", updated_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
+    return (
+        "",
+        updated_history,
+        status_text,
+        conversation_state or _default_conversation_state(),
+        selector_update,
+        count_text,
+        open_text,
+        updated_source_history,
+        updated_reference_rows,
+        updated_reference_status,
+    )
 
 
 def _refresh_handler(
     conversation_state: dict[str, Any] | None,
+    source_history: list[dict[str, Any]] | None,
     token: str | None,
     course_id_state: str | None,
-) -> tuple[Any, str, str, str, dict[str, Any]]:
+) -> tuple[Any, str, str, str, dict[str, Any], list[dict[str, Any]], list[list[str]], str]:
     """Re-fetch the conversation list and return updated sidebar components."""
     if not token:
-        return gr.update(choices=[], value=None), "", "Ikke innlogget.", _open_conversation_text(None), _default_conversation_state()
+        return (
+            gr.update(choices=[], value=None),
+            "",
+            "Ikke innlogget.",
+            _open_conversation_text(None),
+            _default_conversation_state(),
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     if not (course_id_state or "").strip():
         return (
@@ -355,6 +715,9 @@ def _refresh_handler(
             _NO_COURSE_STATUS,
             _open_conversation_text(None),
             _default_conversation_state(),
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
         )
 
     active_course_id = str(course_id_state or "").strip()
@@ -371,6 +734,8 @@ def _refresh_handler(
         "title": selected_conv.get("title") if selected_conv else None,
         "course_id": active_course_id if selected_conv else None,
     }
+    next_source_history = list(source_history or []) if resolved_value else []
+    reference_rows, reference_status = _reference_panel_from_history(next_source_history)
     status_text = err or "Samtalelisten er oppdatert."
     return (
         gr.update(choices=choices, value=resolved_value),
@@ -378,13 +743,27 @@ def _refresh_handler(
         status_text,
         _open_conversation_text(next_state.get("title")),
         next_state if resolved_value else _default_conversation_state(),
+        next_source_history,
+        reference_rows if resolved_value else _empty_reference_rows(),
+        reference_status if resolved_value else _REFERENCE_DEFAULT_STATUS,
     )
 
 
 def _reset_scope_handler(
     token: str | None,
     course_id_state: str | None,
-) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+) -> tuple[
+    str,
+    list[dict[str, str]],
+    str,
+    dict[str, Any],
+    Any,
+    str,
+    str,
+    list[dict[str, Any]],
+    list[list[str]],
+    str,
+]:
     """Reset local chat state when auth/course scope changes."""
     if not token:
         status_text = "Ikke innlogget."
@@ -400,6 +779,9 @@ def _reset_scope_handler(
         gr.update(choices=[], value=None),
         _conversation_count_text(0),
         _open_conversation_text(None),
+        [],
+        _empty_reference_rows(),
+        _REFERENCE_DEFAULT_STATUS,
     )
 
 
@@ -409,6 +791,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         token_state = gr.State(None)
         course_id_state = gr.State(None)
         conversation_state = gr.State(_default_conversation_state())
+        source_history_state = gr.State([])
 
         with gr.Row():
             with gr.Column(scale=1):
@@ -442,16 +825,30 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 gr.Markdown("Chat med tutor (RAG).")
                 open_conversation = gr.Markdown(_open_conversation_text(None))
                 status = gr.Markdown("")
-                chatbot = gr.Chatbot(type="messages", height=700, label="Chat")
-                message = gr.Textbox(
-                    label="Melding",
-                    placeholder="Spør om pensum ...",
-                    lines=2,
-                )
-
                 with gr.Row():
-                    send_button = gr.Button("Send", variant="primary")
-                    back_button = gr.Button("Tilbake")
+                    with gr.Column(scale=4):
+                        chatbot = gr.Chatbot(type="messages", height=700, label="Chat")
+                        message = gr.Textbox(
+                            label="Melding",
+                            placeholder="Spør om pensum ...",
+                            lines=2,
+                        )
+
+                        with gr.Row():
+                            send_button = gr.Button("Send", variant="primary")
+                            back_button = gr.Button("Tilbake")
+                    with gr.Column(scale=2, min_width=320):
+                        gr.Markdown("### Kildereferanser")
+                        references_status = gr.Markdown(_REFERENCE_DEFAULT_STATUS)
+                        references_table = gr.Dataframe(
+                            headers=_REFERENCE_HEADERS,
+                            datatype=["str", "str", "str"],
+                            value=_empty_reference_rows(),
+                            interactive=False,
+                            wrap=True,
+                            row_count=(0, "dynamic"),
+                            col_count=(3, "fixed"),
+                        )
 
     chat_outputs = [
         message,
@@ -461,16 +858,19 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         conversation_selector,
         conversation_count,
         open_conversation,
+        source_history_state,
+        references_table,
+        references_status,
     ]
 
     send_button.click(
         fn=_chat_handler,
-        inputs=[message, chatbot, conversation_state, token_state, course_id_state],
+        inputs=[message, chatbot, source_history_state, conversation_state, token_state, course_id_state],
         outputs=chat_outputs,
     )
     message.submit(
         fn=_chat_handler,
-        inputs=[message, chatbot, conversation_state, token_state, course_id_state],
+        inputs=[message, chatbot, source_history_state, conversation_state, token_state, course_id_state],
         outputs=chat_outputs,
     )
     conversation_selector.change(
@@ -490,13 +890,16 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
     )
     refresh_button.click(
         fn=_refresh_handler,
-        inputs=[conversation_state, token_state, course_id_state],
+        inputs=[conversation_state, source_history_state, token_state, course_id_state],
         outputs=[
             conversation_selector,
             conversation_count,
             status,
             open_conversation,
             conversation_state,
+            source_history_state,
+            references_table,
+            references_status,
         ],
     )
     save_mode_button.click(
