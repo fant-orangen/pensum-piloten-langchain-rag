@@ -20,6 +20,8 @@ _MODE_CHOICES = [
     ("Example mode", 3),
 ]
 _NO_COURSE_STATUS = "Velg et fag før du bruker chat."
+_SCOPE_CHANGED_STATUS = "Fagkonteksten ble endret. Velg eller opprett en ny samtale."
+_OUT_OF_SCOPE_STATUS = "Samtalen er ikke i aktivt fag. Velg eller opprett en ny samtale."
 
 
 @dataclass(slots=True)
@@ -196,7 +198,7 @@ def _load_conversation_handler(
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token,
             course_id=course_id,
-            status_message="Samtalen finnes ikke i aktivt fag.",
+            status_message=_OUT_OF_SCOPE_STATUS,
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
@@ -312,7 +314,7 @@ def _chat_handler(
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token,
             course_id=course_id_state,
-            status_message="Samtalen er ikke i aktivt fag.",
+            status_message=_OUT_OF_SCOPE_STATUS,
         )
         return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
     if not conv_id:
@@ -384,12 +386,16 @@ def _reset_scope_handler(
     course_id_state: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
     """Reset local chat state when auth/course scope changes."""
-    del token
-    del course_id_state
+    if not token:
+        status_text = "Ikke innlogget."
+    elif not (course_id_state or "").strip():
+        status_text = _NO_COURSE_STATUS
+    else:
+        status_text = _SCOPE_CHANGED_STATUS
     return (
         "",
         [],
-        "",
+        status_text,
         _default_conversation_state(),
         gr.update(choices=[], value=None),
         _conversation_count_text(0),
