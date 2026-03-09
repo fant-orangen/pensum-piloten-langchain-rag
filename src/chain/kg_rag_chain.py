@@ -22,7 +22,10 @@ from src.config import get_settings
 logger = structlog.get_logger(__name__)
 
 
-def build_kg_rag_chain(chroma_collection: str | None = None):
+def build_kg_rag_chain(
+    chroma_collection: str | None = None,
+    graph_scope: str | None = None,
+):
     """Construct and return the KG-guided Socratic-tutor RAG chain.
 
     Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
@@ -32,7 +35,10 @@ def build_kg_rag_chain(chroma_collection: str | None = None):
         Defaults to the globally configured collection when None.
         Raises ValueError if the collection has not been ingested yet.
     """
-    retriever = get_kg_retriever(collection_name=chroma_collection)
+    retriever = get_kg_retriever(
+        collection_name=chroma_collection,
+        graph_scope=graph_scope,
+    )
     prompt = build_tutor_prompt()
     settings = get_settings()
     llm = get_llm(settings.temperature)

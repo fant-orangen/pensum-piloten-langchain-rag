@@ -18,16 +18,17 @@ from src.chain import build_kg_rag_chain
 
 logger = structlog.get_logger(__name__)
 
-# Chains are expensive to build — cache by chroma_collection name.
+# Chains are expensive to build — cache by active course scope.
 _chain_cache: dict[str, Any] = {}
 
 
-def _get_chain(chroma_collection: str) -> Any:
-    if chroma_collection not in _chain_cache:
-        _chain_cache[chroma_collection] = build_kg_rag_chain(
-            chroma_collection=chroma_collection
+def _get_chain(scope: str) -> Any:
+    if scope not in _chain_cache:
+        _chain_cache[scope] = build_kg_rag_chain(
+            chroma_collection=scope,
+            graph_scope=scope,
         )
-    return _chain_cache[chroma_collection]
+    return _chain_cache[scope]
 
 
 async def get_conversation_messages(
@@ -83,6 +84,12 @@ async def create_message(
     course = course_result.scalars().first()
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    if not course.chroma_collection:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This course does not currently have ingested materials.",
+        )
 
     # Build or retrieve the cached chain, validating the collection exists.
     try:

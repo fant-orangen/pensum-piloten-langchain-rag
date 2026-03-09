@@ -31,6 +31,7 @@ class KGExpandedRetriever(BaseRetriever):
     kg_store: Any = None
     top_k: int = 5
     collection_name: str | None = None
+    graph_scope: str | None = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -89,7 +90,10 @@ class KGExpandedRetriever(BaseRetriever):
         Returns:
             List of raw edge tuples ``(head, tail, relation, chunk_id)``.
         """
-        return self.kg_store.get_expanded_subgraph(seed_ids)
+        return self.kg_store.get_expanded_subgraph(
+            seed_ids,
+            scope=self.graph_scope,
+        )
 
     @staticmethod
     def _build_seed_scores(seed_pairs: list[tuple[Document, float]]) -> dict[str, float]:
@@ -350,7 +354,10 @@ class KGExpandedRetriever(BaseRetriever):
         return final_docs
 
 
-def get_kg_retriever(collection_name: str | None = None) -> KGExpandedRetriever:
+def get_kg_retriever(
+    collection_name: str | None = None,
+    graph_scope: str | None = None,
+) -> KGExpandedRetriever:
     """Construct a configured ``KGExpandedRetriever`` instance.
 
     Returns:
@@ -362,4 +369,5 @@ def get_kg_retriever(collection_name: str | None = None) -> KGExpandedRetriever:
         kg_store=kg_store,
         top_k=settings.retriever_top_k,
         collection_name=collection_name,
+        graph_scope=graph_scope,
     )

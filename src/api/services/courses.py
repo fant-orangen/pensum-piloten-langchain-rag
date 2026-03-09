@@ -17,6 +17,11 @@ from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
 from src.api.models.message import Message
 from src.api.models.user import User
+from src.api.services.course_documents import (
+    COURSE_REBUILD_BUILDING,
+    COURSE_REBUILD_QUEUED,
+    purge_course_materials,
+)
 from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
 
 
@@ -99,6 +104,11 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
     require_course_owner_or_admin(current_user, course.created_by_id)
+    if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete a course while its materials are rebuilding.",
+        )
 
     conversation_ids = (
         select(Conversation.id)
@@ -109,6 +119,7 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     # Remove dependent rows in FK-safe order before deleting the course itself.
     await db.execute(sa_delete(Message).where(Message.conversation_id.in_(conversation_ids)))
     await db.execute(sa_delete(Conversation).where(Conversation.course_id == course_id))
+    await purge_course_materials(course, db)
     await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
     await db.delete(course)
     await db.commit()

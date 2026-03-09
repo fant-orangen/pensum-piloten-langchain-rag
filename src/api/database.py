@@ -62,6 +62,30 @@ async def create_tables() -> None:
         )
         await conn.execute(
             text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS index_version INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS rebuild_status VARCHAR NOT NULL DEFAULT 'idle'"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS rebuild_error TEXT"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ALTER COLUMN chroma_collection DROP NOT NULL"
+            )
+        )
+        await conn.execute(
+            text(
                 """
                 DO $$
                 BEGIN
@@ -88,6 +112,12 @@ async def create_tables() -> None:
             )
         )
     logger.info("database_tables_created")
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the configured async session factory."""
+    assert _session_factory is not None, "Call init_engine() before requesting sessions"
+    return _session_factory
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
