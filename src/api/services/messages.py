@@ -108,6 +108,7 @@ async def create_message(
             "question": content,
             "chat_history": lc_history,
             "system_prompt_mode": conversation.system_prompt_mode,
+            "course_specific_instructions": course.course_specific_instructions,
         }
     )
 

@@ -54,6 +54,31 @@ async def create_tables() -> None:
                 "ADD COLUMN IF NOT EXISTS system_prompt_mode INTEGER NOT NULL DEFAULT 1"
             )
         )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS course_specific_instructions TEXT"
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_name = 'course'
+                          AND column_name = 'system_prompt_addon'
+                    ) THEN
+                        UPDATE course
+                        SET course_specific_instructions = system_prompt_addon
+                        WHERE course_specific_instructions IS NULL;
+                    END IF;
+                END $$;
+                """
+            )
+        )
     logger.info("database_tables_created")
 
 

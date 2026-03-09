@@ -17,7 +17,7 @@ from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
 from src.api.models.message import Message
 from src.api.models.user import User
-from src.api.schemas.course import CourseCreate, EnrollmentCreate
+from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
 
 
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
@@ -70,6 +70,7 @@ async def create_course(current_user: User, body: CourseCreate, db: AsyncSession
         documents_dir=body.documents_dir,
         description=body.description,
         rag_mode=body.rag_mode,
+        course_specific_instructions=body.course_specific_instructions,
         created_by_id=current_user.id,
     )
     db.add(course)
@@ -111,6 +112,32 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
     await db.delete(course)
     await db.commit()
+
+
+async def update_course_specific_instructions(
+    current_user: User,
+    course_id: uuid.UUID,
+    body: CourseInstructionsUpdate,
+    db: AsyncSession,
+) -> Course:
+    """Update teacher-authored prompt instructions for a course."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    course = course_result.scalars().first()
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    cleaned_instructions = (
+        body.course_specific_instructions.strip()
+        if body.course_specific_instructions is not None
+        else None
+    )
+    course.course_specific_instructions = cleaned_instructions or None
+    db.add(course)
+    await db.commit()
+    await db.refresh(course)
+    return course
 
 
 async def enroll_user(

@@ -1,0 +1,10 @@
+[
+  {
+    "role": "human",
+    "content": "What is a thread?"
+  },
+  {
+    "role": "ai",
+    "content": "What do you think the difference might be between a traditional (single-threaded) program and a multi-threaded one? What does each one \"do\" as it runs?"
+  }
+]

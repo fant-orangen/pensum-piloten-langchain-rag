@@ -22,8 +22,8 @@ class Course(SQLModel, table=True):
     documents_dir: str
     # Default RAG chain to use for conversations in this course.
     rag_mode: str = Field(default="kg_rag")  # "rag" | "kg_rag" | "no_rag"
-    # Optional text appended to the base Socratic system prompt for this course.
-    system_prompt_addon: Optional[str] = None
+    # Optional teacher-authored instructions appended to the fixed tutor prompt.
+    course_specific_instructions: Optional[str] = None
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # Teacher who created the course.

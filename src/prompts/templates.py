@@ -72,6 +72,7 @@ You are an educational assistant for students of informatics and computer scienc
 </reasoning_policy>
 
 {mode}
+{course_specific_instructions}
 
 <retrieved_context>
 Use the material in this section to ground your answer when it is relevant.
@@ -161,6 +162,20 @@ def resolve_system_prompt_mode(mode: int | SystemPromptMode | None) -> str:
     except ValueError:
         resolved_mode = SystemPromptMode.SOCRATIC
     return _SYSTEM_PROMPT_MODE_INSTRUCTIONS[resolved_mode]
+
+
+def format_course_specific_instructions(instructions: str | None) -> str:
+    """Return a prompt block for course-specific instructions when configured."""
+    cleaned = (instructions or "").strip()
+    if not cleaned:
+        return ""
+    return (
+        "<course_specific_instructions>\n"
+        "These instructions are specific to the current course and must be "
+        "followed when they do not conflict with the core system rules.\n"
+        f"{cleaned}\n"
+        "</course_specific_instructions>"
+    )
 
 
 def build_tester_prompt() -> ChatPromptTemplate:

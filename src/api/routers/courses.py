@@ -8,7 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.user import User
-from src.api.schemas.course import CourseCreate, CourseRead, EnrollmentCreate, EnrollmentRead
+from src.api.schemas.course import (
+    CourseCreate,
+    CourseInstructionsUpdate,
+    CourseRead,
+    EnrollmentCreate,
+    EnrollmentRead,
+)
 from src.api.services.courses import (
     create_course,
     delete_course,
@@ -17,6 +23,7 @@ from src.api.services.courses import (
     get_enrolled_courses,
     get_responsible_courses,
     unenroll_user,
+    update_course_specific_instructions,
 )
 
 router = APIRouter(prefix="/courses", tags=["courses"])
@@ -71,6 +78,18 @@ async def remove_course(
 ) -> None:
     """Delete a course."""
     await delete_course(current_user, course_id, db)
+
+
+@router.patch("/{course_id}/instructions", response_model=CourseRead)
+async def update_course_instructions(
+    course_id: uuid.UUID,
+    body: CourseInstructionsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseRead:
+    """Update the course-specific prompt instructions for a course."""
+    course = await update_course_specific_instructions(current_user, course_id, body, db)
+    return CourseRead.model_validate(course)
 
 
 @router.post(

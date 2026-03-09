@@ -11,6 +11,7 @@ class CourseRead(BaseModel):
     name: str
     code: str
     rag_mode: str
+    course_specific_instructions: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -22,6 +23,11 @@ class CourseCreate(BaseModel):
     documents_dir: str
     description: Optional[str] = None
     rag_mode: str = "kg_rag"
+    course_specific_instructions: Optional[str] = None
+
+
+class CourseInstructionsUpdate(BaseModel):
+    course_specific_instructions: Optional[str] = None
 
 
 class EnrollmentCreate(BaseModel):
