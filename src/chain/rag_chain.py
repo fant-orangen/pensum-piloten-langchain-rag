@@ -18,6 +18,7 @@ from src.models import get_llm
 from src.retriever import get_retriever
 from src.prompts import build_tutor_prompt
 from src.prompts.templates import (
+    format_conversation_summary,
     format_course_specific_instructions,
     resolve_system_prompt_mode,
 )
@@ -74,6 +75,9 @@ def build_rag_chain():
                 lambda x: format_course_specific_instructions(
                     x.get("course_specific_instructions")
                 )
+            ),
+            conversation_summary=RunnableLambda(
+                lambda x: format_conversation_summary(x.get("conversation_summary"))
             ),
         )
         | prompt

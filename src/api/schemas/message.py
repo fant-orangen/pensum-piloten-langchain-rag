@@ -21,5 +21,6 @@ class MessageRead(BaseModel):
     # Source documents referenced by the RAG system. None on human messages.
     sources: Optional[Any]
     created_at: datetime
+    conversation_compression_triggered: bool = False
 
     model_config = {"from_attributes": True}

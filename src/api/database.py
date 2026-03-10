@@ -56,6 +56,13 @@ async def create_tables() -> None:
         )
         await conn.execute(
             text(
+                "ALTER TABLE conversation_context_summary "
+                "ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE "
+                "NOT NULL DEFAULT NOW()"
+            )
+        )
+        await conn.execute(
+            text(
                 "ALTER TABLE course "
                 "ADD COLUMN IF NOT EXISTS course_specific_instructions TEXT"
             )

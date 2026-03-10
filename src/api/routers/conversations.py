@@ -82,5 +82,12 @@ async def new_message(
 ) -> MessageRead:
     """Add a message to an existing conversation."""
     conversation = await get_conversation_for_user(conversation_id, current_user.id, db)
-    message = await create_message(conversation, request.content, "human", db)
-    return MessageRead.model_validate(message)
+    message, compression_triggered = await create_message(
+        conversation,
+        request.content,
+        "human",
+        db,
+    )
+    return MessageRead.model_validate(message).model_copy(
+        update={"conversation_compression_triggered": compression_triggered}
+    )

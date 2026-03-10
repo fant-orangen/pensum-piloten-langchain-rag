@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     retriever_top_k: int = 5
     kg_max_final_chunks: int = 20
     temperature: float = 0.3
+    conversation_compression_token_limit: int = 3000
 
     # --- Neo4j (Knowledge Graph) ---
     neo4j_uri: str = "bolt://localhost:7687"

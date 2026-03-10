@@ -38,6 +38,43 @@ Use small worked examples, miniature scenarios, or short code/data snippets when
 After the example, briefly connect it back to the underlying concept and invite the learner to compare the example to their own problem.
 </mode_instructions>"""
 
+_CONVERSATION_COMPRESSION_TEMPLATE = """\
+<system_prompt>
+Summarise the conversation history as faithfully as possible.
+
+Your task is to produce a concise descriptive summary of what was actually said in the conversation.
+Focus on:
+- the topics discussed
+- the line of argument or explanation that was developed
+- important distinctions, examples, and clarifications that were made
+- the conclusions or partial conclusions that were reached
+
+Do not infer hidden intentions, goals, misconceptions, or emotional states unless they were stated explicitly in the conversation.
+Do not add advice or interpretation.
+Do not rewrite the conversation into a new teaching plan.
+
+Write one concise plain-text summary that stays as true as possible to the original exchange.
+</system_prompt>"""
+
+_CONVERSATION_RECOMPRESSION_TEMPLATE = """\
+<system_prompt>
+You are updating an existing compressed summary of a conversation.
+
+You will receive:
+- an existing summary of the earlier conversation
+- newer raw conversation turns that happened after that summary
+
+Synthesize them into one updated concise descriptive summary.
+Preserve the substance of what was said, the line of argument followed, and the conclusions reached.
+Integrate the newer turns with the earlier summary without inventing new interpretations.
+Remove redundancy, but remain faithful to the content of the conversation.
+
+Do not infer hidden intentions, goals, misconceptions, or emotional states unless they were stated explicitly.
+Do not add advice or interpretation.
+
+Write one concise plain-text summary that stays as true as possible to the original exchange.
+</system_prompt>"""
+
 _SYSTEM_PROMPT_MODE_INSTRUCTIONS = {
     SystemPromptMode.SOCRATIC: _SOCRATIC_MODE_INSTRUCTIONS,
     SystemPromptMode.DIRECT: _DIRECT_MODE_INSTRUCTIONS,
@@ -97,9 +134,8 @@ For this conversation, respond in a way consistent with the following specific i
 {mode}
 </mode_instructions>
 
-<course_specific_instructions>
 {course_specific_instructions}
-</course_specific_instructions>
+{conversation_summary}
 
 <execution>
 1. Identify the user's immediate need.
@@ -167,6 +203,24 @@ TESTER_PROMPT = ChatPromptTemplate.from_messages(
     ]
 )
 
+CONVERSATION_COMPRESSION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", _CONVERSATION_COMPRESSION_TEMPLATE),
+        ("human", "Conversation history:\n{conversation_history}"),
+    ]
+)
+
+CONVERSATION_RECOMPRESSION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", _CONVERSATION_RECOMPRESSION_TEMPLATE),
+        (
+            "human",
+            "Existing compressed summary:\n{existing_summary}\n\n"
+            "New conversation turns since that summary:\n{conversation_history}",
+        ),
+    ]
+)
+
 
 def build_tutor_prompt() -> ChatPromptTemplate:
     """Return the tutor prompt template.
@@ -200,6 +254,30 @@ def format_course_specific_instructions(instructions: str | None) -> str:
     )
 
 
+def format_conversation_summary(summary: str | None) -> str:
+    """Return a prompt block for compressed conversation memory when present."""
+    cleaned = (summary or "").strip()
+    if not cleaned:
+        return ""
+    return (
+        "<conversation_summary>\n"
+        "This is a compressed summary of earlier conversation turns. Treat it as "
+        "prior context that should inform the next reply.\n"
+        f"{cleaned}\n"
+        "</conversation_summary>"
+    )
+
+
 def build_tester_prompt() -> ChatPromptTemplate:
     """Return the automated tester prompt template."""
     return TESTER_PROMPT
+
+
+def build_conversation_compression_prompt() -> ChatPromptTemplate:
+    """Return the prompt used for first-time conversation compression."""
+    return CONVERSATION_COMPRESSION_PROMPT
+
+
+def build_conversation_recompression_prompt() -> ChatPromptTemplate:
+    """Return the prompt used to merge an existing summary with newer turns."""
+    return CONVERSATION_RECOMPRESSION_PROMPT
