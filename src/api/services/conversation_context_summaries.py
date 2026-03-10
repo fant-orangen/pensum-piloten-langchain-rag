@@ -12,12 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.models.conversation import Conversation
 from src.api.models.conversation_context_summary import ConversationContextSummary
 from src.api.models.message import Message
+from src.api.utils.logging import get_service_logger, log_conversation_compression
 from src.config import get_settings
 from src.models import get_llm
 from src.prompts.templates import (
     build_conversation_compression_prompt,
     build_conversation_recompression_prompt,
 )
+
+logger = get_service_logger(__name__)
 
 
 def _format_messages_for_summary(messages: list[Message]) -> str:
@@ -75,11 +78,23 @@ async def maybe_compress_conversation_history(
     messages = list(messages_result.scalars().all())
 
     limit = get_settings().conversation_compression_token_limit
-    if _estimate_history_tokens(current_summary, messages, pending_user_message) <= limit:
+    estimated_tokens = _estimate_history_tokens(current_summary, messages, pending_user_message)
+    if estimated_tokens <= limit:
         return current_summary, summary_created_at, False
 
     if not current_summary and not messages:
         return None, summary_created_at, False
+
+    log_conversation_compression(
+        logger,
+        "triggered",
+        conversation_id=str(conversation.id),
+        mode="recompress" if current_summary else "compress",
+        estimated_tokens=estimated_tokens,
+        token_limit=limit,
+        raw_message_count=len(messages),
+        had_existing_summary=bool(current_summary),
+    )
 
     transcript = _format_messages_for_summary(messages)
     llm = get_llm(temperature=0.0)
@@ -109,4 +124,12 @@ async def maybe_compress_conversation_history(
         summary_row.context_summary = cleaned_summary
         summary_row.created_at = compressed_at
     db.add(summary_row)
+    log_conversation_compression(
+        logger,
+        "completed",
+        conversation_id=str(conversation.id),
+        mode="recompress" if current_summary else "compress",
+        summary_created_at=compressed_at.isoformat(),
+        summary_length=len(cleaned_summary),
+    )
     return cleaned_summary, compressed_at, True

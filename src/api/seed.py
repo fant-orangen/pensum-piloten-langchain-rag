@@ -1,12 +1,33 @@
-"""Test data seeding.
+"""Test data seeding for Pensum Piloten.
 
-Activated by setting SEED_TEST_DATA=true in the environment or .env file.
-Inserts a teacher, a student, a course backed by the configured ChromaDB
-collection, and enrolls the student in that course.
+This module provides an asynchronous `seed()` function to insert a canonical set of test users, courses, and enrollments into the database.
+It is used during development/testing to ensure the application can start with known test data for local exercise, UI flows, and early feature validation.
 
-The seed is idempotent — each object is skipped if it already exists,
-so the function is safe to call on every startup.
+## Activation
+
+Seeding is activated by setting `SEED_TEST_DATA=true` in the environment or a `.env` file.
+When enabled, the `seed()` function should be called once on startup (typically in the FastAPI startup handler).
+
+## What gets seeded?
+
+- **Users**: One teacher, one student, one admin (ids and emails are consistent across runs).
+- **Courses**: A main test course (_COURSE_CODE = "TEST101", instructor: teacher), and a second test course ("TEST102", instructor: admin).
+- **Enrollments**:
+    - The student is enrolled in the main test course as a student.
+    - The teacher is enrolled as a teacher in TEST101 and (for UI flows) as a *student* in TEST102.
+- **Directories**: Document directories are created if missing. Course documents may be synced from their directory.
+- **RAG/KG index**: Course metadata (chroma_collection, index_version) is loaded from a local manifest if present (see `.pensum_piloten/rebuild_manifest.json`).
+
+Idempotency is enforced: if the objects exist, nothing is duplicated or changed except for (instructive) metadata updates and roles.
+
+## Usage pattern
+
+This function is safe to call multiple times or on every startup. It will provision the known users, courses, and document state needed to exercise the API and frontend UI.
+
 """
+
+import json
+from pathlib import Path
 
 import structlog
 from sqlalchemy import select
@@ -26,6 +47,9 @@ from src.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
+# -----------------------------
+# Constants for canonical test data
+# -----------------------------
 _TEACHER_EMAIL = "teacher@test.com"
 _STUDENT_EMAIL = "student@test.com"
 _ADMIN_EMAIL = "admin@test.com"
@@ -35,13 +59,60 @@ _COURSE_SPECIFIC_INSTRUCTIONS = (
     "This course is specifically about understanding NTFS when discussing file systems. "
     "When file-system concepts are explained, always describe them with reference to NTFS."
 )
+_COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
+_REBUILD_MANIFEST_NAME = "rebuild_manifest.json"
+
+
+def _load_seed_scope_from_manifest(course_code: str) -> tuple[str, int]:
+    """Return (chroma_collection, index_version) for the given course code, using a manifest if present.
+
+    This function is used to align the course's document indexing state (version/scope)
+    with the actual ChromaDB/materialized index on disk. If the manifest file does not exist,
+    a fallback default scope and index_version (1) is used.
+
+    Args:
+        course_code: The course code (e.g., 'TEST101').
+
+    Returns:
+        Tuple of (chroma_collection: str, index_version: int).
+    """
+    course_dir = build_course_documents_dir(course_code)
+    manifest_path = course_dir / _COURSE_ARTIFACTS_DIRNAME / _REBUILD_MANIFEST_NAME
+    fallback_scope = build_course_scope_name(course_code, 1)
+    fallback_version = 1
+
+    if not manifest_path.exists():
+        return fallback_scope, fallback_version
+
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        logger.warning("seed_manifest_unreadable", course=course_code, path=str(manifest_path))
+        return fallback_scope, fallback_version
+
+    scope = payload.get("scope")
+    index_version = payload.get("index_version")
+    if not isinstance(scope, str) or not scope.strip():
+        return fallback_scope, fallback_version
+    if not isinstance(index_version, int) or index_version < 1:
+        return scope.strip(), fallback_version
+    return scope.strip(), index_version
 
 
 async def seed(db: AsyncSession) -> None:
+    """
+    Populate canonical test users, courses, and their relationships in the database for dev/test/demo.
+
+    - Creates admin, teacher, student (with fixed credentials).
+    - Creates two test courses. Main course uses chroma_collection/index_version from local manifest if present.
+    - Ensures enrollments for test flows (incl. teacher enrolled as student in course 2).
+    - Invokes sync from doc directory for seeded course.
+    - Idempotent: skips/updates, does not duplicate.
+    """
     settings = get_settings()
     test_course_dir = build_course_documents_dir(_COURSE_CODE)
     second_course_dir = build_course_documents_dir(_SECOND_COURSE_CODE)
-    test_course_scope = build_course_scope_name(_COURSE_CODE, 1)
+    test_course_scope, test_course_version = _load_seed_scope_from_manifest(_COURSE_CODE)
     test_course_dir.mkdir(parents=True, exist_ok=True)
     second_course_dir.mkdir(parents=True, exist_ok=True)
 
@@ -86,7 +157,7 @@ async def seed(db: AsyncSession) -> None:
             documents_dir=str(test_course_dir),
             rag_mode="kg_rag",
             course_specific_instructions=_COURSE_SPECIFIC_INSTRUCTIONS,
-            index_version=1,
+            index_version=test_course_version,
             created_by_id=teacher.id,
         )
         db.add(course)
@@ -96,7 +167,7 @@ async def seed(db: AsyncSession) -> None:
         course.chroma_collection = test_course_scope
         course.documents_dir = str(test_course_dir)
         course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
-        course.index_version = max(course.index_version, 1)
+        course.index_version = max(course.index_version, test_course_version)
         db.add(course)
         logger.info("seed_course_exists", code=_COURSE_CODE)
 
@@ -122,6 +193,7 @@ async def seed(db: AsyncSession) -> None:
         logger.info("seed_course_exists", code=_SECOND_COURSE_CODE)
 
     # --- Enrollment ---
+    # Student enrolled in TEST101 as student
     enrollment_result = await db.execute(
         select(CourseEnrollment).where(
             CourseEnrollment.user_id == student.id,
@@ -132,6 +204,7 @@ async def seed(db: AsyncSession) -> None:
         db.add(CourseEnrollment(user_id=student.id, course_id=course.id, role="student"))
         logger.info("seed_enrolled_student", email=_STUDENT_EMAIL, course=_COURSE_CODE)
 
+    # Teacher enrolled in TEST101 as teacher
     teacher_enrollment_result = await db.execute(
         select(CourseEnrollment).where(
             CourseEnrollment.user_id == teacher.id,
@@ -142,6 +215,7 @@ async def seed(db: AsyncSession) -> None:
         db.add(CourseEnrollment(user_id=teacher.id, course_id=course.id, role="teacher"))
         logger.info("seed_enrolled_teacher", email=_TEACHER_EMAIL, course=_COURSE_CODE)
 
+    # Teacher enrolled in TEST102 as student (for UI/role switching flows)
     second_course_teacher_enrollment_result = await db.execute(
         select(CourseEnrollment).where(
             CourseEnrollment.user_id == teacher.id,
@@ -153,6 +227,7 @@ async def seed(db: AsyncSession) -> None:
         db.add(CourseEnrollment(user_id=teacher.id, course_id=second_course.id, role="student"))
         logger.info("seed_enrolled_teacher", email=_TEACHER_EMAIL, course=_SECOND_COURSE_CODE, role="student")
     elif second_course_teacher_enrollment.role != "student":
+        # Non-idempotent: forcibly update teacher's enrollment to 'student'
         second_course_teacher_enrollment.role = "student"
         db.add(second_course_teacher_enrollment)
         logger.info(
@@ -176,6 +251,9 @@ async def _get_or_create_user(
     last_name: str,
     global_role: str,
 ) -> User:
+    """
+    Idempotently create a User with fixed credentials, or return existing (logs event).
+    """
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalars().first()
     if user is None:
@@ -195,6 +273,11 @@ async def _get_or_create_user(
 
 
 async def _seed_course_documents(db: AsyncSession, course: Course) -> None:
+    """
+    Synchronize course documents from course's directory for the given Course.
+
+    Only logs if new documents are discovered.
+    """
     created_count = await sync_course_documents_from_directory(course, db)
     if created_count:
         logger.info("seed_course_documents_created", course=course.code, count=created_count)

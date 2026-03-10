@@ -13,9 +13,11 @@ from structlog.typing import FilteringBoundLogger
 ServiceLogger: TypeAlias = FilteringBoundLogger
 LogLevel: TypeAlias = Literal["info", "warning", "error"]
 CourseMaterialRebuildAction: TypeAlias = Literal["queued", "started", "complete"]
+ConversationCompressionAction: TypeAlias = Literal["triggered", "completed"]
 
 _SERVICE_COMPONENT: Final = "api_service"
 _COURSE_MATERIAL_REBUILD_PREFIX: Final = "course_material_rebuild"
+_CONVERSATION_COMPRESSION_PREFIX: Final = "conversation_compression"
 
 
 def get_service_logger(module_name: str) -> ServiceLogger:
@@ -87,6 +89,16 @@ def log_course_material_rebuild_failed(
         error=str(error),
         **fields,
     )
+
+
+def log_conversation_compression(
+    logger: ServiceLogger,
+    action: ConversationCompressionAction,
+    /,
+    **fields: object,
+) -> None:
+    """Emit a standardized conversation compression lifecycle event."""
+    _log_event(logger, f"{_CONVERSATION_COMPRESSION_PREFIX}_{action}", **fields)
 
 
 def _log_event(
