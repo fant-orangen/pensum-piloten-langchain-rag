@@ -44,6 +44,34 @@ def get_vectorstore(collection_name: str | None = None) -> Chroma:
     )
 
 
+def get_chunks_by_ids(
+    chunk_ids: list[str],
+    *,
+    collection_name: str | None = None,
+) -> list[Document]:
+    """Fetch stored chunks by ``chunk_id`` and preserve the requested order."""
+    ordered_ids = [chunk_id.strip() for chunk_id in chunk_ids if chunk_id and chunk_id.strip()]
+    if not ordered_ids:
+        return []
+
+    vectorstore = get_vectorstore(collection_name)
+    results = vectorstore._collection.get(
+        where={"chunk_id": {"$in": ordered_ids}},
+        include=["documents", "metadatas"],
+    )
+
+    id_to_doc: dict[str, Document] = {}
+    if results and results["documents"]:
+        for doc_text, meta in zip(results["documents"], results["metadatas"]):
+            if not isinstance(meta, dict):
+                continue
+            chunk_id = meta.get("chunk_id")
+            if isinstance(chunk_id, str) and chunk_id.strip():
+                id_to_doc[chunk_id] = Document(page_content=doc_text, metadata=meta)
+
+    return [id_to_doc[chunk_id] for chunk_id in ordered_ids if chunk_id in id_to_doc]
+
+
 _EMBED_BATCH_SIZE = 100
 
 

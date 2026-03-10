@@ -9,13 +9,14 @@ from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.user import User
 from src.api.schemas.conversation import ConversationCreate, ConversationRead
-from src.api.schemas.message import MessageCreate, MessageRead
+from src.api.schemas.message import MessageCreate, MessageRead, MessageSourceRead
 from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.conversations import (
     create_conversation,
     get_conversation_for_user,
     get_user_conversations,
 )
+from src.api.services.message_sources import get_message_sources_for_user
 from src.api.services.messages import create_message, get_conversation_messages
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -55,6 +56,26 @@ async def list_messages(
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_conversation_messages(conversation_id, params, db)
     return Page.create(items=[MessageRead.model_validate(m) for m in items], total=total, params=params)
+
+
+@router.get(
+    "/{conversation_id}/messages/{message_id}/sources",
+    response_model=list[MessageSourceRead],
+)
+async def get_message_sources(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[MessageSourceRead]:
+    """Return resolved source chunks for a specific message."""
+    sources = await get_message_sources_for_user(
+        conversation_id,
+        message_id,
+        current_user.id,
+        db,
+    )
+    return [MessageSourceRead.model_validate(source) for source in sources]
 
 
 @router.post("", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)

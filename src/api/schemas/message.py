@@ -24,3 +24,12 @@ class MessageRead(BaseModel):
     conversation_compression_triggered: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class MessageSourceRead(BaseModel):
+    """Resolved source chunk for a persisted message."""
+
+    chunk_id: str
+    document: str
+    page: str
+    content: str

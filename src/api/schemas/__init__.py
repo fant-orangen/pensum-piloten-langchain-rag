@@ -6,7 +6,7 @@ existing import in app.py:  from src.api.schemas import AskRequest, AskResponse
 
 from src.api.schemas.ask import AskRequest, AskResponse, ChatMessage
 from src.api.schemas.conversation import ConversationRead
-from src.api.schemas.message import MessageRead
+from src.api.schemas.message import MessageRead, MessageSourceRead
 from src.api.schemas.pagination import Page, PaginationParams
 
 __all__ = [
@@ -15,6 +15,7 @@ __all__ = [
     "ChatMessage",
     "ConversationRead",
     "MessageRead",
+    "MessageSourceRead",
     "Page",
     "PaginationParams",
 ]
