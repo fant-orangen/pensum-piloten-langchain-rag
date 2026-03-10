@@ -1,7 +1,6 @@
 """Course business logic and database queries."""
 
 import uuid
-from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete as sa_delete, select
@@ -21,10 +20,10 @@ from src.api.models.user import User
 from src.api.services.course_documents import (
     COURSE_REBUILD_BUILDING,
     COURSE_REBUILD_QUEUED,
+    build_course_documents_dir,
     purge_course_materials,
 )
 from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
-from src.config import get_settings
 
 
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
@@ -70,8 +69,7 @@ async def create_course(current_user: User, body: CourseCreate, db: AsyncSession
             detail=f"A course with code '{body.code}' already exists.",
         )
 
-    settings = get_settings()
-    course_documents_dir = Path(settings.documents_dir) / body.code
+    course_documents_dir = build_course_documents_dir(body.code)
     course_documents_dir.mkdir(parents=True, exist_ok=True)
 
     course = Course(

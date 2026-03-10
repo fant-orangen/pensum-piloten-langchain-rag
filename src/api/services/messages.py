@@ -113,7 +113,7 @@ async def create_message(
     # Load conversation history in chronological order for the chain.
     history_query = select(Message).where(Message.conversation_id == conversation.id)
     if summary_created_at is not None:
-        history_query = history_query.where(Message.created_at > summary_created_at)
+        history_query = history_query.where(Message.created_at > summary_created_at) # Only include messages after the summary was created
     history_result = await db.execute(history_query.order_by(Message.created_at.asc()))
     lc_history = [
         HumanMessage(content=m.content) if m.role == "human" else AIMessage(content=m.content)

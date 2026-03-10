@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import shutil
 import uuid
@@ -21,6 +22,7 @@ from src.api.models.course import Course
 from src.api.models.course_document import CourseDocument
 from src.api.models.user import User
 from src.api.schemas.course import CourseMaterialsStatusRead
+from src.config import get_settings
 from src.config.settings import PROJECT_ROOT
 from src.ingestion.chunker import chunk_documents
 from src.ingestion.loader import is_supported_document_path, load_documents_from_paths
@@ -38,6 +40,12 @@ COURSE_REBUILD_FAILED = "failed"
 DOC_STATUS_ACTIVE = "active"
 DOC_STATUS_PENDING_ADD = "pending_add"
 DOC_STATUS_PENDING_REMOVE = "pending_remove"
+COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
+
+
+def build_course_documents_dir(course_code: str) -> Path:
+    settings = get_settings()
+    return Path(settings.documents_dir) / course_code
 
 
 def _resolve_documents_root(course: Course) -> Path:
@@ -45,6 +53,18 @@ def _resolve_documents_root(course: Course) -> Path:
     if raw.is_absolute():
         return raw
     return PROJECT_ROOT / raw
+
+
+def get_course_artifacts_dir(course: Course) -> Path:
+    return _resolve_documents_root(course) / COURSE_ARTIFACTS_DIRNAME
+
+
+def _is_course_artifact_path(course: Course, path: Path) -> bool:
+    try:
+        relative = path.resolve().relative_to(_resolve_documents_root(course).resolve())
+    except ValueError:
+        return False
+    return bool(relative.parts) and relative.parts[0] == COURSE_ARTIFACTS_DIRNAME
 
 
 def _sanitize_filename(filename: str | None) -> str:
@@ -126,6 +146,110 @@ async def list_course_documents(
         .order_by(CourseDocument.created_at.asc())
     )
     return list(result.scalars().all())
+
+
+async def sync_course_documents_from_directory(
+    course: Course,
+    db: AsyncSession,
+) -> int:
+    """Ensure active CourseDocument rows exist for files currently on disk."""
+    storage_root = _resolve_documents_root(course)
+    if not storage_root.exists() or not storage_root.is_dir():
+        return 0
+
+    result = await db.execute(
+        select(CourseDocument).where(CourseDocument.course_id == course.id)
+    )
+    existing_paths = {document.storage_path for document in result.scalars().all()}
+
+    created_count = 0
+    now = datetime.utcnow()
+    for path in sorted(storage_root.rglob("*")):
+        resolved_path = path.resolve()
+        if not resolved_path.is_file():
+            continue
+        if _is_course_artifact_path(course, resolved_path):
+            continue
+        if not is_supported_document_path(resolved_path):
+            continue
+
+        storage_path = str(resolved_path)
+        if storage_path in existing_paths:
+            continue
+
+        db.add(
+            CourseDocument(
+                course_id=course.id,
+                original_filename=resolved_path.name,
+                storage_path=storage_path,
+                status=DOC_STATUS_ACTIVE,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        existing_paths.add(storage_path)
+        created_count += 1
+
+    return created_count
+
+
+def _clear_course_artifacts(course: Course) -> None:
+    artifacts_dir = get_course_artifacts_dir(course)
+    if artifacts_dir.exists():
+        shutil.rmtree(artifacts_dir, ignore_errors=True)
+
+
+def _write_course_artifacts(
+    course: Course,
+    *,
+    scope: str,
+    index_version: int,
+    snapshot_documents: list[CourseDocument],
+    triplets: list,
+    chunk_count: int,
+) -> None:
+    artifacts_dir = get_course_artifacts_dir(course)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    triplets_path = artifacts_dir / "kg_triplets.json"
+    triplets_payload = [
+        {
+            "head": triplet.head,
+            "relation": triplet.relation,
+            "tail": triplet.tail,
+            "chunk_id": triplet.chunk_id,
+        }
+        for triplet in triplets
+    ]
+    triplets_path.write_text(
+        json.dumps(triplets_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    manifest_path = artifacts_dir / "rebuild_manifest.json"
+    manifest = {
+        "course_id": str(course.id),
+        "course_code": course.code,
+        "scope": scope,
+        "index_version": index_version,
+        "documents_dir": str(_resolve_documents_root(course)),
+        "document_count": len(snapshot_documents),
+        "chunk_count": chunk_count,
+        "triplet_count": len(triplets),
+        "documents": [
+            {
+                "document_id": str(document.id),
+                "original_filename": document.original_filename,
+                "storage_path": document.storage_path,
+            }
+            for document in snapshot_documents
+        ],
+        "rebuilt_at": datetime.utcnow().isoformat(),
+    }
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 async def stage_course_documents(
@@ -412,6 +536,22 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                     await asyncio.to_thread(kg_store.build_kg, triplets, target_scope)
                 finally:
                     kg_store.close()
+                logger.info(
+                    "course_material_rebuild_step",
+                    course_id=str(course.id),
+                    step="write_course_artifacts",
+                    target_scope=target_scope,
+                    artifacts_dir=str(get_course_artifacts_dir(course)),
+                )
+                await asyncio.to_thread(
+                    _write_course_artifacts,
+                    course,
+                    scope=target_scope,
+                    index_version=next_version,
+                    snapshot_documents=snapshot_documents,
+                    triplets=triplets,
+                    chunk_count=len(chunks),
+                )
             else:
                 logger.info(
                     "course_material_rebuild_step",
@@ -419,6 +559,7 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                     step="clear_active_scope",
                     old_scope=old_scope,
                 )
+                await asyncio.to_thread(_clear_course_artifacts, course)
 
             removed_paths = await _activate_staged_documents(course.id, db)
             logger.info(

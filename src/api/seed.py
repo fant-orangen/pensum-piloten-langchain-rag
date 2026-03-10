@@ -8,21 +8,20 @@ The seed is idempotent — each object is skipped if it already exists,
 so the function is safe to call on every startup.
 """
 
-import mimetypes
-from pathlib import Path
-
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.conversation import Conversation  # noqa: F401 — keep metadata complete
 from src.api.models.course import Course
-from src.api.models.course_document import CourseDocument
 from src.api.models.enrollment import CourseEnrollment
 from src.api.models.user import User
 from src.api.services.auth import hash_password
+from src.api.services.course_documents import (
+    build_course_documents_dir,
+    sync_course_documents_from_directory,
+)
 from src.config import get_settings
-from src.ingestion.loader import is_supported_document_path
 
 logger = structlog.get_logger(__name__)
 
@@ -39,6 +38,10 @@ _COURSE_SPECIFIC_INSTRUCTIONS = (
 
 async def seed(db: AsyncSession) -> None:
     settings = get_settings()
+    test_course_dir = build_course_documents_dir(_COURSE_CODE)
+    second_course_dir = build_course_documents_dir(_SECOND_COURSE_CODE)
+    test_course_dir.mkdir(parents=True, exist_ok=True)
+    second_course_dir.mkdir(parents=True, exist_ok=True)
 
     # --- Admin ---
     admin = await _get_or_create_user(
@@ -78,7 +81,7 @@ async def seed(db: AsyncSession) -> None:
             name="Test Course",
             code=_COURSE_CODE,
             chroma_collection=settings.chroma_collection_name,
-            documents_dir=settings.documents_dir,
+            documents_dir=str(test_course_dir),
             rag_mode="kg_rag",
             course_specific_instructions=_COURSE_SPECIFIC_INSTRUCTIONS,
             created_by_id=teacher.id,
@@ -87,7 +90,7 @@ async def seed(db: AsyncSession) -> None:
         await db.flush()  # populate course.id before using it below
         logger.info("seed_created_course", code=_COURSE_CODE)
     else:
-        course.documents_dir = settings.documents_dir
+        course.documents_dir = str(test_course_dir)
         course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
         db.add(course)
         logger.info("seed_course_exists", code=_COURSE_CODE)
@@ -100,7 +103,7 @@ async def seed(db: AsyncSession) -> None:
             name="Second Test Course",
             code=_SECOND_COURSE_CODE,
             chroma_collection=settings.chroma_collection_name,
-            documents_dir=settings.documents_dir,
+            documents_dir=str(second_course_dir),
             rag_mode="kg_rag",
             created_by_id=admin.id,
         )
@@ -108,7 +111,7 @@ async def seed(db: AsyncSession) -> None:
         await db.flush()
         logger.info("seed_created_course", code=_SECOND_COURSE_CODE)
     else:
-        second_course.documents_dir = settings.documents_dir
+        second_course.documents_dir = str(second_course_dir)
         second_course.chroma_collection = settings.chroma_collection_name
         db.add(second_course)
         logger.info("seed_course_exists", code=_SECOND_COURSE_CODE)
@@ -187,32 +190,6 @@ async def _get_or_create_user(
 
 
 async def _seed_course_documents(db: AsyncSession, course: Course) -> None:
-    documents_root = Path(course.documents_dir)
-    if not documents_root.exists() or not documents_root.is_dir():
-        logger.info("seed_documents_dir_missing", course=course.code, path=str(documents_root))
-        return
-
-    existing_result = await db.execute(select(CourseDocument).where(CourseDocument.course_id == course.id))
-    existing_paths = {item.storage_path for item in existing_result.scalars().all()}
-
-    created_count = 0
-    for path in sorted(documents_root.rglob("*")):
-        if not path.is_file() or not is_supported_document_path(path):
-            continue
-        storage_path = str(path.resolve())
-        if storage_path in existing_paths:
-            continue
-
-        db.add(
-            CourseDocument(
-                course_id=course.id,
-                original_filename=path.name,
-                storage_path=storage_path,
-                content_type=mimetypes.guess_type(path.name)[0],
-                status="active",
-            )
-        )
-        created_count += 1
-
+    created_count = await sync_course_documents_from_directory(course, db)
     if created_count:
         logger.info("seed_course_documents_created", course=course.code, count=created_count)
