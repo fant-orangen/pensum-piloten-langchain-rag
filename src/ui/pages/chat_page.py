@@ -426,23 +426,6 @@ def _refresh_sidebar(
     )
 
 
-def _save_mode_handler(selected_mode: int | None, token: str | None, current_status: str) -> str:
-    """Persist the selected tutoring mode for the authenticated user."""
-    if not token:
-        return "Ikke innlogget."
-    if selected_mode not in {1, 2, 3}:
-        return "Velg en gyldig veiledningsmodus."
-
-    from src.ui.services.preferences_service import update_system_prompt_mode
-
-    success, message = update_system_prompt_mode(token, int(selected_mode))
-    if success:
-        return f"{message} New conversations will use this mode."
-    if current_status:
-        return f"{current_status}\n\n{message}"
-    return message
-
-
 def _load_conversation_handler(
     conversation_id: str | None,
     token: str | None,
