@@ -53,7 +53,7 @@ Do not infer hidden intentions, goals, misconceptions, or emotional states unles
 Do not add advice or interpretation.
 Do not rewrite the conversation into a new teaching plan.
 
-Write one concise plain-text summary that stays as true as possible to the original exchange.
+Write one concise plain-text summary that stays as true as possible to the original exchange. The summary should be around 1000 words.
 </system_prompt>"""
 
 _CONVERSATION_RECOMPRESSION_TEMPLATE = """\
@@ -72,7 +72,7 @@ Remove redundancy, but remain faithful to the content of the conversation.
 Do not infer hidden intentions, goals, misconceptions, or emotional states unless they were stated explicitly.
 Do not add advice or interpretation.
 
-Write one concise plain-text summary that stays as true as possible to the original exchange.
+Write one concise plain-text summary that stays as true as possible to the original exchange. The summary should be around 1000 words.
 </system_prompt>"""
 
 _SYSTEM_PROMPT_MODE_INSTRUCTIONS = {
