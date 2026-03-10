@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib import error, request
 
 import gradio as gr
@@ -523,4 +523,4 @@ def build_ab_app() -> gr.Blocks:
     with gr.Blocks(css=AB_PAGE_CSS, title="A/B-evaluering") as demo:
         build_ab_page(demo, visible=True, include_back_button=False)
 
-    return demo
+    return cast(gr.Blocks, demo)
