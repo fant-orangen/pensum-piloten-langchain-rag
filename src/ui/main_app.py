@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import gradio as gr
 
@@ -18,6 +18,7 @@ from src.ui.pages import (
     build_teacher_page,
     handle_add_course,
     handle_add_student,
+    handle_course_instructions_input,
     handle_delete_material,
     handle_admin_refresh,
     handle_back_to_student,
@@ -30,6 +31,7 @@ from src.ui.pages import (
     handle_open_teacher_course,
     handle_refresh_ingestion,
     handle_register,
+    handle_save_course_instructions,
     handle_start_ingestion,
     handle_upload_materials,
     handle_upgrade_user,
@@ -38,12 +40,23 @@ from src.ui.pages import (
     student_courses_update,
     teacher_available_courses_update,
     teacher_course_ingestion_status_text,
+    teacher_course_instructions_counter_update,
+    teacher_course_instructions_input_update,
     teacher_course_material_choices_update,
     teacher_course_student_choices_update,
     teacher_course_students_text,
     teacher_course_title_text,
     teacher_name_text,
     teacher_responsible_courses_update,
+)
+from src.ui.pages.chat_handlers import (
+    _bootstrap_chat_on_route_handler,
+    _chat_handler,
+    _chatbot_select_handler,
+    _load_conversation_handler,
+    _new_conversation_handler,
+    _refresh_handler,
+    _reset_scope_handler,
 )
 from src.ui.router import (
     ROUTE_ADMIN,
@@ -118,7 +131,7 @@ def _render_main_app(
 
     token = auth_token(state)
 
-    course_id = str(state.get(COURSE_ID_KEY) or "").strip() or None
+    selected_course_id = str(state.get(COURSE_ID_KEY) or "").strip() or None
 
     return (
         state,
@@ -137,12 +150,15 @@ def _render_main_app(
         teacher_course_material_choices_update(state),
         teacher_course_student_choices_update(state),
         teacher_course_ingestion_status_text(state),
+        teacher_course_instructions_input_update(state),
+        teacher_course_instructions_counter_update(state),
         "",
         student_course_title_text(state),
         login_message,
         register_message,
         token,
-        course_id,
+        selected_course_id,
+        current_route,
     )
 
 
@@ -185,6 +201,17 @@ def _handle_start_ingestion(
 
 def _handle_refresh_ingestion(state: dict[str, Any]) -> tuple[str, str]:
     return handle_refresh_ingestion(state)
+
+
+def _handle_course_instructions_input(instructions_text: str | None) -> str:
+    return handle_course_instructions_input(instructions_text)
+
+
+def _handle_save_course_instructions(
+    state: dict[str, Any],
+    instructions_text: str | None,
+) -> tuple[Any, str, str]:
+    return handle_save_course_instructions(state, instructions_text)
 
 
 def _handle_open_responsible_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
@@ -316,13 +343,29 @@ def build_main_app() -> gr.Blocks:
             teacher_course_page.materials_list,
             teacher_course_page.add_student_username,
             teacher_course_page.ingestion_status,
+            teacher_course_page.course_instructions_input,
+            teacher_course_page.course_instructions_counter,
             teacher_course_page.status_text,
             student_course_page.course_title,
             auth_page.login_status,
             auth_page.register_status,
             chat_page.token_state,
             chat_page.course_id_state,
+            chat_page.route_state,
         ]
+        chat_outputs = [
+            chat_page.message,
+            chat_page.chatbot,
+            chat_page.status,
+            chat_page.conversation_state,
+            chat_page.conversation_selector,
+            chat_page.conversation_count,
+            chat_page.open_conversation,
+            chat_page.source_history_state,
+            chat_page.references_table,
+            chat_page.references_status,
+        ]
+        route_bootstrap_outputs = chat_outputs + [chat_page.course_id_state]
 
         auth_page.login_button.click(
             fn=_handle_login,
@@ -435,6 +478,20 @@ def build_main_app() -> gr.Blocks:
                 teacher_course_page.status_text,
             ],
         )
+        teacher_course_page.course_instructions_input.input(
+            fn=_handle_course_instructions_input,
+            inputs=[teacher_course_page.course_instructions_input],
+            outputs=[teacher_course_page.course_instructions_counter],
+        )
+        teacher_course_page.save_course_instructions_button.click(
+            fn=_handle_save_course_instructions,
+            inputs=[app_state, teacher_course_page.course_instructions_input],
+            outputs=[
+                teacher_course_page.course_instructions_input,
+                teacher_course_page.course_instructions_counter,
+                teacher_course_page.status_text,
+            ],
+        )
         teacher_course_page.view_as_student_button.click(
             fn=_handle_view_as_student,
             inputs=[app_state],
@@ -456,6 +513,84 @@ def build_main_app() -> gr.Blocks:
                 inputs=[app_state],
                 outputs=app_outputs,
             )
+        chat_page.send_button.click(
+            fn=_chat_handler,
+            inputs=[
+                chat_page.message,
+                chat_page.chatbot,
+                chat_page.source_history_state,
+                chat_page.conversation_state,
+                chat_page.token_state,
+                chat_page.course_id_state,
+            ],
+            outputs=chat_outputs,
+        )
+        chat_page.message.submit(
+            fn=_chat_handler,
+            inputs=[
+                chat_page.message,
+                chat_page.chatbot,
+                chat_page.source_history_state,
+                chat_page.conversation_state,
+                chat_page.token_state,
+                chat_page.course_id_state,
+            ],
+            outputs=chat_outputs,
+        )
+        chat_page.chatbot.select(
+            fn=_chatbot_select_handler,
+            inputs=[chat_page.source_history_state],
+            outputs=[chat_page.references_table, chat_page.references_status],
+        )
+        chat_page.conversation_selector.change(
+            fn=_load_conversation_handler,
+            inputs=[chat_page.conversation_selector, chat_page.token_state, chat_page.course_id_state],
+            outputs=chat_outputs,
+        )
+        chat_page.new_conversation_button.click(
+            fn=_new_conversation_handler,
+            inputs=[
+                chat_page.token_state,
+                chat_page.course_id_state,
+                chat_page.mode_selector,
+                chat_page.remember_mode_checkbox,
+            ],
+            outputs=chat_outputs,
+        )
+        chat_page.refresh_button.click(
+            fn=_refresh_handler,
+            inputs=[
+                chat_page.conversation_state,
+                chat_page.source_history_state,
+                chat_page.token_state,
+                chat_page.course_id_state,
+            ],
+            outputs=[
+                chat_page.conversation_selector,
+                chat_page.conversation_count,
+                chat_page.status,
+                chat_page.open_conversation,
+                chat_page.conversation_state,
+                chat_page.source_history_state,
+                chat_page.references_table,
+                chat_page.references_status,
+            ],
+        )
+        chat_page.route_state.change(
+            fn=_bootstrap_chat_on_route_handler,
+            inputs=[chat_page.route_state, chat_page.token_state, chat_page.course_id_state],
+            outputs=route_bootstrap_outputs,
+        )
+        chat_page.token_state.change(
+            fn=_reset_scope_handler,
+            inputs=[chat_page.token_state, chat_page.course_id_state],
+            outputs=chat_outputs,
+        )
+        chat_page.course_id_state.change(
+            fn=_reset_scope_handler,
+            inputs=[chat_page.token_state, chat_page.course_id_state],
+            outputs=chat_outputs,
+        )
         chat_page.back_button.click(
             fn=_handle_back_to_home,
             inputs=[app_state],
@@ -472,4 +607,4 @@ def build_main_app() -> gr.Blocks:
             outputs=app_outputs,
         )
 
-    return demo
+    return cast(gr.Blocks, demo)
