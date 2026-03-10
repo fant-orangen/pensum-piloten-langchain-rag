@@ -21,6 +21,7 @@ _MODE_CHOICES = [
     ("Direct mode", 2),
     ("Example mode", 3),
 ]
+_MODE_LABELS = {value: label for label, value in _MODE_CHOICES}
 _NO_COURSE_STATUS = "Velg et fag før du bruker chat."
 _SCOPE_CHANGED_STATUS = "Fagkonteksten ble endret. Velg eller opprett en ny samtale."
 _OUT_OF_SCOPE_STATUS = "Samtalen er ikke i aktivt fag. Velg eller opprett en ny samtale."
@@ -45,6 +46,23 @@ class ChatPageComponents:
 def _default_conversation_state() -> dict[str, Any]:
     """Return an empty conversation state dict with all fields set to None."""
     return {"conversation_id": None, "title": None, "course_id": None}
+
+
+def _mode_label(mode: int) -> str:
+    return _MODE_LABELS.get(mode, "valgt modus")
+
+
+def _get_user_system_prompt_mode(token: str) -> tuple[int | None, str]:
+    from src.ui.services.auth_service import current_user
+
+    ok, message, user = current_user(token)
+    if not ok or not isinstance(user, dict):
+        return None, message or "Kunne ikke hente aktiv standardmodus."
+
+    raw_mode = user.get("system_prompt_mode")
+    if isinstance(raw_mode, int) and raw_mode in {1, 2, 3}:
+        return raw_mode, ""
+    return None, "Ugyldig standardmodus mottatt fra serveren."
 
 
 def _empty_reference_rows() -> list[list[str]]:
@@ -585,6 +603,7 @@ def _new_conversation_handler(
     course_id_input: str,
     course_id_state: str | None,
     selected_mode: int | None,
+    remember_as_default: bool = True,
 ) -> tuple[
     str,
     list[dict[str, str]],
@@ -598,6 +617,7 @@ def _new_conversation_handler(
     str,
 ]:
     """Create a new conversation for the resolved course ID and refresh the sidebar."""
+    _ = course_id_input
     if not token:
         return (
             "",
@@ -630,10 +650,34 @@ def _new_conversation_handler(
             _REFERENCE_DEFAULT_STATUS,
         )
 
-    if selected_mode in {1, 2, 3}:
-        from src.ui.services.preferences_service import update_system_prompt_mode
+    if selected_mode not in {1, 2, 3}:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id_state,
+            status_message="Velg en gyldig veiledningsmodus for ny samtale.",
+        )
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
-        mode_saved, mode_message = update_system_prompt_mode(token, int(selected_mode))
+    selected_mode = int(selected_mode)
+    previous_mode: int | None = None
+    previous_mode_message = ""
+    temp_mode_set = False
+
+    from src.ui.services.preferences_service import update_system_prompt_mode
+
+    if remember_as_default:
+        mode_saved, mode_message = update_system_prompt_mode(token, selected_mode)
         if not mode_saved:
             selector_update, count_text, status_text, open_text = _refresh_sidebar(
                 token, course_id=course_id_state, status_message=mode_message
@@ -650,10 +694,55 @@ def _new_conversation_handler(
                 _empty_reference_rows(),
                 _REFERENCE_DEFAULT_STATUS,
             )
+    else:
+        previous_mode, previous_mode_message = _get_user_system_prompt_mode(token)
+        if previous_mode is None:
+            selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                token,
+                course_id=course_id_state,
+                status_message=previous_mode_message,
+            )
+            return (
+                "",
+                [],
+                status_text,
+                _default_conversation_state(),
+                selector_update,
+                count_text,
+                open_text,
+                [],
+                _empty_reference_rows(),
+                _REFERENCE_DEFAULT_STATUS,
+            )
+        if previous_mode != selected_mode:
+            mode_saved, mode_message = update_system_prompt_mode(token, selected_mode)
+            if not mode_saved:
+                selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                    token, course_id=course_id_state, status_message=mode_message
+                )
+                return (
+                    "",
+                    [],
+                    status_text,
+                    _default_conversation_state(),
+                    selector_update,
+                    count_text,
+                    open_text,
+                    [],
+                    _empty_reference_rows(),
+                    _REFERENCE_DEFAULT_STATUS,
+                )
+            temp_mode_set = True
 
     from src.ui.services.conversation_service import create_conversation
     success, message, conv_data = create_conversation(token, course_id)
     if not success or conv_data is None:
+        if temp_mode_set and previous_mode is not None:
+            restored, restore_message = update_system_prompt_mode(token, previous_mode)
+            if not restored:
+                message = (
+                    f"{message}\n\nKunne ikke gjenopprette standardmodus: {restore_message}"
+                )
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message=message
         )
@@ -677,11 +766,25 @@ def _new_conversation_handler(
         "title": title,
         "course_id": course_id,
     }
+    status_message = f"Ny samtale opprettet med {_mode_label(selected_mode)}."
+    if remember_as_default:
+        status_message = f"{status_message} Denne modusen er nå standard."
+    elif temp_mode_set and previous_mode is not None:
+        restored, restore_message = update_system_prompt_mode(token, previous_mode)
+        if restored:
+            status_message = f"{status_message} Standardmodus er uendret."
+        else:
+            status_message = (
+                f"{status_message} Kunne ikke gjenopprette standardmodus: {restore_message}"
+            )
+    else:
+        status_message = f"{status_message} Standardmodus er uendret."
+
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
         token,
         conv_id,
         course_id=course_id_state,
-        status_message="Ny samtale opprettet med valgt veiledningsmodus.",
+        status_message=status_message,
     )
     return (
         "",
