@@ -68,7 +68,7 @@ async def list_responsible_courses(
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseRead]:
     """Return all courses where the authenticated user is enrolled as a teacher."""
-    courses = await get_responsible_courses(current_user.id, db)
+    courses = await get_responsible_courses(current_user, db)
     return [CourseRead.model_validate(c) for c in courses]
 
 

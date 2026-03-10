@@ -42,13 +42,15 @@ async def get_available_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Co
     return await get_enrolled_courses(user_id, db)
 
 
-async def get_responsible_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
+async def get_responsible_courses(current_user: User, db: AsyncSession) -> list[Course]:
     """Return all courses where the given user is enrolled as a teacher."""
+    require_teacher_or_admin(current_user)
+
     result = await db.execute(
         select(Course)
         .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
         .where(
-            CourseEnrollment.user_id == user_id,
+            CourseEnrollment.user_id == current_user.id,
             CourseEnrollment.role == "teacher",
         )
     )
@@ -143,6 +145,7 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
+    require_teacher_or_admin(current_user)
     require_course_owner_or_admin(current_user, course.created_by_id)
     if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
         raise HTTPException(
