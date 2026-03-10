@@ -9,9 +9,17 @@ build/
 # Environment
 .env
 
+idun/.env.idun
 # Data / vector store
 data/chroma/
 data/kg_triplets.json
+data/pgdata/
+data/neo4j_data/
+data/course_materials/
+
+# IDUN cluster artifacts
+idun/*.sif
+idun/logs/
 
 # IDE
 .vscode/
@@ -23,4 +31,6 @@ ssh
 ssh.pub
 
 .DS_Store
-
+CLAUDE.md
+ai
+documents

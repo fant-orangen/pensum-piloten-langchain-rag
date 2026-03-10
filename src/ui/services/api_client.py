@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
 import urllib.error
 import urllib.request
 from typing import Any
@@ -95,6 +96,67 @@ def get(path: str, *, token: str | None = None) -> Any:
 
 def post(path: str, body: dict[str, Any] | None = None, *, token: str | None = None) -> Any:
     return request("POST", path, body=body, token=token)
+
+
+def post_multipart(
+    path: str,
+    *,
+    files: list[tuple[str, str, bytes, str]],
+    fields: dict[str, Any] | None = None,
+    token: str | None = None,
+) -> Any:
+    """Send a multipart/form-data POST request.
+
+    files entries are tuples: (field_name, filename, bytes_content, content_type).
+    """
+    boundary = f"----CodexBoundary{uuid.uuid4().hex}"
+    parts: list[bytes] = []
+
+    for name, value in (fields or {}).items():
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        parts.append(str(value).encode())
+        parts.append(b"\r\n")
+
+    for field_name, filename, content, content_type in files:
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(
+            (
+                f'Content-Disposition: form-data; name="{field_name}"; '
+                f'filename="{filename}"\r\n'
+            ).encode()
+        )
+        parts.append(f"Content-Type: {content_type}\r\n\r\n".encode())
+        parts.append(content)
+        parts.append(b"\r\n")
+
+    parts.append(f"--{boundary}--\r\n".encode())
+    data = b"".join(parts)
+
+    headers: dict[str, str] = {
+        "Accept": "application/json",
+        "Content-Type": f"multipart/form-data; boundary={boundary}",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    url = f"{_base_url()}{path}"
+    req = urllib.request.Request(url=url, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return _parse_body(resp.read())
+    except urllib.error.HTTPError as exc:
+        raw = exc.read()
+        parsed = _parse_body(raw)
+        if exc.code == 401:
+            raise ApiUnauthorizedError() from exc
+        raise ApiError(exc.code, _detail_from_body(parsed)) from exc
+    except urllib.error.URLError as exc:
+        raise ApiError(0, f"Could not connect to API server: {exc.reason}") from exc
+
+
+def patch(path: str, body: dict[str, Any] | None = None, *, token: str | None = None) -> Any:
+    return request("PATCH", path, body=body, token=token)
 
 
 def delete(path: str, *, token: str | None = None) -> Any:

@@ -1,0 +1,18 @@
+[
+  {
+    "role": "human",
+    "content": "Tell me what a thread is?"
+  },
+  {
+    "role": "ai",
+    "content": "What do you already know about how a normal program runs — like, what's actually happening step by step when you execute a piece of code?"
+  },
+  {
+    "role": "human",
+    "content": "I don't know anything whatsoever, but I'd love an overview."
+  },
+  {
+    "role": "ai",
+    "content": "Sure! Let's build up to threads from scratch.\n\nWhen you run a program, your computer executes it as a **process** — think of it as a self-contained running instance of your code, with its own memory, its own set of variables, and a single sequence of instructions being executed one at a time.\n\nA **thread** is essentially a unit of execution *within* a process. It's the thing that actually does the stepping through instructions. A process starts with one thread, but it can have more — and here's the key idea: multiple threads within the same process share the same memory and resources, but each one has its own \"place\" in the code and its own execution state.\n\nSo if a process is like a kitchen, a thread is like a cook. One cook can run the kitchen, but if you add more cooks (threads), you can do multiple things at the same time — one chopping, one stirring — all in the same shared space.\n\nThat raises a natural question though: if multiple threads are all working in the same shared memory, what do you think could go wrong?"
+  }
+]

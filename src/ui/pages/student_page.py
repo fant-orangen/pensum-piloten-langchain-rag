@@ -1,4 +1,8 @@
-"""Student page UI and handlers."""
+"""Student page UI and handlers.
+
+Provides the student landing page where enrolled courses are listed and the
+student can navigate to the chat tutor or the A/B comparison view.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +29,8 @@ from src.ui.state import (
 
 @dataclass(slots=True)
 class StudentPageComponents:
+    """Holds references to every Gradio component on the student landing page."""
+
     group: gr.Group
     name_text: gr.Markdown
     courses_list: gr.Radio
@@ -35,6 +41,7 @@ class StudentPageComponents:
 
 
 def build_student_page(*, visible: bool) -> StudentPageComponents:
+    """Build and return the student landing Gradio group."""
     with gr.Group(visible=visible) as group:
         gr.Markdown("# Student")
         name_text = gr.Markdown("Navn: -")
@@ -57,7 +64,8 @@ def build_student_page(*, visible: bool) -> StudentPageComponents:
 
 
 def student_courses_update(state: dict[str, Any]) -> Any:
-    if not is_logged_in(state):
+    """Fetch the student's enrolled courses from the API and return a dropdown update."""
+    if not is_logged_in(state) or user_role(state) != "student":
         return gr.update(choices=[], value=None)
 
     token = auth_token(state)
@@ -77,18 +85,21 @@ def student_courses_update(state: dict[str, Any]) -> Any:
 
 
 def handle_open_ab_compare(state: dict[str, Any]) -> tuple[dict[str, Any], str, str, str]:
+    """Route the student to the A/B comparison page, clearing any selected course."""
     if not is_logged_in(state):
         return default_app_state(), "", "", ""
     return with_route(clear_selected_course(state), ROUTE_AB_COMPARE), "", "", ""
 
 
 def handle_open_chat(state: dict[str, Any]) -> tuple[dict[str, Any], str, str, str]:
+    """Route the student to the chat page without a pre-selected course."""
     if not is_logged_in(state):
         return default_app_state(), "", "", ""
     return with_route(clear_selected_course(state), ROUTE_CHAT), "", "", ""
 
 
 def handle_open_student_course(state: dict[str, Any], course_id: str | None) -> tuple[dict[str, Any], str]:
+    """Select the given course and route the student to the chat page for that course."""
     if not is_logged_in(state):
         return default_app_state(), ""
     if not isinstance(course_id, str) or not course_id.strip():
@@ -105,10 +116,12 @@ def handle_open_student_course(state: dict[str, Any], course_id: str | None) -> 
 
 
 def handle_back_to_student(state: dict[str, Any]) -> tuple[dict[str, Any], str, str, str]:
+    """Clear the selected course and route back to the student's home page."""
     if not is_logged_in(state):
         return default_app_state(), "", "", ""
     return with_route(clear_selected_course(state), home_route_for_role(user_role(state))), "", "", ""
 
 
 def handle_logout() -> tuple[dict[str, Any], str, str, str]:
+    """Reset app state to the default unauthenticated state, effectively logging the user out."""
     return default_app_state(), "Du er logget ut.", "", ""

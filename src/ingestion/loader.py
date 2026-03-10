@@ -16,12 +16,56 @@ from src.ingestion.filter import remove_table_of_contents
 logger = structlog.get_logger(__name__)
 
 # Map file extensions to the LangChain loader class that can handle them.
+_TEXT_EXTENSIONS = {
+    ".txt",
+    ".md",
+    ".rst",
+    ".csv",
+    ".tsv",
+    ".json",
+    ".jsonl",
+    ".yaml",
+    ".yml",
+    ".xml",
+    ".sql",
+    ".py",
+    ".java",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".go",
+    ".rs",
+    ".kt",
+    ".swift",
+    ".php",
+    ".rb",
+    ".sh",
+    ".css",
+    ".scss",
+    ".sass",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".toml",
+    ".log",
+}
 _LOADER_MAP: dict[str, type] = {
     ".pdf": PyPDFLoader,
     ".docx": Docx2txtLoader,
-    ".txt": TextLoader,
-    ".md": TextLoader,
+    ".html": TextLoader,
+    ".htm": TextLoader,
+    **{ext: TextLoader for ext in sorted(_TEXT_EXTENSIONS)},
 }
+
+
+def is_supported_document_path(file_path: Path) -> bool:
+    """Return whether the file extension is supported by the ingestion loader."""
+    return file_path.suffix.lower() in _LOADER_MAP
 
 def load_single_file(file_path: Path) -> list[Document]:
     """Load a single file and return its pages / sections as Documents."""
@@ -43,6 +87,18 @@ def load_single_file(file_path: Path) -> list[Document]:
     return docs
 
 
+def load_documents_from_paths(paths: list[Path]) -> list[Document]:
+    """Load only the explicitly provided file paths into Documents."""
+    all_docs: list[Document] = []
+    for path in sorted(paths):
+        if path.is_file() and is_supported_document_path(path):
+            all_docs.extend(load_single_file(path))
+
+    all_docs = remove_table_of_contents(all_docs)
+    logger.info("documents_loaded_from_paths", total=len(all_docs))
+    return all_docs
+
+
 def load_documents(directory: str | Path | None = None) -> list[Document]:
     """Walk *directory* and load every supported file into Documents.
 
@@ -57,7 +113,7 @@ def load_documents(directory: str | Path | None = None) -> list[Document]:
 
     all_docs: list[Document] = []
     for path in sorted(root.rglob("*")):
-        if path.is_file() and path.suffix.lower() in _LOADER_MAP:
+        if path.is_file() and is_supported_document_path(path):
             all_docs.extend(load_single_file(path))
 
     all_docs = remove_table_of_contents(all_docs)

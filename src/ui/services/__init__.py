@@ -1,6 +1,7 @@
 """UI API service layer — thin wrappers around the FastAPI backend."""
 
 from src.ui.services.auth_service import login, register
+from src.ui.services.admin_service import list_users, promote_user_to_teacher
 from src.ui.services.course_service import (
     create_course,
     delete_course,
@@ -21,9 +22,11 @@ __all__ = [
     "delete_course",
     "enroll_user",
     "get_messages",
+    "list_users",
     "list_conversations",
     "list_courses",
     "login",
+    "promote_user_to_teacher",
     "register",
     "send_message",
     "unenroll_user",

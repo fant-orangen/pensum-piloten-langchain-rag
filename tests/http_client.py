@@ -9,6 +9,7 @@ Each test module imports from here. Run individual test files directly:
 import json
 import sys
 import time
+import uuid
 import urllib.error
 import urllib.request
 from typing import Any
@@ -71,6 +72,58 @@ def get(path, token=None, expected_status=None):
 
 def post(path, body=None, token=None, expected_status=None):
     return _request("POST", path, body=body, token=token, expected_status=expected_status)
+
+
+def post_multipart(path, files, fields=None, token=None, expected_status=None):
+    """Send multipart/form-data with one or more files.
+
+    files: iterable of tuples (field_name, filename, bytes_content, content_type)
+    """
+    boundary = f"----CodexBoundary{uuid.uuid4().hex}"
+    parts: list[bytes] = []
+
+    for name, value in (fields or {}).items():
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        parts.append(str(value).encode())
+        parts.append(b"\r\n")
+
+    for field_name, filename, content, content_type in files:
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(
+            (
+                f'Content-Disposition: form-data; name="{field_name}"; '
+                f'filename="{filename}"\r\n'
+            ).encode()
+        )
+        parts.append(f"Content-Type: {content_type}\r\n\r\n".encode())
+        parts.append(content)
+        parts.append(b"\r\n")
+
+    parts.append(f"--{boundary}--\r\n".encode())
+    data = b"".join(parts)
+
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    req = urllib.request.Request(f"{BASE}{path}", data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            raw = resp.read()
+            code = resp.status
+            parsed = _parse(raw)
+    except urllib.error.HTTPError as exc:
+        raw = exc.read()
+        code = exc.code
+        parsed = _parse(raw)
+
+    if expected_status is not None and code != expected_status:
+        print(f"\n  SETUP FAILED  POST {path} (multipart)")
+        print(f"  Expected {expected_status}, got {code}: {parsed}")
+        sys.exit(1)
+
+    return code, parsed
 
 def delete(path, token=None, expected_status=None):
     return _request("DELETE", path, token=token, expected_status=expected_status)

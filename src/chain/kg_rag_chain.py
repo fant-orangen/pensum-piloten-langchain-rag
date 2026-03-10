@@ -12,13 +12,21 @@ from src.chain.rag_chain import _format_docs
 from src.kg.retriever import get_kg_retriever
 from src.models import get_llm
 from src.prompts import build_tutor_prompt
+from src.prompts.templates import (
+    format_conversation_summary,
+    format_course_specific_instructions,
+    resolve_system_prompt_mode,
+)
 
 from src.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
 
-def build_kg_rag_chain(chroma_collection: str | None = None):
+def build_kg_rag_chain(
+    chroma_collection: str | None = None,
+    graph_scope: str | None = None,
+):
     """Construct and return the KG-guided Socratic-tutor RAG chain.
 
     Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
@@ -28,7 +36,10 @@ def build_kg_rag_chain(chroma_collection: str | None = None):
         Defaults to the globally configured collection when None.
         Raises ValueError if the collection has not been ingested yet.
     """
-    retriever = get_kg_retriever(collection_name=chroma_collection)
+    retriever = get_kg_retriever(
+        collection_name=chroma_collection,
+        graph_scope=graph_scope,
+    )
     prompt = build_tutor_prompt()
     settings = get_settings()
     llm = get_llm(settings.temperature)
@@ -40,6 +51,17 @@ def build_kg_rag_chain(chroma_collection: str | None = None):
             context=extract_question | retriever | _format_docs,
             question=extract_question,
             chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
+            mode=RunnableLambda(
+                lambda x: resolve_system_prompt_mode(x.get("system_prompt_mode"))
+            ),
+            course_specific_instructions=RunnableLambda(
+                lambda x: format_course_specific_instructions(
+                    x.get("course_specific_instructions")
+                )
+            ),
+            conversation_summary=RunnableLambda(
+                lambda x: format_conversation_summary(x.get("conversation_summary"))
+            ),
         )
         | prompt
         | llm

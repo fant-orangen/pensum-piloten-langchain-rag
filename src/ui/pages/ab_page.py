@@ -1,4 +1,9 @@
-"""A/B comparison page."""
+"""A/B comparison page for evaluating RAG vs. non-RAG answer quality.
+
+Presents randomly ordered questions to the user, fetches answers from both
+systems in parallel, and collects slider-based preference ratings that are
+persisted as JSONL records and optionally exported as JSON or CSV.
+"""
 
 from __future__ import annotations
 
@@ -52,11 +57,14 @@ AB_PAGE_CSS = """
 
 @dataclass(slots=True)
 class ABPageComponents:
+    """Holds the top-level Gradio group and optional back button for the A/B page."""
+
     group: gr.Group
     back_button: gr.Button | None
 
 
 def _backend_base_url() -> str:
+    """Return the base URL for the backend API, preferring the AB_BACKEND_URL environment variable."""
     env_url = os.getenv("AB_BACKEND_URL")
     if env_url:
         return env_url.rstrip("/")
@@ -69,6 +77,7 @@ def _backend_base_url() -> str:
 
 
 def _load_questions() -> list[str]:
+    """Load questions from the JSON file at QUESTIONS_PATH, falling back to DEFAULT_QUESTIONS on any error."""
     if QUESTIONS_PATH.exists():
         try:
             payload = json.loads(QUESTIONS_PATH.read_text(encoding="utf-8"))
@@ -91,6 +100,7 @@ def _http_json(
     payload: dict[str, Any] | None,
     timeout: float,
 ) -> dict[str, Any]:
+    """Perform an HTTP request and return the decoded JSON response as a dict."""
     headers = {"Accept": "application/json"}
     body: bytes | None = None
 
@@ -112,6 +122,7 @@ def _http_json(
 
 
 def _check_backend_health(base_url: str) -> tuple[bool, str]:
+    """Ping the backend health endpoint and return a (success, status_message) tuple."""
     try:
         response = _http_json(url=f"{base_url}/health", method="GET", payload=None, timeout=5.0)
         status = response.get("status")
@@ -123,6 +134,7 @@ def _check_backend_health(base_url: str) -> tuple[bool, str]:
 
 
 def _ask_backend(question: str, mode: str, base_url: str) -> tuple[str, float, str | None]:
+    """Send a question to the backend in the given mode and return the answer, latency, and any error string."""
     start = time.perf_counter()
     try:
         response = _http_json(
@@ -145,6 +157,7 @@ def _ask_backend(question: str, mode: str, base_url: str) -> tuple[str, float, s
 
 
 def _new_session(questions: list[str]) -> dict[str, Any]:
+    """Create and return a fresh session state dict with randomly assigned system modes."""
     if random.random() < 0.5:
         system1_mode, system2_mode = "rag", "no_rag"
     else:
@@ -168,6 +181,7 @@ def _new_session(questions: list[str]) -> dict[str, Any]:
 
 
 def _can_submit(state: dict[str, Any]) -> bool:
+    """Return True if the current question has answers and has not yet been submitted."""
     idx = state["current_index"]
     if idx in state["submitted_indices"]:
         return False
@@ -178,6 +192,7 @@ def _can_submit(state: dict[str, Any]) -> bool:
 
 
 def _ensure_answers(state: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    """Fetch answers for the current question from both systems in parallel if not already cached."""
     idx = state["current_index"]
     cached_answer = state["answers_by_index"].get(idx)
     if cached_answer is not None and not bool(cached_answer.get("error")):
@@ -218,6 +233,7 @@ def _ensure_answers(state: dict[str, Any]) -> tuple[dict[str, Any], str]:
 
 
 def _render_state(state: dict[str, Any], status_message: str = "") -> tuple[Any, ...]:
+    """Produce Gradio update values for all output components from the current session state."""
     idx = state["current_index"]
     total = len(state["questions"])
     question = state["questions"][idx]
@@ -253,6 +269,7 @@ def _render_state(state: dict[str, Any], status_message: str = "") -> tuple[Any,
 
 
 def _initialise_session() -> tuple[Any, ...]:
+    """Create a new session, health-check the backend, pre-fetch answers for the first question, and render the initial UI."""
     state = _new_session(_load_questions())
     healthy, health_message = _check_backend_health(state["backend_url"])
     state["backend_status_text"] = health_message
@@ -269,6 +286,7 @@ def _initialise_session() -> tuple[Any, ...]:
 
 
 def _move_question(state: dict[str, Any], step: int) -> tuple[Any, ...]:
+    """Advance or retreat by step questions, ensuring answers are available, and render the new state."""
     total = len(state["questions"])
     current_index = state["current_index"]
     new_index = max(0, min(total - 1, current_index + step))
@@ -285,18 +303,22 @@ def _move_question(state: dict[str, Any], step: int) -> tuple[Any, ...]:
 
 
 def _reset_session(_: dict[str, Any]) -> tuple[Any, ...]:
+    """Discard the current session and start a fresh one."""
     return _initialise_session()
 
 
 def _next_question(state: dict[str, Any]) -> tuple[Any, ...]:
+    """Move forward by one question."""
     return _move_question(state, step=1)
 
 
 def _previous_question(state: dict[str, Any]) -> tuple[Any, ...]:
+    """Move backward by one question."""
     return _move_question(state, step=-1)
 
 
 def _append_result(record: dict[str, Any], runs_file: str) -> None:
+    """Append a single rating record as a JSON line to the session's JSONL file."""
     AB_RUNS_DIR.mkdir(parents=True, exist_ok=True)
     path = Path(runs_file)
     with path.open("a", encoding="utf-8") as handle:
@@ -309,6 +331,7 @@ def _submit_rating(
     slider_value: float,
     auto_advance: bool,
 ) -> tuple[dict[str, Any], Any, Any, Any, Any, Any, Any, Any, Any, Any, Any]:
+    """Record the slider rating for the current question, persist it, and optionally advance to the next question."""
     idx = state["current_index"]
     if idx in state["submitted_indices"]:
         return (state, *_render_state(state, "Dette spørsmålet er allerede sendt inn."))
@@ -353,6 +376,7 @@ def _submit_rating(
 
 
 def _export_results(state: dict[str, Any], export_format: str) -> tuple[str, str | None]:
+    """Export all submitted ratings to a JSON or CSV file and return a status message and file path."""
     records = state["results"]
     if not records:
         return "Ingen innsendte vurderinger å eksportere ennå.", None
@@ -393,6 +417,7 @@ def build_ab_page(
     visible: bool,
     include_back_button: bool,
 ) -> ABPageComponents:
+    """Build the A/B evaluation Gradio group, wire up all event handlers, and return the page components."""
     session_state = gr.State({})
 
     with gr.Group(visible=visible) as group:
@@ -494,6 +519,7 @@ def build_ab_page(
 
 
 def build_ab_app() -> gr.Blocks:
+    """Build and return a standalone Gradio Blocks application containing only the A/B evaluation page."""
     with gr.Blocks(css=AB_PAGE_CSS, title="A/B-evaluering") as demo:
         build_ab_page(demo, visible=True, include_back_button=False)
 

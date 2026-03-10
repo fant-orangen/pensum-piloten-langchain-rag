@@ -3,6 +3,7 @@
 Set ``MODEL_PROVIDER`` in .env to select the backend:
 
     openai  — ChatOpenAI + OpenAIEmbeddings (default, requires OPENAI_API_KEY)
+    anthropic — ChatAnthropic + OpenAIEmbeddings (requires ANTHROPIC_API_KEY)
     local   — IDUN LLM gateway (Kimi K2.5 etc.) + HuggingFace sentence-transformers
               Requires IDUN_API_KEY and NTNU network / VPN access.
 """
@@ -25,6 +26,13 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
             openai_api_key=settings.openai_api_key,
             temperature=temperature,
         )
+    if settings.model_provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
+            model=settings.anthropic_llm_model,
+            anthropic_api_key=settings.anthropic_api_key,
+            temperature=temperature,
+        )
     if settings.model_provider == "local":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
@@ -34,7 +42,7 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
             temperature=temperature,
         )
     raise ValueError(
-        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'local'"
+        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'anthropic', 'local'"
     )
 
 
@@ -42,7 +50,7 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
 def get_embeddings() -> Embeddings:
     """Return a cached embedding model for the configured provider."""
     settings = get_settings()
-    if settings.model_provider == "openai":
+    if settings.model_provider in {"openai", "anthropic"}:
         from langchain_openai import OpenAIEmbeddings
         return OpenAIEmbeddings(
             model=settings.openai_embedding_model,
@@ -52,7 +60,7 @@ def get_embeddings() -> Embeddings:
     if settings.model_provider == "local":
         return _E5Embeddings(model_name=settings.local_embedding_model)
     raise ValueError(
-        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'local'"
+        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'anthropic', 'local'"
     )
 
 

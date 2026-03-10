@@ -17,6 +17,11 @@ from langchain_core.documents import Document
 from src.models import get_llm
 from src.retriever import get_retriever
 from src.prompts import build_tutor_prompt
+from src.prompts.templates import (
+    format_conversation_summary,
+    format_course_specific_instructions,
+    resolve_system_prompt_mode,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -47,6 +52,7 @@ def build_rag_chain():
     """
     retriever = get_retriever()
     prompt = build_tutor_prompt()
+    print(prompt) # TODO: remove
     llm = get_llm(temperature=0.3)
 
     # The chain:
@@ -62,6 +68,17 @@ def build_rag_chain():
             context=extract_question | retriever | _format_docs,
             question=extract_question,
             chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
+            mode=RunnableLambda(
+                lambda x: resolve_system_prompt_mode(x.get("system_prompt_mode"))
+            ),
+            course_specific_instructions=RunnableLambda(
+                lambda x: format_course_specific_instructions(
+                    x.get("course_specific_instructions")
+                )
+            ),
+            conversation_summary=RunnableLambda(
+                lambda x: format_conversation_summary(x.get("conversation_summary"))
+            ),
         )
         | prompt
         | llm

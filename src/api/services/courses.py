@@ -6,16 +6,24 @@ from fastapi import HTTPException, status
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.authorization import (
+from src.api.models.conversation import Conversation
+from src.api.models.course import Course
+from src.api.models.enrollment import CourseEnrollment
+from src.api.models.message import Message
+from src.api.models.user import User
+from src.api.services.course_documents import (
+    COURSE_REBUILD_BUILDING,
+    COURSE_REBUILD_QUEUED,
+    build_course_documents_dir,
+    purge_course_materials,
+)
+from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
+from src.api.utils import (
     require_course_owner_or_admin,
     require_course_teacher_or_admin,
     require_teacher_or_admin,
     require_unenroll_permission,
 )
-from src.api.models.course import Course
-from src.api.models.enrollment import CourseEnrollment
-from src.api.models.user import User
-from src.api.schemas.course import CourseCreate, EnrollmentCreate
 
 
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
@@ -49,7 +57,7 @@ async def get_responsible_courses(user_id: uuid.UUID, db: AsyncSession) -> list[
 async def create_course(current_user: User, body: CourseCreate, db: AsyncSession) -> Course:
     """Create a new course and enroll the creating user as a teacher.
 
-    Raises 403 if the user lacks the teacher or superadmin role.
+    Raises 403 if the user lacks the teacher or admin role.
     Raises 409 if the course code is already taken.
     """
     require_teacher_or_admin(current_user)
@@ -61,13 +69,17 @@ async def create_course(current_user: User, body: CourseCreate, db: AsyncSession
             detail=f"A course with code '{body.code}' already exists.",
         )
 
+    course_documents_dir = build_course_documents_dir(body.code)
+    course_documents_dir.mkdir(parents=True, exist_ok=True)
+
     course = Course(
         name=body.name,
         code=body.code,
-        chroma_collection=body.chroma_collection,
-        documents_dir=body.documents_dir,
+        chroma_collection=None,
+        documents_dir=str(course_documents_dir),
         description=body.description,
         rag_mode=body.rag_mode,
+        course_specific_instructions=body.course_specific_instructions,
         created_by_id=current_user.id,
     )
     db.add(course)
@@ -88,7 +100,7 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     """Delete a course.
 
     Raises 404 if the course does not exist.
-    Raises 403 if the user is not the course creator or a superadmin.
+    Raises 403 if the user is not the course creator or an admin.
     """
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalars().first()
@@ -96,11 +108,51 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
     require_course_owner_or_admin(current_user, course.created_by_id)
+    if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete a course while its materials are rebuilding.",
+        )
 
-    # Remove all enrollments first to avoid FK constraint violations.
+    conversation_ids = (
+        select(Conversation.id)
+        .where(Conversation.course_id == course_id)
+        .scalar_subquery()
+    )
+
+    # Remove dependent rows in FK-safe order before deleting the course itself.
+    await db.execute(sa_delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+    await db.execute(sa_delete(Conversation).where(Conversation.course_id == course_id))
+    await purge_course_materials(course, db)
     await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course_id))
     await db.delete(course)
     await db.commit()
+
+
+async def update_course_specific_instructions(
+    current_user: User,
+    course_id: uuid.UUID,
+    body: CourseInstructionsUpdate,
+    db: AsyncSession,
+) -> Course:
+    """Update teacher-authored prompt instructions for a course."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    course = course_result.scalars().first()
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    cleaned_instructions = (
+        body.course_specific_instructions.strip()
+        if body.course_specific_instructions is not None
+        else None
+    )
+    course.course_specific_instructions = cleaned_instructions or None
+    db.add(course)
+    await db.commit()
+    await db.refresh(course)
+    return course
 
 
 async def enroll_user(
@@ -112,7 +164,7 @@ async def enroll_user(
     """Enroll a user in a course by email.
 
     Raises 404 if the course or target user does not exist.
-    Raises 403 if the current user is not a teacher of the course or a superadmin.
+    Raises 403 if the current user is not a teacher of the course or an admin.
     Raises 409 if the target user is already enrolled.
     """
     course_result = await db.execute(select(Course).where(Course.id == course_id))

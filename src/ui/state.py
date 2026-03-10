@@ -18,6 +18,15 @@ COURSE_NAME_KEY = "course_name"
 TOKEN_KEY = "token"
 
 
+def normalise_role(role: str | None) -> str:
+    cleaned = str(role or "").strip().lower()
+    if cleaned == "admin":
+        return "admin"
+    if cleaned == "teacher":
+        return "teacher"
+    return "student"
+
+
 def default_app_state() -> dict[str, Any]:
     return {
         ROUTE_KEY: ROUTE_AUTH,
@@ -41,8 +50,9 @@ def authenticated_app_state(
     *,
     token: str | None = None,
 ) -> dict[str, Any]:
+    normalised_role = normalise_role(role)
     full_name = " ".join(part for part in (firstname.strip(), surname.strip()) if part)
-    route = home_route_for_role(role)
+    route = home_route_for_role(normalised_role)
     return {
         ROUTE_KEY: route,
         LOGGED_IN_KEY: True,
@@ -50,7 +60,7 @@ def authenticated_app_state(
         NAME_KEY: full_name or None,
         FIRSTNAME_KEY: firstname,
         SURNAME_KEY: surname,
-        ROLE_KEY: role,
+        ROLE_KEY: normalised_role,
         COURSE_ID_KEY: None,
         COURSE_NAME_KEY: None,
         TOKEN_KEY: token,
@@ -58,9 +68,10 @@ def authenticated_app_state(
 
 
 def home_route_for_role(role: str | None) -> str:
-    if role == "admin":
+    normalised_role = normalise_role(role)
+    if normalised_role == "admin":
         return ROUTE_ADMIN
-    if role == "teacher":
+    if normalised_role == "teacher":
         return ROUTE_TEACHER
     return ROUTE_STUDENT
 
@@ -100,8 +111,8 @@ def is_logged_in(state: dict[str, Any]) -> bool:
 def user_role(state: dict[str, Any]) -> str:
     role = state.get(ROLE_KEY)
     if isinstance(role, str) and role:
-        return role
-    return "student"
+        return normalise_role(role)
+    return normalise_role(None)
 
 
 def auth_token(state: dict[str, Any]) -> str | None:

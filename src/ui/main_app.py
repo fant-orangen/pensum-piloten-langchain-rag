@@ -6,7 +6,6 @@ from typing import Any
 
 import gradio as gr
 
-from src.services import ensure_admin_user
 from src.ui.pages import (
     AB_PAGE_CSS,
     build_ab_page,
@@ -19,19 +18,27 @@ from src.ui.pages import (
     build_teacher_page,
     handle_add_course,
     handle_add_student,
+    handle_delete_material,
     handle_admin_refresh,
     handle_back_to_student,
     handle_login,
     handle_logout,
     handle_open_ab_compare,
     handle_open_chat,
+    handle_open_responsible_course,
     handle_open_student_course,
     handle_open_teacher_course,
+    handle_refresh_ingestion,
     handle_register,
+    handle_start_ingestion,
+    handle_upload_materials,
     handle_upgrade_user,
+    handle_view_as_student,
     student_course_title_text,
     student_courses_update,
     teacher_available_courses_update,
+    teacher_course_ingestion_status_text,
+    teacher_course_material_choices_update,
     teacher_course_student_choices_update,
     teacher_course_students_text,
     teacher_course_title_text,
@@ -127,7 +134,9 @@ def _render_main_app(
         teacher_status,
         teacher_course_title_text(state),
         teacher_course_students_text(state),
+        teacher_course_material_choices_update(state),
         teacher_course_student_choices_update(state),
+        teacher_course_ingestion_status_text(state),
         "",
         student_course_title_text(state),
         login_message,
@@ -147,6 +156,40 @@ def _handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, An
 
 def _handle_add_student(state: dict[str, Any], student_username: str | None) -> tuple[Any, str, str]:
     return handle_add_student(state, student_username)
+
+
+def _handle_upload_materials(
+    state: dict[str, Any],
+    file_paths: str | list[str] | None,
+) -> tuple[Any, Any, str]:
+    return handle_upload_materials(state, file_paths)
+
+
+def _handle_delete_material(
+    state: dict[str, Any],
+    material_ids: list[str] | None,
+) -> tuple[Any, str]:
+    return handle_delete_material(state, material_ids)
+
+
+def _handle_refresh_materials(state: dict[str, Any]) -> tuple[Any]:
+    return (teacher_course_material_choices_update(state),)
+
+
+def _handle_start_ingestion(
+    state: dict[str, Any],
+    selected_material_ids: list[str] | None,
+) -> tuple[Any, str, str]:
+    return handle_start_ingestion(state, selected_material_ids)
+
+
+def _handle_refresh_ingestion(state: dict[str, Any]) -> tuple[str, str]:
+    return handle_refresh_ingestion(state)
+
+
+def _handle_open_responsible_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
+    next_state, teacher_message = handle_open_responsible_course(state, course_id)
+    return _render_main_app(next_state, teacher_message=teacher_message)
 
 
 def _handle_open_teacher_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
@@ -211,6 +254,11 @@ def _handle_open_chat(state: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _handle_view_as_student(state: dict[str, Any]) -> tuple[Any, ...]:
+    next_state, teacher_message = handle_view_as_student(state)
+    return _render_main_app(next_state, teacher_message=teacher_message)
+
+
 def _handle_back_to_home(state: dict[str, Any]) -> tuple[Any, ...]:
     next_state, login_message, register_message, student_message = handle_back_to_student(state)
     return _render_main_app(
@@ -232,8 +280,6 @@ def _handle_logout() -> tuple[Any, ...]:
 
 
 def build_main_app() -> gr.Blocks:
-    ensure_admin_user()
-
     with gr.Blocks(css=AB_PAGE_CSS, title="Pensum Piloten") as demo:
         app_state = gr.State(default_app_state())
 
@@ -267,7 +313,9 @@ def build_main_app() -> gr.Blocks:
             teacher_page.status_text,
             teacher_course_page.course_title,
             teacher_course_page.students_list,
+            teacher_course_page.materials_list,
             teacher_course_page.add_student_username,
+            teacher_course_page.ingestion_status,
             teacher_course_page.status_text,
             student_course_page.course_title,
             auth_page.login_status,
@@ -313,7 +361,7 @@ def build_main_app() -> gr.Blocks:
             outputs=app_outputs,
         )
         teacher_page.responsible_list.change(
-            fn=_handle_open_teacher_course,
+            fn=_handle_open_responsible_course,
             inputs=[app_state, teacher_page.responsible_list],
             outputs=app_outputs,
         )
@@ -345,6 +393,52 @@ def build_main_app() -> gr.Blocks:
                 teacher_course_page.students_list,
                 teacher_course_page.status_text,
             ],
+        )
+        teacher_course_page.upload_button.click(
+            fn=_handle_upload_materials,
+            inputs=[app_state, teacher_course_page.upload_files],
+            outputs=[
+                teacher_course_page.upload_files,
+                teacher_course_page.materials_list,
+                teacher_course_page.status_text,
+            ],
+        )
+        teacher_course_page.delete_material_button.click(
+            fn=_handle_delete_material,
+            inputs=[app_state, teacher_course_page.materials_list],
+            outputs=[
+                teacher_course_page.materials_list,
+                teacher_course_page.status_text,
+            ],
+        )
+        teacher_course_page.refresh_materials_button.click(
+            fn=_handle_refresh_materials,
+            inputs=[app_state],
+            outputs=[
+                teacher_course_page.materials_list,
+            ],
+        )
+        teacher_course_page.start_ingestion_button.click(
+            fn=_handle_start_ingestion,
+            inputs=[app_state, teacher_course_page.materials_list],
+            outputs=[
+                teacher_course_page.materials_list,
+                teacher_course_page.ingestion_status,
+                teacher_course_page.status_text,
+            ],
+        )
+        teacher_course_page.refresh_ingestion_button.click(
+            fn=_handle_refresh_ingestion,
+            inputs=[app_state],
+            outputs=[
+                teacher_course_page.ingestion_status,
+                teacher_course_page.status_text,
+            ],
+        )
+        teacher_course_page.view_as_student_button.click(
+            fn=_handle_view_as_student,
+            inputs=[app_state],
+            outputs=app_outputs,
         )
         teacher_course_page.back_button.click(
             fn=_handle_back_to_home,

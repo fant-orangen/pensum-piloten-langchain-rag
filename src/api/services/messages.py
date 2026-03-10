@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-import structlog
 from fastapi import HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy import func, select
@@ -13,21 +12,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.models.conversation import Conversation
 from src.api.models.course import Course
 from src.api.models.message import Message
+from src.api.services.conversation_context_summaries import (
+    maybe_compress_conversation_history,
+)
 from src.api.schemas.pagination import PaginationParams
+from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
 from src.chain import build_kg_rag_chain
 
-logger = structlog.get_logger(__name__)
+logger = get_service_logger(__name__)
 
-# Chains are expensive to build — cache by chroma_collection name.
+# Chains are expensive to build — cache by active course scope.
 _chain_cache: dict[str, Any] = {}
 
 
-def _get_chain(chroma_collection: str) -> Any:
-    if chroma_collection not in _chain_cache:
-        _chain_cache[chroma_collection] = build_kg_rag_chain(
-            chroma_collection=chroma_collection
+def _get_chain(scope: str) -> Any:
+    if scope not in _chain_cache:
+        _chain_cache[scope] = build_kg_rag_chain(
+            chroma_collection=scope,
+            graph_scope=scope,
         )
-    return _chain_cache[chroma_collection]
+    return _chain_cache[scope]
 
 
 async def get_conversation_messages(
@@ -61,7 +65,7 @@ async def create_message(
     content: str,
     role: str,
     db: AsyncSession,
-) -> Message:
+) -> tuple[Message, bool]:
     """Persist a single message and bump the conversation's updated_at.
 
     When role is 'human', also invokes the RAG chain using the conversation's
@@ -76,7 +80,7 @@ async def create_message(
         db.add(conversation)
         await db.commit()
         await db.refresh(message)
-        return message
+        return message, False
 
     # Load the course to get the ChromaDB collection name.
     course_result = await db.execute(select(Course).where(Course.id == conversation.course_id))
@@ -84,26 +88,54 @@ async def create_message(
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
+    if not course.chroma_collection:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This course does not currently have ingested materials.",
+        )
+
     # Build or retrieve the cached chain, validating the collection exists.
     try:
         chain = _get_chain(course.chroma_collection)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    # Load conversation history in chronological order for the chain.
-    history_result = await db.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation.id)
-        .order_by(Message.created_at.asc())
-        .limit(20)
+    (
+        conversation_summary,
+        summary_created_at,
+        compression_triggered,
+    ) = await maybe_compress_conversation_history(
+        conversation,
+        content,
+        db,
     )
+
+    # Load conversation history in chronological order for the chain.
+    history_query = select(Message).where(Message.conversation_id == conversation.id)
+    if summary_created_at is not None:
+        history_query = history_query.where(Message.created_at > summary_created_at) # Only include messages after the summary was created
+    history_result = await db.execute(history_query.order_by(Message.created_at.asc()))
     lc_history = [
         HumanMessage(content=m.content) if m.role == "human" else AIMessage(content=m.content)
         for m in history_result.scalars().all()
     ]
 
-    logger.info("invoking_chain", collection=course.chroma_collection, conversation_id=str(conversation.id))
-    answer: str = await chain.ainvoke({"question": content, "chat_history": lc_history}) # Invoke the RAG system
+    log_chain_invocation(
+        bind_log_context(
+            logger,
+            collection=course.chroma_collection,
+            conversation_id=conversation.id,
+        )
+    )
+    answer: str = await chain.ainvoke(
+        {
+            "question": content,
+            "chat_history": lc_history,
+            "system_prompt_mode": conversation.system_prompt_mode,
+            "course_specific_instructions": course.course_specific_instructions,
+            "conversation_summary": conversation_summary,
+        }
+    )
 
     # Save both messages and bump the conversation timestamp in one commit.
     human_msg = Message(conversation_id=conversation.id, role="human", content=content)
@@ -116,4 +148,4 @@ async def create_message(
     db.add(conversation)
     await db.commit()
     await db.refresh(ai_msg)
-    return ai_msg
+    return ai_msg, compression_triggered

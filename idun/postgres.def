@@ -1,0 +1,30 @@
+Bootstrap: docker
+From: postgres:16-alpine
+
+%labels
+    Author pensum-piloten
+    Description PostgreSQL 16 for Pensum Piloten on IDUN
+
+%environment
+    export POSTGRES_USER=postgres
+    export POSTGRES_PASSWORD=password
+    export POSTGRES_DB=pensum_piloten
+    export PGDATA=/var/lib/postgresql/data
+
+%post
+    mkdir -p /var/lib/postgresql/data
+    mkdir -p /run/postgresql
+    chown -R postgres:postgres /var/lib/postgresql /run/postgresql
+
+%startscript
+    if [ ! -f "$PGDATA/PG_VERSION" ]; then
+        su-exec postgres initdb -D "$PGDATA"
+        echo "host all all 0.0.0.0/0 md5" >> "$PGDATA/pg_hba.conf"
+        echo "listen_addresses='*'" >> "$PGDATA/postgresql.conf"
+
+        su-exec postgres pg_ctl -D "$PGDATA" start -w
+        su-exec postgres psql -c "ALTER USER postgres PASSWORD 'password';"
+        su-exec postgres psql -c "CREATE DATABASE pensum_piloten;"
+        su-exec postgres pg_ctl -D "$PGDATA" stop -w
+    fi
+    exec su-exec postgres postgres -D "$PGDATA"

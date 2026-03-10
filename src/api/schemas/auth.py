@@ -30,5 +30,6 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
     global_role: str
+    system_prompt_mode: int
 
     model_config = {"from_attributes": True}

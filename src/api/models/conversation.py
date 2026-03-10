@@ -19,6 +19,8 @@ class Conversation(SQLModel, table=True):
     # Optional short title — auto-generated from the first message or set by
     # the user. Null until the first message is sent.
     title: Optional[str] = None
+    # System prompt mode fixed at conversation creation time.
+    system_prompt_mode: int = Field(default=1)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # Bumped on every new message so conversations can be sorted by recency.
     updated_at: datetime = Field(default_factory=datetime.utcnow)

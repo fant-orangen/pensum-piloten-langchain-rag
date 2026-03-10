@@ -13,16 +13,20 @@ class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
     # --- LLM provider ---
-    model_provider: str = "openai"  # "openai" | "local"
+    model_provider: str = "anthropic"  # "openai" | "anthropic" | "local"
 
     # --- IDUN LLM gateway (used when model_provider = "local") ---
     idun_base_url: str = "https://llm.hpc.ntnu.no/v1"
     idun_api_key: str = ""
 
-    # --- LLM ---
+    # --- OPENAI ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
-    openai_llm_model: str = "gpt-5.2"
+    openai_llm_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
+
+    # --- Anthropic ---
+    anthropic_api_key: str = Field(default="", description="Anthropic API key loaded from ANTHROPIC_API_KEY environment variable")
+    anthropic_llm_model: str = "claude-sonnet-4-6"
 
 
     # Change these if you want a different local model.
@@ -41,6 +45,7 @@ class Settings(BaseSettings):
     retriever_top_k: int = 5
     kg_max_final_chunks: int = 20
     temperature: float = 0.3
+    conversation_compression_token_limit: int = 1000
 
     # --- Neo4j (Knowledge Graph) ---
     neo4j_uri: str = "bolt://localhost:7687"
@@ -62,9 +67,11 @@ class Settings(BaseSettings):
     # --- API ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    api_reload: bool = True
 
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
+    course_materials_dir: str = str(PROJECT_ROOT / "data" / "course_materials")
 
     # --- Ingestion filtering ---
     toc_line_threshold: float = 0.5 # If more than 50% of the lines in a document match the TOC line pattern, the document is removed.
@@ -76,6 +83,14 @@ class Settings(BaseSettings):
     # Set to true to insert a test course, teacher, and student on startup.
     # Safe to leave on — seed is skipped if data already exists.
     seed_test_data: bool = False
+
+    # --- Optional admin bootstrap ---
+    # If both email and password are set, startup ensures this account exists
+    # with global_role="admin".
+    admin_email: str = ""
+    admin_password: str = ""
+    admin_first_name: str = "System"
+    admin_last_name: str = "Admin"
 
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),

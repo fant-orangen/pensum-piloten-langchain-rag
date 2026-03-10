@@ -9,6 +9,7 @@ dependencies = [
     "langchain-core>=0.3,<0.4",
     "langchain-community>=0.3,<0.4",
     "langchain-openai>=0.3,<0.4",
+    "langchain-anthropic>=0.3,<0.4",
     "langchain-text-splitters>=0.3,<0.4",
 
     # --- Vector store ---
@@ -30,6 +31,7 @@ dependencies = [
     # --- API layer ---
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30,<1",
+    "python-multipart>=0.0.9",
     "pydantic>=2,<3",
     "pydantic-settings>=2,<3",
     "gradio>=4,<6",

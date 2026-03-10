@@ -1,7 +1,8 @@
-"""Embedded chat page for the main Gradio app.
+"""Embedded RAG chat page for the main Gradio app.
 
-Conversations and messages are persisted through the FastAPI backend.
-A JWT token must be present in token_state for the page to function.
+Renders a conversation sidebar and a chat interface backed by the FastAPI
+conversation service. A valid JWT token must be present in token_state for the
+page to function. Conversations and messages are persisted through the backend.
 """
 
 from __future__ import annotations
@@ -13,10 +14,20 @@ from typing import Any
 import gradio as gr
 
 _TITLE_WIDTH = 56
+_MODE_CHOICES = [
+    ("Socratic mode", 1),
+    ("Direct mode", 2),
+    ("Example mode", 3),
+]
+_NO_COURSE_STATUS = "Velg et fag før du bruker chat."
+_SCOPE_CHANGED_STATUS = "Fagkonteksten ble endret. Velg eller opprett en ny samtale."
+_OUT_OF_SCOPE_STATUS = "Samtalen er ikke i aktivt fag. Velg eller opprett en ny samtale."
 
 
 @dataclass(slots=True)
 class ChatPageComponents:
+    """Holds the top-level Gradio components and shared state objects for the chat page."""
+
     group: gr.Group
     back_button: gr.Button
     token_state: gr.State
@@ -24,14 +35,17 @@ class ChatPageComponents:
 
 
 def _default_conversation_state() -> dict[str, Any]:
+    """Return an empty conversation state dict with all fields set to None."""
     return {"conversation_id": None, "title": None, "course_id": None}
 
 
 def _open_conversation_text(title: str | None) -> str:
+    """Format the label shown above the chat area for the currently open conversation."""
     return f"Åpen samtale: {title or 'Ingen'}"
 
 
 def _conversation_count_text(count: int) -> str:
+    """Return a Norwegian summary string for the number of conversations found."""
     if count == 0:
         return "Ingen tidligere samtaler funnet."
     if count == 1:
@@ -40,6 +54,7 @@ def _conversation_count_text(count: int) -> str:
 
 
 def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Convert a list of conversation dicts into (label, id) pairs suitable for a Gradio Radio widget."""
     choices = []
     for conv in conversations:
         title = conv.get("title") or "Samtale"
@@ -51,8 +66,12 @@ def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, st
 
 def _fetch_conversations(token: str, course_id: str | None = None) -> tuple[list[dict[str, Any]], str]:
     """Return (conversations, error_message). Conversations are ordered newest-first."""
+    resolved_course_id = (course_id or "").strip()
+    if not resolved_course_id:
+        return [], _NO_COURSE_STATUS
+
     from src.ui.services.conversation_service import list_conversations
-    items, _total, err = list_conversations(token, course_id=course_id or None)
+    items, _total, err = list_conversations(token, course_id=resolved_course_id)
     return items, err
 
 
@@ -91,7 +110,18 @@ def _refresh_sidebar(
     course_id: str | None = None,
     status_message: str = "",
 ) -> tuple[Any, str, str, str]:
-    conversations, err = _fetch_conversations(token, course_id)
+    """Fetch conversations and return Gradio updates for the sidebar selector, count, status, and open-conversation label."""
+    resolved_course_id = (course_id or "").strip()
+    if not resolved_course_id:
+        status_text = status_message or _NO_COURSE_STATUS
+        return (
+            gr.update(choices=[], value=None),
+            _conversation_count_text(0),
+            status_text,
+            _open_conversation_text(None),
+        )
+
+    conversations, err = _fetch_conversations(token, resolved_course_id)
     if err:
         status_message = err
 
@@ -112,17 +142,63 @@ def _refresh_sidebar(
     )
 
 
+def _save_mode_handler(selected_mode: int | None, token: str | None, current_status: str) -> str:
+    """Persist the selected tutoring mode for the authenticated user."""
+    if not token:
+        return "Ikke innlogget."
+    if selected_mode not in {1, 2, 3}:
+        return "Velg en gyldig veiledningsmodus."
+
+    from src.ui.services.preferences_service import update_system_prompt_mode
+
+    success, message = update_system_prompt_mode(token, int(selected_mode))
+    if success:
+        return f"{message} New conversations will use this mode."
+    if current_status:
+        return f"{current_status}\n\n{message}"
+    return message
+
+
 def _load_conversation_handler(
     conversation_id: str | None,
     token: str | None,
     course_id: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Load message history for the selected conversation and update the chat UI."""
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
+
+    resolved_course_id = (course_id or "").strip()
+    if not resolved_course_id:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id,
+            status_message=_NO_COURSE_STATUS,
+        )
+        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
     if not conversation_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id, status_message="Ingen samtale valgt."
+        )
+        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+
+    conversations, err = _fetch_conversations(token, resolved_course_id)
+    if err:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token, course_id=course_id, status_message=err
+        )
+        return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+
+    selected_conv = next(
+        (c for c in conversations if str(c.get("id", "")) == conversation_id),
+        None,
+    )
+    if selected_conv is None:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id,
+            status_message=_OUT_OF_SCOPE_STATUS,
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
@@ -133,11 +209,6 @@ def _load_conversation_handler(
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
-    conversations, _ = _fetch_conversations(token, course_id)
-    selected_conv = next(
-        (c for c in conversations if str(c.get("id", "")) == conversation_id),
-        None,
-    )
     title = selected_conv.get("title") if selected_conv else "Samtale"
     conv_state = {
         "conversation_id": conversation_id,
@@ -158,16 +229,28 @@ def _new_conversation_handler(
     token: str | None,
     course_id_input: str,
     course_id_state: str | None,
+    selected_mode: int | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Create a new conversation for the resolved course ID and refresh the sidebar."""
     if not token:
         return "", [], "Ikke innlogget.", _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
-    course_id = (course_id_input or "").strip() or (course_id_state or "").strip()
+    course_id = (course_id_state or "").strip()
     if not course_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
-            token, course_id=course_id_state, status_message="Skriv inn fag-ID for å starte en ny samtale."
+            token, course_id=course_id_state, status_message=_NO_COURSE_STATUS
         )
         return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
+
+    if selected_mode in {1, 2, 3}:
+        from src.ui.services.preferences_service import update_system_prompt_mode
+
+        mode_saved, mode_message = update_system_prompt_mode(token, int(selected_mode))
+        if not mode_saved:
+            selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                token, course_id=course_id_state, status_message=mode_message
+            )
+            return "", [], status_text, _default_conversation_state(), selector_update, count_text, open_text
 
     from src.ui.services.conversation_service import create_conversation
     success, message, conv_data = create_conversation(token, course_id)
@@ -185,7 +268,10 @@ def _new_conversation_handler(
         "course_id": course_id,
     }
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
-        token, conv_id, course_id=course_id_state, status_message="Ny samtale opprettet."
+        token,
+        conv_id,
+        course_id=course_id_state,
+        status_message="Ny samtale opprettet med valgt veiledningsmodus.",
     )
     return "", [], status_text, conv_state, selector_update, count_text, open_text
 
@@ -197,6 +283,7 @@ def _chat_handler(
     token: str | None,
     course_id_state: str | None,
 ) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Send the user message to the backend and append both the user and AI turns to the chat history."""
     visible_history = [
         msg
         for msg in (history or [])
@@ -207,12 +294,29 @@ def _chat_handler(
     if not token:
         return "", visible_history, "Ikke innlogget.", conversation_state or _default_conversation_state(), gr.update(), "", _open_conversation_text(None)
 
+    if not (course_id_state or "").strip():
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id_state,
+            status_message=_NO_COURSE_STATUS,
+        )
+        return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
+
+    active_course_id = str(course_id_state or "").strip()
     if not text:
         conv_id = (conversation_state or {}).get("conversation_id")
         selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
         return "", visible_history, status_text, conversation_state or _default_conversation_state(), selector_update, count_text, open_text
 
     conv_id = (conversation_state or {}).get("conversation_id")
+    conv_course_id = str((conversation_state or {}).get("course_id") or "").strip()
+    if conv_id and conv_course_id != active_course_id:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token,
+            course_id=course_id_state,
+            status_message=_OUT_OF_SCOPE_STATUS,
+        )
+        return "", visible_history, status_text, _default_conversation_state(), selector_update, count_text, open_text
     if not conv_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message="Velg eller opprett en samtale først."
@@ -240,17 +344,67 @@ def _refresh_handler(
     token: str | None,
     course_id_state: str | None,
 ) -> tuple[Any, str, str, str, dict[str, Any]]:
+    """Re-fetch the conversation list and return updated sidebar components."""
     if not token:
         return gr.update(choices=[], value=None), "", "Ikke innlogget.", _open_conversation_text(None), _default_conversation_state()
 
-    conv_id = (conversation_state or {}).get("conversation_id")
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(
-        token, conv_id, course_id=course_id_state, status_message="Samtalelisten er oppdatert."
+    if not (course_id_state or "").strip():
+        return (
+            gr.update(choices=[], value=None),
+            _conversation_count_text(0),
+            _NO_COURSE_STATUS,
+            _open_conversation_text(None),
+            _default_conversation_state(),
+        )
+
+    active_course_id = str(course_id_state or "").strip()
+    conv_id = str((conversation_state or {}).get("conversation_id") or "").strip()
+    conversations, err = _fetch_conversations(token, active_course_id)
+    choices = _selector_choices(conversations)
+    resolved_value = conv_id if conv_id and any(item[1] == conv_id for item in choices) else None
+    selected_conv = next(
+        (item for item in conversations if str(item.get("id", "")) == resolved_value),
+        None,
     )
-    return selector_update, count_text, status_text, open_text, conversation_state or _default_conversation_state()
+    next_state = {
+        "conversation_id": resolved_value,
+        "title": selected_conv.get("title") if selected_conv else None,
+        "course_id": active_course_id if selected_conv else None,
+    }
+    status_text = err or "Samtalelisten er oppdatert."
+    return (
+        gr.update(choices=choices, value=resolved_value),
+        _conversation_count_text(len(conversations)),
+        status_text,
+        _open_conversation_text(next_state.get("title")),
+        next_state if resolved_value else _default_conversation_state(),
+    )
+
+
+def _reset_scope_handler(
+    token: str | None,
+    course_id_state: str | None,
+) -> tuple[str, list[dict[str, str]], str, dict[str, Any], Any, str, str]:
+    """Reset local chat state when auth/course scope changes."""
+    if not token:
+        status_text = "Ikke innlogget."
+    elif not (course_id_state or "").strip():
+        status_text = _NO_COURSE_STATUS
+    else:
+        status_text = _SCOPE_CHANGED_STATUS
+    return (
+        "",
+        [],
+        status_text,
+        _default_conversation_state(),
+        gr.update(choices=[], value=None),
+        _conversation_count_text(0),
+        _open_conversation_text(None),
+    )
 
 
 def build_chat_page(*, visible: bool) -> ChatPageComponents:
+    """Build the chat Gradio group, wire up all event handlers, and return the page components."""
     with gr.Group(visible=visible) as group:
         token_state = gr.State(None)
         course_id_state = gr.State(None)
@@ -275,7 +429,16 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 conversation_count = gr.Markdown(_conversation_count_text(0))
 
             with gr.Column(scale=4):
-                gr.Markdown("# Chat")
+                with gr.Row():
+                    gr.Markdown("# Chat")
+                    with gr.Column(scale=1, min_width=280):
+                        mode_selector = gr.Radio(
+                            choices=_MODE_CHOICES,
+                            value=1,
+                            label="Tutoring mode",
+                            info="Choose the mode for new conversations.",
+                        )
+                        save_mode_button = gr.Button("Save mode", variant="secondary")
                 gr.Markdown("Chat med tutor (RAG).")
                 open_conversation = gr.Markdown(_open_conversation_text(None))
                 status = gr.Markdown("")
@@ -317,8 +480,13 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
     )
     new_conversation_button.click(
         fn=_new_conversation_handler,
-        inputs=[token_state, course_id_input, course_id_state],
+        inputs=[token_state, course_id_input, course_id_state, mode_selector],
         outputs=chat_outputs,
+    )
+    mode_selector.change(
+        fn=_save_mode_handler,
+        inputs=[mode_selector, token_state, status],
+        outputs=[status],
     )
     refresh_button.click(
         fn=_refresh_handler,
@@ -330,6 +498,21 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
             open_conversation,
             conversation_state,
         ],
+    )
+    save_mode_button.click(
+        fn=_save_mode_handler,
+        inputs=[mode_selector, token_state, status],
+        outputs=[status],
+    )
+    token_state.change(
+        fn=_reset_scope_handler,
+        inputs=[token_state, course_id_state],
+        outputs=chat_outputs,
+    )
+    course_id_state.change(
+        fn=_reset_scope_handler,
+        inputs=[token_state, course_id_state],
+        outputs=chat_outputs,
     )
 
     return ChatPageComponents(group=group, back_button=back_button, token_state=token_state, course_id_state=course_id_state)

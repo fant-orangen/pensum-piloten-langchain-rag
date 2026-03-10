@@ -17,5 +17,7 @@ class User(SQLModel, table=True):
     is_active: bool = True
     # Platform-level role. Controls who can create courses and who can promote
     # others. Course-level roles (student / teacher) live on CourseEnrollment.
-    global_role: str = Field(default="student")  # "student" | "teacher" | "superadmin"
+    global_role: str = Field(default="student")  # "student" | "teacher" | "admin"
+    # Selected tutoring style used to extend the base system prompt.
+    system_prompt_mode: int = Field(default=1)
     created_at: datetime = Field(default_factory=datetime.utcnow)
