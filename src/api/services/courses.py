@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete as sa_delete, select
+from sqlalchemy import delete as sa_delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.conversation import Conversation
@@ -18,6 +18,7 @@ from src.api.services.course_documents import (
     purge_course_materials,
 )
 from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
+from src.api.schemas.pagination import PaginationParams
 from src.api.utils import (
     require_course_owner_or_admin,
     require_course_teacher_or_admin,
@@ -52,6 +53,41 @@ async def get_responsible_courses(user_id: uuid.UUID, db: AsyncSession) -> list[
         )
     )
     return list(result.scalars().all())
+
+
+async def get_course_students(
+    current_user: User,
+    course_id: uuid.UUID,
+    params: PaginationParams,
+    db: AsyncSession,
+) -> tuple[list[User], int]:
+    """Return a page of users enrolled in the course as students."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    base = (
+        select(User)
+        .join(CourseEnrollment, CourseEnrollment.user_id == User.id)
+        .where(
+            CourseEnrollment.course_id == course_id,
+            CourseEnrollment.role == "student",
+        )
+    )
+
+    count_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total: int = count_result.scalar_one()
+
+    result = await db.execute(
+        base.order_by(User.last_name.asc(), User.first_name.asc(), User.email.asc())
+        .offset(params.offset)
+        .limit(params.page_size)
+    )
+    items = list(result.scalars().all())
+
+    return items, total
 
 
 async def create_course(current_user: User, body: CourseCreate, db: AsyncSession) -> Course:
