@@ -13,6 +13,18 @@ from typing import Any
 
 import gradio as gr
 
+from src.ui.pages.chat_state import (
+    ChatConversationState,
+    ChatSourceEntry,
+    coerce_source_history,
+    default_conversation_state,
+    empty_reference_rows,
+    latest_assistant_sources,
+    normalize_conversation_state,
+    normalize_source_entry,
+    reference_rows_for_sources,
+    visible_history_from_source_history,
+)
 from src.ui.router import ROUTE_CHAT
 
 _TITLE_WIDTH = 56
@@ -43,9 +55,9 @@ class ChatPageComponents:
     route_state: gr.State
 
 
-def _default_conversation_state() -> dict[str, Any]:
+def _default_conversation_state() -> ChatConversationState:
     """Return an empty conversation state dict with all fields set to None."""
-    return {"conversation_id": None, "title": None, "course_id": None}
+    return default_conversation_state()
 
 
 def _mode_label(mode: int) -> str:
@@ -66,35 +78,23 @@ def _get_user_system_prompt_mode(token: str) -> tuple[int | None, str]:
 
 
 def _empty_reference_rows() -> list[list[str]]:
-    return []
+    return empty_reference_rows()
 
 
-def _normalize_reference_entry(value: Any) -> dict[str, str] | None:
-    if not isinstance(value, dict):
-        return None
-    document = str(value.get("document") or "Ukjent dokument").strip() or "Ukjent dokument"
-    page = str(value.get("page") or "").strip()
-    excerpt = str(value.get("excerpt") or "").strip()
-    return {"document": document, "page": page, "excerpt": excerpt}
+def _normalize_reference_entry(value: Any) -> ChatSourceEntry | None:
+    return normalize_source_entry(value)
 
 
 def _reference_rows_for_sources(sources: list[dict[str, Any]] | None) -> list[list[str]]:
-    rows: list[list[str]] = []
-    for source in sources or []:
-        normalized = _normalize_reference_entry(source)
-        if normalized is None:
-            continue
-        rows.append([normalized["document"], normalized["page"], normalized["excerpt"]])
-    return rows
+    return reference_rows_for_sources(sources)
 
 
 def _visible_history_from_source_history(
     source_history: list[dict[str, Any]] | None,
 ) -> list[dict[str, str]]:
     return [
-        {"role": str(msg.get("role", "")), "content": str(msg.get("content", ""))}
-        for msg in (source_history or [])
-        if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
+        {"role": msg["role"], "content": msg["content"]}
+        for msg in visible_history_from_source_history(source_history)
     ]
 
 
@@ -102,37 +102,16 @@ def _coerce_source_history(
     visible_history: list[dict[str, Any]],
     source_history: list[dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
-    if source_history:
-        return [
-            {
-                "role": str(msg.get("role", "")),
-                "content": str(msg.get("content", "")),
-                "sources": list(msg.get("sources") or []),
-            }
-            for msg in source_history
-            if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
-        ]
     return [
-        {
-            "role": str(msg.get("role", "")),
-            "content": str(msg.get("content", "")),
-            "sources": [],
-        }
-        for msg in visible_history
-        if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
+        {"role": msg["role"], "content": msg["content"], "sources": list(msg["sources"])}
+        for msg in coerce_source_history(visible_history, source_history)
     ]
 
 
 def _latest_assistant_sources(
     source_history: list[dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
-    for msg in reversed(source_history or []):
-        if not isinstance(msg, dict):
-            continue
-        if msg.get("role") != "assistant":
-            continue
-        return list(msg.get("sources") or [])
-    return []
+    return [dict(source) for source in latest_assistant_sources(source_history)]
 
 
 def _reference_panel_from_sources(sources: list[dict[str, Any]] | None) -> tuple[list[list[str]], str]:
@@ -809,13 +788,14 @@ def _chat_handler(
     resolved_source_history = _coerce_source_history(visible_history, source_history)
     reference_rows, reference_status = _reference_panel_from_history(resolved_source_history)
     text = (user_message or "").strip()
+    current_state = normalize_conversation_state(conversation_state)
 
     if not token:
         return (
             "",
             visible_history,
             "Ikke innlogget.",
-            conversation_state or _default_conversation_state(),
+            current_state,
             gr.update(),
             "",
             _open_conversation_text(None),
@@ -845,13 +825,13 @@ def _chat_handler(
 
     active_course_id = str(course_id_state or "").strip()
     if not text:
-        conv_id = (conversation_state or {}).get("conversation_id")
+        conv_id = current_state.get("conversation_id")
         selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state)
         return (
             "",
             visible_history,
             status_text,
-            conversation_state or _default_conversation_state(),
+            current_state,
             selector_update,
             count_text,
             open_text,
@@ -860,8 +840,8 @@ def _chat_handler(
             reference_status,
         )
 
-    conv_id = (conversation_state or {}).get("conversation_id")
-    conv_course_id = str((conversation_state or {}).get("course_id") or "").strip()
+    conv_id = current_state.get("conversation_id")
+    conv_course_id = str(current_state.get("course_id") or "").strip()
     if conv_id and conv_course_id != active_course_id:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token,
@@ -895,7 +875,7 @@ def _chat_handler(
                 "",
                 visible_history,
                 status_text,
-                conversation_state or _default_conversation_state(),
+                current_state,
                 selector_update,
                 count_text,
                 open_text,
@@ -914,7 +894,7 @@ def _chat_handler(
                 "",
                 visible_history,
                 status_text,
-                conversation_state or _default_conversation_state(),
+                current_state,
                 selector_update,
                 count_text,
                 open_text,
@@ -922,7 +902,7 @@ def _chat_handler(
                 reference_rows,
                 reference_status,
             )
-        conversation_state = {
+        current_state = {
             "conversation_id": conv_id,
             "title": conv_data.get("title") or "Ny samtale",
             "course_id": active_course_id,
@@ -936,7 +916,7 @@ def _chat_handler(
             "",
             visible_history,
             status_text,
-            conversation_state or _default_conversation_state(),
+            current_state,
             selector_update,
             count_text,
             open_text,
@@ -964,7 +944,7 @@ def _chat_handler(
         "",
         updated_history,
         status_text,
-        conversation_state or _default_conversation_state(),
+        current_state,
         selector_update,
         count_text,
         open_text,
@@ -981,6 +961,8 @@ def _refresh_handler(
     course_id_state: str | None,
 ) -> tuple[Any, str, str, str, dict[str, Any], list[dict[str, Any]], list[list[str]], str]:
     """Re-fetch the conversation list and return updated sidebar components."""
+    current_state = normalize_conversation_state(conversation_state)
+
     if not token:
         return (
             gr.update(choices=[], value=None),
@@ -1006,7 +988,7 @@ def _refresh_handler(
         )
 
     active_course_id = str(course_id_state or "").strip()
-    conv_id = str((conversation_state or {}).get("conversation_id") or "").strip()
+    conv_id = str(current_state.get("conversation_id") or "").strip()
     conversations, err = _fetch_conversations(token, active_course_id)
     choices = _selector_choices(conversations)
     resolved_value = conv_id if conv_id and any(item[1] == conv_id for item in choices) else None
