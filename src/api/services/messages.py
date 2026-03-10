@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-import structlog
 from fastapi import HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy import func, select
@@ -17,9 +16,10 @@ from src.api.services.conversation_context_summaries import (
     maybe_compress_conversation_history,
 )
 from src.api.schemas.pagination import PaginationParams
+from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
 from src.chain import build_kg_rag_chain
 
-logger = structlog.get_logger(__name__)
+logger = get_service_logger(__name__)
 
 # Chains are expensive to build — cache by active course scope.
 _chain_cache: dict[str, Any] = {}
@@ -120,7 +120,13 @@ async def create_message(
         for m in history_result.scalars().all()
     ]
 
-    logger.info("invoking_chain", collection=course.chroma_collection, conversation_id=str(conversation.id))
+    log_chain_invocation(
+        bind_log_context(
+            logger,
+            collection=course.chroma_collection,
+            conversation_id=conversation.id,
+        )
+    )
     answer: str = await chain.ainvoke(
         {
             "question": content,

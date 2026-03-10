@@ -11,7 +11,6 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 
-import structlog
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +21,14 @@ from src.api.models.course import Course
 from src.api.models.course_document import CourseDocument
 from src.api.models.user import User
 from src.api.schemas.course import CourseMaterialsStatusRead
+from src.api.utils import (
+    bind_log_context,
+    get_service_logger,
+    log_course_material_rebuild,
+    log_course_material_rebuild_failed,
+    log_course_material_rebuild_missing_course,
+    log_course_material_rebuild_step,
+)
 from src.config import get_settings
 from src.config.settings import PROJECT_ROOT
 from src.ingestion.chunker import chunk_documents
@@ -30,7 +37,7 @@ from src.kg.extractor import extract_triplets, make_chunk_id
 from src.kg.store import KGStore
 from src.vectorstore import build_vectorstore, delete_vectorstore
 
-logger = structlog.get_logger(__name__)
+logger = get_service_logger(__name__)
 
 COURSE_REBUILD_IDLE = "idle"
 COURSE_REBUILD_QUEUED = "queued"
@@ -381,9 +388,9 @@ async def queue_course_material_rebuild(
     db.add(course)
     await db.commit()
     await db.refresh(course)
-    logger.info(
-        "course_material_rebuild_queued",
-        course_id=str(course.id),
+    log_course_material_rebuild(
+        bind_log_context(logger, course_id=course.id),
+        "queued",
         pending_additions=pending_additions,
         pending_removals=pending_removals,
         current_scope=course.chroma_collection,
@@ -444,6 +451,7 @@ async def _set_rebuild_failure(
 async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
     """Build a new course-scoped vector/KG partition and swap it in atomically."""
     session_factory = get_session_factory()
+    rebuild_logger = bind_log_context(logger, course_id=course_id)
     target_scope: str | None = None
     old_scope: str | None = None
     removed_paths: list[Path] = []
@@ -453,7 +461,7 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             result = await db.execute(select(Course).where(Course.id == course_id))
             course = result.scalars().first()
             if course is None:
-                logger.warning("course_material_rebuild_missing_course", course_id=str(course_id))
+                log_course_material_rebuild_missing_course(rebuild_logger)
                 return
 
             course.rebuild_status = COURSE_REBUILD_BUILDING
@@ -462,12 +470,13 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             await db.commit()
             await db.refresh(course)
 
+            rebuild_logger = bind_log_context(logger, course_id=course.id)
             snapshot_documents = await _get_snapshot_documents(course.id, db)
             next_version = course.index_version + 1
             old_scope = course.chroma_collection
-            logger.info(
-                "course_material_rebuild_started",
-                course_id=str(course.id),
+            log_course_material_rebuild(
+                rebuild_logger,
+                "started",
                 old_scope=old_scope,
                 next_index_version=next_version,
                 snapshot_document_count=len(snapshot_documents),
@@ -476,9 +485,8 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             if snapshot_documents:
                 target_scope = _build_scope_name(course, next_version)
                 paths = [Path(doc.storage_path) for doc in snapshot_documents]
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="load_documents",
                     target_scope=target_scope,
                     file_count=len(paths),
@@ -487,17 +495,15 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                 if not documents:
                     raise ValueError("No supported course documents were available for ingestion.")
 
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="chunk_documents",
                     target_scope=target_scope,
                     document_count=len(documents),
                 )
                 chunks = await asyncio.to_thread(chunk_documents, documents)
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="assign_chunk_ids",
                     target_scope=target_scope,
                     chunk_count=len(chunks),
@@ -505,9 +511,8 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                 for chunk in chunks:
                     chunk.metadata["chunk_id"] = make_chunk_id(chunk)
 
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="build_vectorstore",
                     target_scope=target_scope,
                     chunk_count=len(chunks),
@@ -520,17 +525,15 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                         replace=True,
                     )
                 )
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="extract_triplets",
                     target_scope=target_scope,
                     chunk_count=len(chunks),
                 )
                 triplets = await asyncio.to_thread(extract_triplets, chunks)
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="build_knowledge_graph",
                     target_scope=target_scope,
                     triplet_count=len(triplets),
@@ -540,12 +543,11 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                     await asyncio.to_thread(kg_store.build_kg, triplets, target_scope)
                 finally:
                     kg_store.close()
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="write_course_artifacts",
                     target_scope=target_scope,
-                    artifacts_dir=str(get_course_artifacts_dir(course)),
+                    artifacts_dir=get_course_artifacts_dir(course),
                 )
                 await asyncio.to_thread(
                     _write_course_artifacts,
@@ -557,18 +559,16 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                     chunk_count=len(chunks),
                 )
             else:
-                logger.info(
-                    "course_material_rebuild_step",
-                    course_id=str(course.id),
+                log_course_material_rebuild_step(
+                    rebuild_logger,
                     step="clear_active_scope",
                     old_scope=old_scope,
                 )
                 await asyncio.to_thread(_clear_course_artifacts, course)
 
             removed_paths = await _activate_staged_documents(course.id, db)
-            logger.info(
-                "course_material_rebuild_step",
-                course_id=str(course.id),
+            log_course_material_rebuild_step(
+                rebuild_logger,
                 step="activate_staged_documents",
                 removed_file_count=len(removed_paths),
                 target_scope=target_scope,
@@ -586,9 +586,8 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                 removed_path.unlink(missing_ok=True)
 
         if old_scope and old_scope != target_scope:
-            logger.info(
-                "course_material_rebuild_step",
-                course_id=str(course_id),
+            log_course_material_rebuild_step(
+                rebuild_logger,
                 step="cleanup_old_scope",
                 old_scope=old_scope,
                 target_scope=target_scope,
@@ -600,9 +599,8 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             finally:
                 kg_store.close()
         elif old_scope and target_scope is None:
-            logger.info(
-                "course_material_rebuild_step",
-                course_id=str(course_id),
+            log_course_material_rebuild_step(
+                rebuild_logger,
                 step="cleanup_old_scope",
                 old_scope=old_scope,
                 target_scope=None,
@@ -614,15 +612,15 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             finally:
                 kg_store.close()
 
-        logger.info(
-            "course_material_rebuild_complete",
-            course_id=str(course_id),
+        log_course_material_rebuild(
+            rebuild_logger,
+            "complete",
             old_scope=old_scope,
             scope=target_scope,
             removed_file_count=len(removed_paths),
         )
     except Exception as exc:
-        logger.error("course_material_rebuild_failed", course_id=str(course_id), error=str(exc))
+        log_course_material_rebuild_failed(rebuild_logger, error=exc)
         if target_scope is not None:
             await asyncio.to_thread(delete_vectorstore, target_scope)
             kg_store = KGStore()
