@@ -6,9 +6,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.authorization import require_admin
 from src.api.models.user import User
 from src.api.services.auth import hash_password
+from src.api.utils import require_admin
 from src.config import get_settings
 
 

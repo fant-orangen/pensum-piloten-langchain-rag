@@ -15,7 +15,6 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.authorization import require_course_teacher_or_admin
 from src.api.database import get_session_factory
 from src.api.models.course import Course
 from src.api.models.course_document import CourseDocument
@@ -24,6 +23,7 @@ from src.api.schemas.course import CourseMaterialsStatusRead
 from src.api.utils import (
     bind_log_context,
     get_service_logger,
+    require_course_teacher_or_admin,
     log_course_material_rebuild,
     log_course_material_rebuild_failed,
     log_course_material_rebuild_missing_course,

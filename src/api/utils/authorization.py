@@ -1,8 +1,4 @@
-"""Authorization helpers — role and enrollment checks.
-
-Each function raises HTTP 403 when the requirement is not met, so callers
-can use them as plain assertions without any extra branching.
-"""
+"""Authorization helpers for API role and enrollment checks."""
 
 import uuid
 
