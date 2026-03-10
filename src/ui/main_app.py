@@ -38,7 +38,6 @@ from src.ui.pages import (
     student_courses_update,
     teacher_available_courses_update,
     teacher_course_ingestion_status_text,
-    teacher_course_ingestion_material_choices_update,
     teacher_course_material_choices_update,
     teacher_course_student_choices_update,
     teacher_course_students_text,
@@ -136,7 +135,6 @@ def _render_main_app(
         teacher_course_title_text(state),
         teacher_course_students_text(state),
         teacher_course_material_choices_update(state),
-        teacher_course_ingestion_material_choices_update(state),
         teacher_course_student_choices_update(state),
         teacher_course_ingestion_status_text(state),
         "",
@@ -163,28 +161,25 @@ def _handle_add_student(state: dict[str, Any], student_username: str | None) -> 
 def _handle_upload_materials(
     state: dict[str, Any],
     file_paths: str | list[str] | None,
-) -> tuple[Any, Any, Any, str]:
+) -> tuple[Any, Any, str]:
     return handle_upload_materials(state, file_paths)
 
 
 def _handle_delete_material(
     state: dict[str, Any],
-    material_id: str | None,
-) -> tuple[Any, Any, str]:
-    return handle_delete_material(state, material_id)
+    material_ids: list[str] | None,
+) -> tuple[Any, str]:
+    return handle_delete_material(state, material_ids)
 
 
-def _handle_refresh_materials(state: dict[str, Any]) -> tuple[Any, Any]:
-    return (
-        teacher_course_material_choices_update(state),
-        teacher_course_ingestion_material_choices_update(state),
-    )
+def _handle_refresh_materials(state: dict[str, Any]) -> tuple[Any]:
+    return (teacher_course_material_choices_update(state),)
 
 
 def _handle_start_ingestion(
     state: dict[str, Any],
     selected_material_ids: list[str] | None,
-) -> tuple[str, str]:
+) -> tuple[Any, str, str]:
     return handle_start_ingestion(state, selected_material_ids)
 
 
@@ -319,7 +314,6 @@ def build_main_app() -> gr.Blocks:
             teacher_course_page.course_title,
             teacher_course_page.students_list,
             teacher_course_page.materials_list,
-            teacher_course_page.ingestion_materials,
             teacher_course_page.add_student_username,
             teacher_course_page.ingestion_status,
             teacher_course_page.status_text,
@@ -406,7 +400,6 @@ def build_main_app() -> gr.Blocks:
             outputs=[
                 teacher_course_page.upload_files,
                 teacher_course_page.materials_list,
-                teacher_course_page.ingestion_materials,
                 teacher_course_page.status_text,
             ],
         )
@@ -415,7 +408,6 @@ def build_main_app() -> gr.Blocks:
             inputs=[app_state, teacher_course_page.materials_list],
             outputs=[
                 teacher_course_page.materials_list,
-                teacher_course_page.ingestion_materials,
                 teacher_course_page.status_text,
             ],
         )
@@ -424,13 +416,13 @@ def build_main_app() -> gr.Blocks:
             inputs=[app_state],
             outputs=[
                 teacher_course_page.materials_list,
-                teacher_course_page.ingestion_materials,
             ],
         )
         teacher_course_page.start_ingestion_button.click(
             fn=_handle_start_ingestion,
-            inputs=[app_state, teacher_course_page.ingestion_materials],
+            inputs=[app_state, teacher_course_page.materials_list],
             outputs=[
+                teacher_course_page.materials_list,
                 teacher_course_page.ingestion_status,
                 teacher_course_page.status_text,
             ],

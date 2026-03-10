@@ -244,14 +244,8 @@ def list_materials(token: str, course_id: str) -> tuple[list[dict[str, Any]], st
     for item in data:
         if not isinstance(item, dict):
             continue
-        status = str(item.get("status") or "").strip()
-        if status == "pending_remove":
-            continue
         material = dict(item)
         material["size_bytes"] = 0
-        if status == "pending_add":
-            filename = str(material.get("original_filename") or "ukjent")
-            material["original_filename"] = f"{filename} [ny]"
         materials.append(material)
     return materials, ""
 
@@ -320,7 +314,10 @@ def start_ingestion(
     *,
     material_ids: list[str] | None = None,
 ) -> tuple[bool, str, dict[str, Any] | None]:
-    """Queue a new ingestion job for a course."""
+    """Queue a new ingestion job for a course.
+
+    Note: current backend applies all staged changes and ignores material_ids.
+    """
     try:
         data = post(f"/courses/{course_id}/documents/confirm", token=token)
     except ApiUnauthorizedError:
@@ -338,9 +335,8 @@ def start_ingestion(
 
     if not isinstance(data, dict):
         return False, "Uventet svar fra serveren.", None
-    if material_ids:
-        return True, "Endringer bekreftet. Oppdatering av kursmateriale er startet.", data
-    return True, "Oppdatering av kursmateriale er startet.", data
+    _ = material_ids
+    return True, "Ingestering av stagede materialendringer er startet.", data
 
 
 def list_ingestions(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:
@@ -360,24 +356,13 @@ def list_ingestions(token: str, course_id: str) -> tuple[list[dict[str, Any]], s
 
     if not isinstance(data, dict):
         return [], "Uventet svar fra serveren."
-    status = str(data.get("rebuild_status") or "ukjent")
-    pending_additions = int(data.get("pending_additions") or 0)
-    pending_removals = int(data.get("pending_removals") or 0)
-    details = []
-    if pending_additions:
-        details.append(f"{pending_additions} nye")
-    if pending_removals:
-        details.append(f"{pending_removals} fjernes")
-
-    error_message = str(data.get("rebuild_error") or "").strip()
-    if details:
-        error_message = ", ".join(details) if not error_message else f"{error_message} ({', '.join(details)})"
-
     return [
         {
-            "status": status,
-            "created_at": "",
-            "finished_at": "",
-            "error_message": error_message,
+            "status": str(data.get("rebuild_status") or "ukjent"),
+            "rebuild_error": str(data.get("rebuild_error") or "").strip(),
+            "pending_additions": int(data.get("pending_additions") or 0),
+            "pending_removals": int(data.get("pending_removals") or 0),
+            "index_version": int(data.get("index_version") or 0),
+            "active_scope": str(data.get("active_scope") or "").strip(),
         }
     ], ""
