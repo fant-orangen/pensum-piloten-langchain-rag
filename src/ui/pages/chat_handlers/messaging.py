@@ -379,8 +379,9 @@ def _chat_handler(
 
     ai_content = ai_msg_data.get("content", "")
     updated_source_history = resolved_source_history + [
-        {"role": "user", "content": text, "sources": []},
+        {"message_id": None, "role": "user", "content": text, "sources": []},
         {
+            "message_id": str(ai_msg_data.get("id", "")).strip() or None,
             "role": "assistant",
             "content": ai_content,
             "sources": list(ai_msg_data.get("sources") or []),

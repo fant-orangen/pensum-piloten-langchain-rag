@@ -18,6 +18,7 @@ from src.api.services.conversation_context_summaries import (
 from src.api.schemas.pagination import PaginationParams
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
 from src.chain import build_kg_rag_chain
+from src.kg.retriever import get_kg_retriever
 
 logger = get_service_logger(__name__)
 
@@ -32,6 +33,24 @@ def _get_chain(scope: str) -> Any:
             graph_scope=scope,
         )
     return _chain_cache[scope]
+
+
+def _serialize_source_documents(docs: list[Any]) -> list[dict[str, Any]]:
+    """Convert retrieved documents into source references for persistence."""
+    serialized: list[dict[str, Any]] = []
+    for doc in docs:
+        metadata = doc.metadata if hasattr(doc, "metadata") and isinstance(doc.metadata, dict) else {}
+        chunk_id = metadata.get("chunk_id")
+        if not isinstance(chunk_id, str) or not chunk_id.strip():
+            continue
+        serialized.append(
+            {
+                "chunk_id": chunk_id.strip(),
+                "source_file": str(metadata.get("source_file") or "").strip(),
+                "page": str(metadata.get("page") or "").strip(),
+            }
+        )
+    return serialized
 
 
 async def get_conversation_messages(
@@ -99,6 +118,11 @@ async def create_message(
         chain = _get_chain(course.chroma_collection)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        
+    retriever = get_kg_retriever(
+        collection_name=course.chroma_collection,
+        graph_scope=course.chroma_collection,
+    )
 
     (
         conversation_summary,
@@ -127,6 +151,9 @@ async def create_message(
             conversation_id=conversation.id,
         )
     )
+    # Get serialised sources for the AI message
+    source_docs = await retriever.ainvoke(content)
+    serialized_sources = _serialize_source_documents(source_docs)
     answer: str = await chain.ainvoke(
         {
             "question": content,
@@ -139,7 +166,12 @@ async def create_message(
 
     # Save both messages and bump the conversation timestamp in one commit.
     human_msg = Message(conversation_id=conversation.id, role="human", content=content)
-    ai_msg = Message(conversation_id=conversation.id, role="ai", content=answer)
+    ai_msg = Message(
+        conversation_id=conversation.id,
+        role="ai",
+        content=answer,
+        sources=serialized_sources,
+    )
     conversation.updated_at = datetime.utcnow()
 
     # TODO: we need better error handling for this function
