@@ -8,7 +8,6 @@ import gradio as gr
 
 from src.ui.pages.chat_handlers.common import (
     _default_conversation_state,
-    _get_user_system_prompt_mode,
     _mode_label,
 )
 from src.ui.pages.chat_handlers.contracts import (
@@ -32,7 +31,6 @@ def _new_conversation_handler(
     token: str | None,
     course_id_state: str | None,
     selected_mode: int | None,
-    remember_as_default: bool = True,
 ) -> ChatOutputs:
     """Create a new conversation for the resolved course ID and refresh the sidebar."""
     if not token:
@@ -87,78 +85,28 @@ def _new_conversation_handler(
         )
 
     selected_mode = int(selected_mode)
-    previous_mode: int | None = None
-    previous_mode_message = ""
-    temp_mode_set = False
-
     from src.ui.services.preferences_service import update_system_prompt_mode
 
-    if remember_as_default:
-        mode_saved, mode_message = update_system_prompt_mode(token, selected_mode)
-        if not mode_saved:
-            selector_update, count_text, status_text, open_text = _refresh_sidebar(
-                token, course_id=course_id_state, status_message=mode_message
-            )
-            return (
-                "",
-                [],
-                status_text,
-                _default_conversation_state(),
-                selector_update,
-                count_text,
-                open_text,
-                [],
-                _empty_reference_rows(),
-                _REFERENCE_DEFAULT_STATUS,
-            )
-    else:
-        previous_mode, previous_mode_message = _get_user_system_prompt_mode(token)
-        if previous_mode is None:
-            selector_update, count_text, status_text, open_text = _refresh_sidebar(
-                token,
-                course_id=course_id_state,
-                status_message=previous_mode_message,
-            )
-            return (
-                "",
-                [],
-                status_text,
-                _default_conversation_state(),
-                selector_update,
-                count_text,
-                open_text,
-                [],
-                _empty_reference_rows(),
-                _REFERENCE_DEFAULT_STATUS,
-            )
-        if previous_mode != selected_mode:
-            mode_saved, mode_message = update_system_prompt_mode(token, selected_mode)
-            if not mode_saved:
-                selector_update, count_text, status_text, open_text = _refresh_sidebar(
-                    token, course_id=course_id_state, status_message=mode_message
-                )
-                return (
-                    "",
-                    [],
-                    status_text,
-                    _default_conversation_state(),
-                    selector_update,
-                    count_text,
-                    open_text,
-                    [],
-                    _empty_reference_rows(),
-                    _REFERENCE_DEFAULT_STATUS,
-                )
-            temp_mode_set = True
+    mode_saved, mode_message = update_system_prompt_mode(token, selected_mode)
+    if not mode_saved:
+        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            token, course_id=course_id_state, status_message=mode_message
+        )
+        return (
+            "",
+            [],
+            status_text,
+            _default_conversation_state(),
+            selector_update,
+            count_text,
+            open_text,
+            [],
+            _empty_reference_rows(),
+            _REFERENCE_DEFAULT_STATUS,
+        )
 
     success, message, conv_data = create_chat_conversation(token, course_id)
     if not success or conv_data is None:
-        if temp_mode_set and previous_mode is not None:
-            restored, restore_message = update_system_prompt_mode(token, previous_mode)
-            if not restored:
-                message = (
-                    f"{message}\n\nKunne ikke gjenopprette standardmodus: {restore_message}"
-                )
         selector_update, count_text, status_text, open_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message=message
         )
@@ -182,19 +130,7 @@ def _new_conversation_handler(
         "title": title,
         "course_id": course_id,
     }
-    status_message = f"Ny samtale opprettet med {_mode_label(selected_mode)}."
-    if remember_as_default:
-        status_message = f"{status_message} Denne modusen er nå standard."
-    elif temp_mode_set and previous_mode is not None:
-        restored, restore_message = update_system_prompt_mode(token, previous_mode)
-        if restored:
-            status_message = f"{status_message} Standardmodus er uendret."
-        else:
-            status_message = (
-                f"{status_message} Kunne ikke gjenopprette standardmodus: {restore_message}"
-            )
-    else:
-        status_message = f"{status_message} Standardmodus er uendret."
+    status_message = f"Ny samtale opprettet med {_mode_label(selected_mode)}. Denne modusen er nå standard."
 
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
         token,
@@ -223,6 +159,7 @@ def _chat_handler(
     conversation_state: ChatConversationState | dict[str, Any] | None,
     token: str | None,
     course_id_state: str | None,
+    selected_mode: int | None,
 ) -> ChatOutputs:
     """Send a user message to the backend and append both turns to chat history."""
     visible_history = [
@@ -312,6 +249,28 @@ def _chat_handler(
 
     if not conv_id:
         # Auto-create the first conversation so the user's first send is actionable.
+        if selected_mode in {1, 2, 3}:
+            from src.ui.services.preferences_service import update_system_prompt_mode
+
+            mode_saved, mode_message = update_system_prompt_mode(token, int(selected_mode))
+            if not mode_saved:
+                selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                    token,
+                    course_id=course_id_state,
+                    status_message=mode_message,
+                )
+                return (
+                    "",
+                    visible_history,
+                    status_text,
+                    current_state,
+                    selector_update,
+                    count_text,
+                    open_text,
+                    resolved_source_history,
+                    reference_rows,
+                    reference_status,
+                )
         created, created_message, conv_data = create_chat_conversation(token, active_course_id)
         if not created or conv_data is None:
             selector_update, count_text, status_text, open_text = _refresh_sidebar(

@@ -29,7 +29,6 @@ class ChatPageComponents:
     conversation_state: gr.State
     source_history_state: gr.State
     mode_selector: gr.Radio
-    remember_mode_checkbox: gr.Checkbox
     new_conversation_button: gr.Button
     refresh_button: gr.Button
     conversation_selector: gr.Radio
@@ -61,11 +60,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                         choices=_MODE_CHOICES,
                         value=1,
                         label="Veiledningsmodus",
-                        info="Velges for samtalen du starter nå.",
-                    )
-                    remember_mode_checkbox = gr.Checkbox(
-                        value=False,
-                        label="Husk som standardmodus for fremtidige samtaler",
+                        info="Brukes for nye samtaler og blir standard til du endrer den.",
                     )
                     new_conversation_button = gr.Button("Start ny samtale", variant="primary")
                 refresh_button = gr.Button("Oppdater", variant="secondary")
@@ -115,7 +110,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         conversation_state=conversation_state,
         source_history_state=source_history_state,
         mode_selector=mode_selector,
-        remember_mode_checkbox=remember_mode_checkbox,
         new_conversation_button=new_conversation_button,
         refresh_button=refresh_button,
         conversation_selector=conversation_selector,
