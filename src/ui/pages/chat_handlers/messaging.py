@@ -18,7 +18,7 @@ from src.ui.pages.chat_handlers.contracts import (
 )
 from src.ui.pages.chat_handlers.references import (
     _coerce_source_history,
-    _empty_reference_rows,
+    _empty_reference_panel,
     _reference_panel_from_history,
     _visible_history_from_source_history,
 )
@@ -43,7 +43,7 @@ def _new_conversation_handler(
             "",
             _open_conversation_text(None),
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -61,7 +61,7 @@ def _new_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -80,7 +80,7 @@ def _new_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -101,7 +101,7 @@ def _new_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -119,7 +119,7 @@ def _new_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -147,7 +147,7 @@ def _new_conversation_handler(
         count_text,
         open_text,
         [],
-        _empty_reference_rows(),
+        _empty_reference_panel(),
         _REFERENCE_DEFAULT_STATUS,
     )
 
@@ -159,7 +159,7 @@ def _chat_handler(
     conversation_state: ChatConversationState | dict[str, Any] | None,
     token: str | None,
     course_id_state: str | None,
-    selected_mode: int | None,
+    selected_mode: int | None = None,
 ) -> ChatOutputs:
     """Send a user message to the backend and append both turns to chat history."""
     visible_history = [
@@ -168,7 +168,7 @@ def _chat_handler(
         if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
     ]
     resolved_source_history = _coerce_source_history(visible_history, source_history)
-    reference_rows, reference_status = _reference_panel_from_history(resolved_source_history)
+    reference_panel, reference_status = _reference_panel_from_history(resolved_source_history)
     text = (user_message or "").strip()
     current_state = normalize_conversation_state(conversation_state)
 
@@ -182,7 +182,7 @@ def _chat_handler(
             "",
             _open_conversation_text(None),
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -201,7 +201,7 @@ def _chat_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -222,7 +222,7 @@ def _chat_handler(
             count_text,
             open_text,
             resolved_source_history,
-            reference_rows,
+            reference_panel,
             reference_status,
         )
 
@@ -243,7 +243,7 @@ def _chat_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -268,7 +268,7 @@ def _chat_handler(
                     count_text,
                     open_text,
                     resolved_source_history,
-                    reference_rows,
+                    reference_panel,
                     reference_status,
                 )
         created, created_message, conv_data = create_chat_conversation(token, active_course_id)
@@ -287,7 +287,7 @@ def _chat_handler(
                 count_text,
                 open_text,
                 resolved_source_history,
-                reference_rows,
+                reference_panel,
                 reference_status,
             )
         conv_id = str(conv_data.get("id", "")).strip()
@@ -306,7 +306,7 @@ def _chat_handler(
                 count_text,
                 open_text,
                 resolved_source_history,
-                reference_rows,
+                reference_panel,
                 reference_status,
             )
         current_state = {
@@ -332,7 +332,7 @@ def _chat_handler(
             count_text,
             open_text,
             resolved_source_history,
-            reference_rows,
+            reference_panel,
             reference_status,
         )
 
@@ -347,7 +347,7 @@ def _chat_handler(
         },
     ]
     updated_history = _visible_history_from_source_history(updated_source_history)
-    updated_reference_rows, updated_reference_status = _reference_panel_from_history(
+    updated_reference_panel, updated_reference_status = _reference_panel_from_history(
         updated_source_history
     )
 
@@ -365,6 +365,6 @@ def _chat_handler(
         count_text,
         open_text,
         updated_source_history,
-        updated_reference_rows,
+        updated_reference_panel,
         updated_reference_status,
     )

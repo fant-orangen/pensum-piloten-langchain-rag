@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from html import escape
 from typing import Any, Literal, Mapping, TypedDict
 
 ChatRole = Literal["user", "assistant"]
@@ -57,8 +58,8 @@ def normalize_conversation_state(value: Mapping[str, Any] | None) -> ChatConvers
     }
 
 
-def empty_reference_rows() -> list[list[str]]:
-    return []
+def empty_reference_panel() -> str:
+    return ""
 
 
 def normalize_source_entry(value: Any) -> ChatSourceEntry | None:
@@ -70,14 +71,46 @@ def normalize_source_entry(value: Any) -> ChatSourceEntry | None:
     return {"document": document, "page": page, "excerpt": excerpt}
 
 
-def reference_rows_for_sources(sources: list[dict[str, Any]] | None) -> list[list[str]]:
-    rows: list[list[str]] = []
+def render_reference_panel_for_sources(sources: list[dict[str, Any]] | None) -> str:
+    normalized_sources: list[ChatSourceEntry] = []
     for source in sources or []:
         normalized = normalize_source_entry(source)
-        if normalized is None:
-            continue
-        rows.append([normalized["document"], normalized["page"], normalized["excerpt"]])
-    return rows
+        if normalized is not None:
+            normalized_sources.append(normalized)
+
+    if not normalized_sources:
+        return empty_reference_panel()
+
+    entries: list[str] = []
+    for index, source in enumerate(normalized_sources):
+        document = escape(source["document"] or "Ukjent dokument")
+        page = escape(source["page"] or "Ukjent")
+        excerpt = escape(source["excerpt"] or "Ingen tekst tilgjengelig.").replace("\n", "<br>")
+        separator = (
+            '<hr style="border: 0; border-top: 1px solid #d1d5db; margin: 0.75rem 0 0;">'
+            if index < len(normalized_sources) - 1
+            else ""
+        )
+        entries.append(
+            "".join(
+                [
+                    '<div class="chat-reference-entry" '
+                    'style="display: flex; flex-direction: column; gap: 0.35rem;">',
+                    f'<div><strong>Dokument:</strong> {document}</div>',
+                    f'<div><strong>Side:</strong> {page}</div>',
+                    f'<div><strong>Tekst:</strong> {excerpt}</div>',
+                    separator,
+                    "</div>",
+                ]
+            )
+        )
+
+    return (
+        '<div class="chat-reference-panel" '
+        'style="display: flex; flex-direction: column; gap: 0.75rem;">'
+        + "".join(entries)
+        + "</div>"
+    )
 
 
 def _role_from_value(value: Any) -> ChatRole | None:

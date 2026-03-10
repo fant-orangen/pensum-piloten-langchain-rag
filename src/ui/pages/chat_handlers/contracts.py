@@ -18,14 +18,13 @@ _SCOPE_CHANGED_STATUS = "Fagkonteksten ble endret. Velg eller opprett en ny samt
 _OUT_OF_SCOPE_STATUS = "Samtalen er ikke i aktivt fag. Velg eller opprett en ny samtale."
 _AUTO_COURSE_STATUS = "Fag valgt automatisk. Velg eller opprett en samtale først."
 
-_REFERENCE_HEADERS = ["Dokument", "Side", "Utdrag"]
 _REFERENCE_DEFAULT_STATUS = "Velg et tutorsvar for å se kilder."
 _REFERENCE_NO_SOURCES_STATUS = "Ingen kilder registrert for dette svaret."
 _REFERENCE_USER_SELECTED_STATUS = "Kilder vises bare for tutorsvar."
 
 ChatVisibleHistory: TypeAlias = list[dict[str, str]]
 ChatSourceHistory: TypeAlias = list[dict[str, Any]]
-ChatReferenceRows: TypeAlias = list[list[str]]
+ChatReferencePanel: TypeAlias = str
 
 ChatOutputs: TypeAlias = tuple[
     str,
@@ -36,7 +35,7 @@ ChatOutputs: TypeAlias = tuple[
     str,
     str,
     ChatSourceHistory,
-    ChatReferenceRows,
+    ChatReferencePanel,
     str,
 ]
 
@@ -49,7 +48,7 @@ ChatBootstrapOutputs: TypeAlias = tuple[
     str,
     str,
     ChatSourceHistory,
-    ChatReferenceRows,
+    ChatReferencePanel,
     str,
     str | None,
 ]
@@ -61,6 +60,6 @@ ChatRefreshOutputs: TypeAlias = tuple[
     str,
     ChatConversationState,
     ChatSourceHistory,
-    ChatReferenceRows,
+    ChatReferencePanel,
     str,
 ]
