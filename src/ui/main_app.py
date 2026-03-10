@@ -522,6 +522,7 @@ def build_main_app() -> gr.Blocks:
                 chat_page.conversation_state,
                 chat_page.token_state,
                 chat_page.course_id_state,
+                chat_page.mode_selector,
             ],
             outputs=chat_outputs,
         )
@@ -534,6 +535,7 @@ def build_main_app() -> gr.Blocks:
                 chat_page.conversation_state,
                 chat_page.token_state,
                 chat_page.course_id_state,
+                chat_page.mode_selector,
             ],
             outputs=chat_outputs,
         )
@@ -557,7 +559,6 @@ def build_main_app() -> gr.Blocks:
                 chat_page.token_state,
                 chat_page.course_id_state,
                 chat_page.mode_selector,
-                chat_page.remember_mode_checkbox,
             ],
             outputs=chat_outputs,
         )
