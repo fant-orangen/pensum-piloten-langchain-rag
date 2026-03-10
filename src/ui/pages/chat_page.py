@@ -600,7 +600,6 @@ def _load_conversation_handler(
 
 def _new_conversation_handler(
     token: str | None,
-    course_id_input: str,
     course_id_state: str | None,
     selected_mode: int | None,
     remember_as_default: bool = True,
@@ -617,7 +616,6 @@ def _new_conversation_handler(
     str,
 ]:
     """Create a new conversation for the resolved course ID and refresh the sidebar."""
-    _ = course_id_input
     if not token:
         return (
             "",
@@ -1101,14 +1099,20 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         with gr.Row():
             with gr.Column(scale=1):
                 gr.Markdown("## Samtaler")
-                course_id_input = gr.Textbox(
-                    label="Fag-ID",
-                    placeholder="Lim inn fag-ID for å starte ny samtale",
-                    visible=False,
-                )
-                with gr.Row():
-                    new_conversation_button = gr.Button("Ny samtale", variant="secondary")
-                    refresh_button = gr.Button("Oppdater")
+                with gr.Group():
+                    gr.Markdown("### Ny samtale")
+                    mode_selector = gr.Radio(
+                        choices=_MODE_CHOICES,
+                        value=1,
+                        label="Veiledningsmodus",
+                        info="Velges for samtalen du starter nå.",
+                    )
+                    remember_mode_checkbox = gr.Checkbox(
+                        value=False,
+                        label="Husk som standardmodus for fremtidige samtaler",
+                    )
+                    new_conversation_button = gr.Button("Start ny samtale", variant="primary")
+                refresh_button = gr.Button("Oppdater", variant="secondary")
                 conversation_selector = gr.Radio(
                     choices=[],
                     value=None,
@@ -1117,16 +1121,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 conversation_count = gr.Markdown(_conversation_count_text(0))
 
             with gr.Column(scale=4):
-                with gr.Row():
-                    gr.Markdown("# Chat")
-                    with gr.Column(scale=1, min_width=280):
-                        mode_selector = gr.Radio(
-                            choices=_MODE_CHOICES,
-                            value=1,
-                            label="Tutoring mode",
-                            info="Choose the mode for new conversations.",
-                        )
-                        save_mode_button = gr.Button("Save mode", variant="secondary")
+                gr.Markdown("# Chat")
                 gr.Markdown("Chat med tutor (RAG).")
                 open_conversation = gr.Markdown(_open_conversation_text(None))
                 status = gr.Markdown("")
@@ -1191,13 +1186,8 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
     )
     new_conversation_button.click(
         fn=_new_conversation_handler,
-        inputs=[token_state, course_id_input, course_id_state, mode_selector],
+        inputs=[token_state, course_id_state, mode_selector, remember_mode_checkbox],
         outputs=chat_outputs,
-    )
-    mode_selector.change(
-        fn=_save_mode_handler,
-        inputs=[mode_selector, token_state, status],
-        outputs=[status],
     )
     refresh_button.click(
         fn=_refresh_handler,
@@ -1212,11 +1202,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
             references_table,
             references_status,
         ],
-    )
-    save_mode_button.click(
-        fn=_save_mode_handler,
-        inputs=[mode_selector, token_state, status],
-        outputs=[status],
     )
     route_state.change(
         fn=_bootstrap_chat_on_route_handler,
