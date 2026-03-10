@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import src.ui.pages.chat_page as chat_page
+import src.ui.pages.chat_handlers as chat_page
 import src.ui.services.conversation_service as conversation_service
 import src.ui.services.course_service as course_service
 from src.ui.router import ROUTE_CHAT

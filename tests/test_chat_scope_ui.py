@@ -2,7 +2,7 @@
 
 from typing import Any
 
-import src.ui.pages.chat_page as chat_page
+import src.ui.pages.chat_handlers as chat_page
 import src.ui.services.conversation_service as conversation_service
 
 

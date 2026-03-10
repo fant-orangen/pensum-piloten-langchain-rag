@@ -1,4 +1,4 @@
-"""Embedded RAG chat page for the main Gradio app."""
+"""Embedded RAG chat page component construction."""
 
 from __future__ import annotations
 
@@ -10,33 +10,41 @@ from src.ui.pages.chat_handlers import (
     _MODE_CHOICES,
     _REFERENCE_DEFAULT_STATUS,
     _REFERENCE_HEADERS,
-    _bootstrap_chat_on_route_handler,
-    _chat_handler,
-    _chatbot_select_handler,
     _conversation_count_text,
     _default_conversation_state,
     _empty_reference_rows,
-    _load_conversation_handler,
-    _new_conversation_handler,
     _open_conversation_text,
-    _refresh_handler,
-    _reset_scope_handler,
 )
 
 
 @dataclass(slots=True)
 class ChatPageComponents:
-    """Holds the top-level Gradio components and shared state objects for the chat page."""
+    """Holds all Gradio components and state required by the chat page."""
 
     group: gr.Group
     back_button: gr.Button
     token_state: gr.State
     course_id_state: gr.State
     route_state: gr.State
+    conversation_state: gr.State
+    source_history_state: gr.State
+    mode_selector: gr.Radio
+    remember_mode_checkbox: gr.Checkbox
+    new_conversation_button: gr.Button
+    refresh_button: gr.Button
+    conversation_selector: gr.Radio
+    conversation_count: gr.Markdown
+    open_conversation: gr.Markdown
+    status: gr.Markdown
+    chatbot: gr.Chatbot
+    message: gr.Textbox
+    send_button: gr.Button
+    references_table: gr.Dataframe
+    references_status: gr.Markdown
 
 
 def build_chat_page(*, visible: bool) -> ChatPageComponents:
-    """Build the chat Gradio group, wire up all event handlers, and return the page components."""
+    """Build and return the chat page components."""
     with gr.Group(visible=visible) as group:
         token_state = gr.State(None)
         course_id_state = gr.State(None)
@@ -98,79 +106,25 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                             col_count=(3, "fixed"),
                         )
 
-    chat_outputs = [
-        message,
-        chatbot,
-        status,
-        conversation_state,
-        conversation_selector,
-        conversation_count,
-        open_conversation,
-        source_history_state,
-        references_table,
-        references_status,
-    ]
-    route_bootstrap_outputs = chat_outputs + [course_id_state]
-
-    send_button.click(
-        fn=_chat_handler,
-        inputs=[message, chatbot, source_history_state, conversation_state, token_state, course_id_state],
-        outputs=chat_outputs,
-    )
-    message.submit(
-        fn=_chat_handler,
-        inputs=[message, chatbot, source_history_state, conversation_state, token_state, course_id_state],
-        outputs=chat_outputs,
-    )
-    chatbot.select(
-        fn=_chatbot_select_handler,
-        inputs=[source_history_state],
-        outputs=[references_table, references_status],
-    )
-    conversation_selector.change(
-        fn=_load_conversation_handler,
-        inputs=[conversation_selector, token_state, course_id_state],
-        outputs=chat_outputs,
-    )
-    new_conversation_button.click(
-        fn=_new_conversation_handler,
-        inputs=[token_state, course_id_state, mode_selector, remember_mode_checkbox],
-        outputs=chat_outputs,
-    )
-    refresh_button.click(
-        fn=_refresh_handler,
-        inputs=[conversation_state, source_history_state, token_state, course_id_state],
-        outputs=[
-            conversation_selector,
-            conversation_count,
-            status,
-            open_conversation,
-            conversation_state,
-            source_history_state,
-            references_table,
-            references_status,
-        ],
-    )
-    route_state.change(
-        fn=_bootstrap_chat_on_route_handler,
-        inputs=[route_state, token_state, course_id_state],
-        outputs=route_bootstrap_outputs,
-    )
-    token_state.change(
-        fn=_reset_scope_handler,
-        inputs=[token_state, course_id_state],
-        outputs=chat_outputs,
-    )
-    course_id_state.change(
-        fn=_reset_scope_handler,
-        inputs=[token_state, course_id_state],
-        outputs=chat_outputs,
-    )
-
     return ChatPageComponents(
         group=group,
         back_button=back_button,
         token_state=token_state,
         course_id_state=course_id_state,
         route_state=route_state,
+        conversation_state=conversation_state,
+        source_history_state=source_history_state,
+        mode_selector=mode_selector,
+        remember_mode_checkbox=remember_mode_checkbox,
+        new_conversation_button=new_conversation_button,
+        refresh_button=refresh_button,
+        conversation_selector=conversation_selector,
+        conversation_count=conversation_count,
+        open_conversation=open_conversation,
+        status=status,
+        chatbot=chatbot,
+        message=message,
+        send_button=send_button,
+        references_table=references_table,
+        references_status=references_status,
     )

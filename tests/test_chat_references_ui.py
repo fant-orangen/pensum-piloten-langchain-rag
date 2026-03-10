@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import src.ui.pages.chat_page as chat_page
+import src.ui.pages.chat_handlers as chat_page
 import src.ui.services.conversation_service as conversation_service
 
 

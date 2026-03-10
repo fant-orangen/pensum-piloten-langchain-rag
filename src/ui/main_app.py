@@ -49,6 +49,15 @@ from src.ui.pages import (
     teacher_name_text,
     teacher_responsible_courses_update,
 )
+from src.ui.pages.chat_handlers import (
+    _bootstrap_chat_on_route_handler,
+    _chat_handler,
+    _chatbot_select_handler,
+    _load_conversation_handler,
+    _new_conversation_handler,
+    _refresh_handler,
+    _reset_scope_handler,
+)
 from src.ui.router import (
     ROUTE_ADMIN,
     ROUTE_STUDENT,
@@ -344,6 +353,19 @@ def build_main_app() -> gr.Blocks:
             chat_page.course_id_state,
             chat_page.route_state,
         ]
+        chat_outputs = [
+            chat_page.message,
+            chat_page.chatbot,
+            chat_page.status,
+            chat_page.conversation_state,
+            chat_page.conversation_selector,
+            chat_page.conversation_count,
+            chat_page.open_conversation,
+            chat_page.source_history_state,
+            chat_page.references_table,
+            chat_page.references_status,
+        ]
+        route_bootstrap_outputs = chat_outputs + [chat_page.course_id_state]
 
         auth_page.login_button.click(
             fn=_handle_login,
@@ -491,6 +513,84 @@ def build_main_app() -> gr.Blocks:
                 inputs=[app_state],
                 outputs=app_outputs,
             )
+        chat_page.send_button.click(
+            fn=_chat_handler,
+            inputs=[
+                chat_page.message,
+                chat_page.chatbot,
+                chat_page.source_history_state,
+                chat_page.conversation_state,
+                chat_page.token_state,
+                chat_page.course_id_state,
+            ],
+            outputs=chat_outputs,
+        )
+        chat_page.message.submit(
+            fn=_chat_handler,
+            inputs=[
+                chat_page.message,
+                chat_page.chatbot,
+                chat_page.source_history_state,
+                chat_page.conversation_state,
+                chat_page.token_state,
+                chat_page.course_id_state,
+            ],
+            outputs=chat_outputs,
+        )
+        chat_page.chatbot.select(
+            fn=_chatbot_select_handler,
+            inputs=[chat_page.source_history_state],
+            outputs=[chat_page.references_table, chat_page.references_status],
+        )
+        chat_page.conversation_selector.change(
+            fn=_load_conversation_handler,
+            inputs=[chat_page.conversation_selector, chat_page.token_state, chat_page.course_id_state],
+            outputs=chat_outputs,
+        )
+        chat_page.new_conversation_button.click(
+            fn=_new_conversation_handler,
+            inputs=[
+                chat_page.token_state,
+                chat_page.course_id_state,
+                chat_page.mode_selector,
+                chat_page.remember_mode_checkbox,
+            ],
+            outputs=chat_outputs,
+        )
+        chat_page.refresh_button.click(
+            fn=_refresh_handler,
+            inputs=[
+                chat_page.conversation_state,
+                chat_page.source_history_state,
+                chat_page.token_state,
+                chat_page.course_id_state,
+            ],
+            outputs=[
+                chat_page.conversation_selector,
+                chat_page.conversation_count,
+                chat_page.status,
+                chat_page.open_conversation,
+                chat_page.conversation_state,
+                chat_page.source_history_state,
+                chat_page.references_table,
+                chat_page.references_status,
+            ],
+        )
+        chat_page.route_state.change(
+            fn=_bootstrap_chat_on_route_handler,
+            inputs=[chat_page.route_state, chat_page.token_state, chat_page.course_id_state],
+            outputs=route_bootstrap_outputs,
+        )
+        chat_page.token_state.change(
+            fn=_reset_scope_handler,
+            inputs=[chat_page.token_state, chat_page.course_id_state],
+            outputs=chat_outputs,
+        )
+        chat_page.course_id_state.change(
+            fn=_reset_scope_handler,
+            inputs=[chat_page.token_state, chat_page.course_id_state],
+            outputs=chat_outputs,
+        )
         chat_page.back_button.click(
             fn=_handle_back_to_home,
             inputs=[app_state],
