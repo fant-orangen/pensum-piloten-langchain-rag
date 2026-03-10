@@ -16,13 +16,16 @@ from src.ui.pages.chat_handlers.contracts import (
 )
 from src.ui.pages.chat_state import (
     ChatSourceEntry,
+    ChatConversationState,
     coerce_source_history,
     empty_reference_rows,
     latest_assistant_sources,
+    normalize_conversation_state,
     normalize_source_entry,
     reference_rows_for_sources,
     visible_history_from_source_history,
 )
+from src.ui.services.conversation_service import get_message_sources
 
 
 def _empty_reference_rows() -> ChatReferenceRows:
@@ -51,7 +54,12 @@ def _coerce_source_history(
     source_history: list[dict[str, Any]] | None,
 ) -> ChatSourceHistory:
     return [
-        {"role": msg["role"], "content": msg["content"], "sources": list(msg["sources"])}
+        {
+            "message_id": msg["message_id"],
+            "role": msg["role"],
+            "content": msg["content"],
+            "sources": list(msg["sources"]),
+        }
         for msg in coerce_source_history(visible_history, source_history)
     ]
 
@@ -90,6 +98,8 @@ def _selected_message_index(index: Any) -> int | None:
 
 def _chatbot_select_handler(
     source_history: list[dict[str, Any]] | None,
+    token: str | None,
+    conversation_state: ChatConversationState | dict[str, Any] | None,
     evt: gr.SelectData,
 ) -> tuple[ChatReferenceRows, str]:
     if getattr(evt, "selected", True) is False:
@@ -107,4 +117,15 @@ def _chatbot_select_handler(
     if selected_message.get("role") != "assistant":
         return _empty_reference_rows(), _REFERENCE_USER_SELECTED_STATUS
 
-    return _reference_panel_from_sources(list(selected_message.get("sources") or []))
+    if not token:
+        return _empty_reference_rows(), "Ikke innlogget."
+
+    conversation_id = normalize_conversation_state(conversation_state).get("conversation_id")
+    message_id = str(selected_message.get("message_id") or "").strip()
+    if not conversation_id or not message_id:
+        return _reference_panel_from_sources(list(selected_message.get("sources") or []))
+
+    sources, err = get_message_sources(token, conversation_id, message_id)
+    if err:
+        return _empty_reference_rows(), err
+    return _reference_panel_from_sources(sources)

@@ -171,6 +171,31 @@ def get_messages(
     return normalized_items, int(total), ""
 
 
+def get_message_sources(
+    token: str,
+    conversation_id: str,
+    message_id: str,
+) -> tuple[list[dict[str, str]], str]:
+    """Fetch resolved source chunks for a specific message."""
+    try:
+        data = get(
+            f"/conversations/{conversation_id}/messages/{message_id}/sources",
+            token=token,
+        )
+    except ApiUnauthorizedError:
+        return [], "Sessionen er utløpt — logg inn på nytt."
+    except ApiError as exc:
+        if exc.status == 403:
+            return [], "Du har ikke tilgang til denne samtalen."
+        if exc.status == 404:
+            return [], "Meldingen ble ikke funnet."
+        return [], f"Kunne ikke hente kilder: {exc.detail}"
+    except Exception as exc:
+        return [], f"Kunne ikke nå API-serveren: {exc}"
+
+    return normalize_sources_payload(data), ""
+
+
 def create_conversation(
     token: str,
     course_id: str,

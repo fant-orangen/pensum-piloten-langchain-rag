@@ -539,7 +539,11 @@ def build_main_app() -> gr.Blocks:
         )
         chat_page.chatbot.select(
             fn=_chatbot_select_handler,
-            inputs=[chat_page.source_history_state],
+            inputs=[
+                chat_page.source_history_state,
+                chat_page.token_state,
+                chat_page.conversation_state,
+            ],
             outputs=[chat_page.references_table, chat_page.references_status],
         )
         chat_page.conversation_selector.change(

@@ -20,6 +20,7 @@ class ChatSourceEntry(TypedDict):
 
 
 class ChatTurn(TypedDict):
+    message_id: str | None
     role: ChatRole
     content: str
     sources: list[ChatSourceEntry]
@@ -127,6 +128,7 @@ def coerce_source_history(
                 continue
             normalized.append(
                 {
+                    "message_id": _clean_optional_text(msg.get("message_id")),
                     "role": role,
                     "content": str(msg.get("content", "")),
                     "sources": _normalize_sources(msg.get("sources")),
@@ -141,7 +143,14 @@ def coerce_source_history(
         role = _role_from_value(msg.get("role"))
         if role is None:
             continue
-        fallback.append({"role": role, "content": str(msg.get("content", "")), "sources": []})
+        fallback.append(
+            {
+                "message_id": None,
+                "role": role,
+                "content": str(msg.get("content", "")),
+                "sources": [],
+            }
+        )
     return fallback
 
 
