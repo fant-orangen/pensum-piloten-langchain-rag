@@ -8,7 +8,6 @@ page to function. Conversations and messages are persisted through the backend.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from textwrap import shorten
 from typing import Any
 
 import gradio as gr
@@ -26,8 +25,16 @@ from src.ui.pages.chat_state import (
     visible_history_from_source_history,
 )
 from src.ui.router import ROUTE_CHAT
+from src.ui.services.chat_orchestration_service import (
+    build_sidebar_model,
+    create_chat_conversation,
+    fetch_conversations,
+    fetch_messages,
+    resolve_course_for_chat_entry as resolve_course_for_chat_entry_service,
+    selector_choices as selector_choices_service,
+    send_chat_message,
+)
 
-_TITLE_WIDTH = 56
 _MODE_CHOICES = [
     ("Socratic mode", 1),
     ("Direct mode", 2),
@@ -134,28 +141,12 @@ def _resolve_course_for_chat_entry(
     token: str,
     course_id_state: str | None,
 ) -> tuple[str | None, str, bool]:
-    resolved_course_id = (course_id_state or "").strip()
-    if resolved_course_id:
-        return resolved_course_id, "", False
-
-    from src.ui.services.course_service import list_courses
-
-    courses, err = list_courses(token)
-    if err:
-        return None, err, False
-
-    first_course = next(
-        (
-            course
-            for course in courses
-            if isinstance(course, dict) and str(course.get("id", "")).strip()
-        ),
-        None,
+    return resolve_course_for_chat_entry_service(
+        token,
+        course_id_state,
+        no_course_status=_NO_COURSE_STATUS,
+        auto_course_status=_AUTO_COURSE_STATUS,
     )
-    if first_course is None:
-        return None, _NO_COURSE_STATUS, False
-
-    return str(first_course.get("id", "")).strip(), _AUTO_COURSE_STATUS, True
 
 
 def _skip_chat_bootstrap_updates() -> tuple[
@@ -312,58 +303,17 @@ def _conversation_count_text(count: int) -> str:
 
 def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, str]]:
     """Convert a list of conversation dicts into (label, id) pairs suitable for a Gradio Radio widget."""
-    choices = []
-    for conv in conversations:
-        title = conv.get("title") or "Samtale"
-        updated_at = conv.get("updated_at", "")
-        label = shorten(f"{title} — {updated_at[:16]}", width=60, placeholder="…")
-        choices.append((label, str(conv.get("id", ""))))
-    return choices
+    return selector_choices_service(conversations)
 
 
 def _fetch_conversations(token: str, course_id: str | None = None) -> tuple[list[dict[str, Any]], str]:
     """Return (conversations, error_message). Conversations are ordered newest-first."""
-    resolved_course_id = (course_id or "").strip()
-    if not resolved_course_id:
-        return [], _NO_COURSE_STATUS
-
-    from src.ui.services.conversation_service import list_conversations
-    items, _total, err = list_conversations(token, course_id=resolved_course_id)
-    return items, err
+    return fetch_conversations(token, course_id, no_course_status=_NO_COURSE_STATUS)
 
 
 def _fetch_messages(token: str, conversation_id: str) -> tuple[list[dict[str, Any]], str]:
     """Return (messages_in_chronological_order, error_message)."""
-    from src.ui.services.conversation_service import get_messages
-
-    all_messages: list[dict[str, str]] = []
-    page = 1
-    while True:
-        items, total, err = get_messages(token, conversation_id, page=page, page_size=50)
-        if err:
-            return [], err
-        all_messages.extend(items)
-        if len(all_messages) >= total or not items:
-            break
-        page += 1
-
-    # API returns newest-first; reverse to chronological order.
-    all_messages.reverse()
-    history: list[dict[str, Any]] = []
-    for msg in all_messages:
-        role = msg.get("role", "")
-        content = msg.get("content", "")
-        if role == "human":
-            history.append({"role": "user", "content": content, "sources": []})
-        elif role == "ai":
-            history.append(
-                {
-                    "role": "assistant",
-                    "content": content,
-                    "sources": list(msg.get("sources") or []),
-                }
-            )
-    return history, ""
+    return fetch_messages(token, conversation_id)
 
 
 def _refresh_sidebar(
@@ -374,34 +324,19 @@ def _refresh_sidebar(
     status_message: str = "",
 ) -> tuple[Any, str, str, str]:
     """Fetch conversations and return Gradio updates for the sidebar selector, count, status, and open-conversation label."""
-    resolved_course_id = (course_id or "").strip()
-    if not resolved_course_id:
-        status_text = status_message or _NO_COURSE_STATUS
-        return (
-            gr.update(choices=[], value=None),
-            _conversation_count_text(0),
-            status_text,
-            _open_conversation_text(None),
-        )
-
-    conversations, err = _fetch_conversations(token, resolved_course_id)
-    if err:
-        status_message = err
-
-    choices = _selector_choices(conversations)
-    resolved_value = selected_id if any(v == selected_id for _, v in choices) else None
-
-    selected_conv = next(
-        (c for c in conversations if str(c.get("id", "")) == resolved_value),
-        None,
+    model = build_sidebar_model(
+        token,
+        course_id=course_id,
+        selected_id=selected_id,
+        status_message=status_message,
+        no_course_status=_NO_COURSE_STATUS,
     )
-    title = selected_conv.get("title") if selected_conv else None
 
     return (
-        gr.update(choices=choices, value=resolved_value),
-        _conversation_count_text(len(conversations)),
-        status_message,
-        _open_conversation_text(title),
+        gr.update(choices=model["choices"], value=model["selected_id"]),
+        _conversation_count_text(model["count"]),
+        model["status_text"],
+        _open_conversation_text(model["open_title"]),
     )
 
 
@@ -694,8 +629,7 @@ def _new_conversation_handler(
                 )
             temp_mode_set = True
 
-    from src.ui.services.conversation_service import create_conversation
-    success, message, conv_data = create_conversation(token, course_id)
+    success, message, conv_data = create_chat_conversation(token, course_id)
     if not success or conv_data is None:
         if temp_mode_set and previous_mode is not None:
             restored, restore_message = update_system_prompt_mode(token, previous_mode)
@@ -862,9 +796,7 @@ def _chat_handler(
         )
     if not conv_id:
         # Auto-create the first conversation so the user's first send is actionable.
-        from src.ui.services.conversation_service import create_conversation
-
-        created, created_message, conv_data = create_conversation(token, active_course_id)
+        created, created_message, conv_data = create_chat_conversation(token, active_course_id)
         if not created or conv_data is None:
             selector_update, count_text, status_text, open_text = _refresh_sidebar(
                 token,
@@ -908,8 +840,7 @@ def _chat_handler(
             "course_id": active_course_id,
         }
 
-    from src.ui.services.conversation_service import send_message
-    success, err, ai_msg_data = send_message(token, conv_id, text)
+    success, err, ai_msg_data = send_chat_message(token, conv_id, text)
     if not success or ai_msg_data is None:
         selector_update, count_text, status_text, open_text = _refresh_sidebar(token, conv_id, course_id=course_id_state, status_message=err)
         return (
