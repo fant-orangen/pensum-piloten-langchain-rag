@@ -81,8 +81,10 @@ def reference_rows_for_sources(sources: list[dict[str, Any]] | None) -> list[lis
 
 def _role_from_value(value: Any) -> ChatRole | None:
     role = str(value or "").strip()
-    if role in {"user", "assistant"}:
-        return role
+    if role == "user":
+        return "user"
+    if role == "assistant":
+        return "assistant"
     return None
 
 

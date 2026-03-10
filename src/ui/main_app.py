@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import gradio as gr
 
@@ -131,7 +131,7 @@ def _render_main_app(
 
     token = auth_token(state)
 
-    course_id = str(state.get(COURSE_ID_KEY) or "").strip() or None
+    selected_course_id = str(state.get(COURSE_ID_KEY) or "").strip() or None
 
     return (
         state,
@@ -157,7 +157,7 @@ def _render_main_app(
         login_message,
         register_message,
         token,
-        course_id,
+        selected_course_id,
         current_route,
     )
 
@@ -607,4 +607,4 @@ def build_main_app() -> gr.Blocks:
             outputs=app_outputs,
         )
 
-    return demo
+    return cast(gr.Blocks, demo)

@@ -136,7 +136,7 @@ def _skip_chat_bootstrap_updates() -> tuple[
     str,
     list[dict[str, str]],
     str,
-    dict[str, Any],
+    ChatConversationState,
     Any,
     str,
     str,
@@ -169,7 +169,7 @@ def _bootstrap_chat_on_route_handler(
     str,
     list[dict[str, str]],
     str,
-    dict[str, Any],
+    ChatConversationState,
     Any,
     str,
     str,
@@ -331,7 +331,7 @@ def _load_conversation_handler(
     str,
     list[dict[str, str]],
     str,
-    dict[str, Any],
+    ChatConversationState,
     Any,
     str,
     str,
@@ -451,7 +451,7 @@ def _load_conversation_handler(
         )
 
     title = selected_conv.get("title") if selected_conv else "Samtale"
-    conv_state = {
+    conv_state: ChatConversationState = {
         "conversation_id": conversation_id,
         "title": title,
         "course_id": str(selected_conv.get("course_id", "")) if selected_conv else None,
@@ -487,7 +487,7 @@ def _new_conversation_handler(
     str,
     list[dict[str, str]],
     str,
-    dict[str, Any],
+    ChatConversationState,
     Any,
     str,
     str,
@@ -638,7 +638,7 @@ def _new_conversation_handler(
 
     conv_id = str(conv_data.get("id", ""))
     title = conv_data.get("title") or "Ny samtale"
-    conv_state = {
+    conv_state: ChatConversationState = {
         "conversation_id": conv_id,
         "title": title,
         "course_id": course_id,
@@ -681,14 +681,14 @@ def _chat_handler(
     user_message: str,
     history: list[dict[str, Any]] | None,
     source_history: list[dict[str, Any]] | None,
-    conversation_state: dict[str, Any] | None,
+    conversation_state: ChatConversationState | dict[str, Any] | None,
     token: str | None,
     course_id_state: str | None,
 ) -> tuple[
     str,
     list[dict[str, str]],
     str,
-    dict[str, Any],
+    ChatConversationState,
     Any,
     str,
     str,
@@ -698,7 +698,7 @@ def _chat_handler(
 ]:
     """Send the user message to the backend and append both the user and AI turns to the chat history."""
     visible_history = [
-        msg
+        {"role": str(msg.get("role", "")), "content": str(msg.get("content", ""))}
         for msg in (history or [])
         if isinstance(msg, dict) and msg.get("role") in {"user", "assistant"}
     ]
@@ -869,11 +869,11 @@ def _chat_handler(
 
 
 def _refresh_handler(
-    conversation_state: dict[str, Any] | None,
+    conversation_state: ChatConversationState | dict[str, Any] | None,
     source_history: list[dict[str, Any]] | None,
     token: str | None,
     course_id_state: str | None,
-) -> tuple[Any, str, str, str, dict[str, Any], list[dict[str, Any]], list[list[str]], str]:
+) -> tuple[Any, str, str, str, ChatConversationState, list[dict[str, Any]], list[list[str]], str]:
     """Re-fetch the conversation list and return updated sidebar components."""
     current_state = normalize_conversation_state(conversation_state)
 
@@ -910,7 +910,7 @@ def _refresh_handler(
         (item for item in conversations if str(item.get("id", "")) == resolved_value),
         None,
     )
-    next_state = {
+    next_state: ChatConversationState = {
         "conversation_id": resolved_value,
         "title": selected_conv.get("title") if selected_conv else None,
         "course_id": active_course_id if selected_conv else None,
@@ -937,7 +937,7 @@ def _reset_scope_handler(
     str,
     list[dict[str, str]],
     str,
-    dict[str, Any],
+    ChatConversationState,
     Any,
     str,
     str,
