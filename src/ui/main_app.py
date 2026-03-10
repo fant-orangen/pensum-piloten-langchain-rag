@@ -18,6 +18,7 @@ from src.ui.pages import (
     build_teacher_page,
     handle_add_course,
     handle_add_student,
+    handle_course_instructions_input,
     handle_delete_material,
     handle_admin_refresh,
     handle_back_to_student,
@@ -30,6 +31,7 @@ from src.ui.pages import (
     handle_open_teacher_course,
     handle_refresh_ingestion,
     handle_register,
+    handle_save_course_instructions,
     handle_start_ingestion,
     handle_upload_materials,
     handle_upgrade_user,
@@ -38,6 +40,8 @@ from src.ui.pages import (
     student_courses_update,
     teacher_available_courses_update,
     teacher_course_ingestion_status_text,
+    teacher_course_instructions_counter_update,
+    teacher_course_instructions_input_update,
     teacher_course_material_choices_update,
     teacher_course_student_choices_update,
     teacher_course_students_text,
@@ -137,6 +141,8 @@ def _render_main_app(
         teacher_course_material_choices_update(state),
         teacher_course_student_choices_update(state),
         teacher_course_ingestion_status_text(state),
+        teacher_course_instructions_input_update(state),
+        teacher_course_instructions_counter_update(state),
         "",
         student_course_title_text(state),
         login_message,
@@ -186,6 +192,17 @@ def _handle_start_ingestion(
 
 def _handle_refresh_ingestion(state: dict[str, Any]) -> tuple[str, str]:
     return handle_refresh_ingestion(state)
+
+
+def _handle_course_instructions_input(instructions_text: str | None) -> str:
+    return handle_course_instructions_input(instructions_text)
+
+
+def _handle_save_course_instructions(
+    state: dict[str, Any],
+    instructions_text: str | None,
+) -> tuple[Any, str, str]:
+    return handle_save_course_instructions(state, instructions_text)
 
 
 def _handle_open_responsible_course(state: dict[str, Any], course_id: str | None) -> tuple[Any, ...]:
@@ -317,6 +334,8 @@ def build_main_app() -> gr.Blocks:
             teacher_course_page.materials_list,
             teacher_course_page.add_student_username,
             teacher_course_page.ingestion_status,
+            teacher_course_page.course_instructions_input,
+            teacher_course_page.course_instructions_counter,
             teacher_course_page.status_text,
             student_course_page.course_title,
             auth_page.login_status,
@@ -434,6 +453,20 @@ def build_main_app() -> gr.Blocks:
             inputs=[app_state],
             outputs=[
                 teacher_course_page.ingestion_status,
+                teacher_course_page.status_text,
+            ],
+        )
+        teacher_course_page.course_instructions_input.input(
+            fn=_handle_course_instructions_input,
+            inputs=[teacher_course_page.course_instructions_input],
+            outputs=[teacher_course_page.course_instructions_counter],
+        )
+        teacher_course_page.save_course_instructions_button.click(
+            fn=_handle_save_course_instructions,
+            inputs=[app_state, teacher_course_page.course_instructions_input],
+            outputs=[
+                teacher_course_page.course_instructions_input,
+                teacher_course_page.course_instructions_counter,
                 teacher_course_page.status_text,
             ],
         )
