@@ -48,6 +48,10 @@ def build_course_documents_dir(course_code: str) -> Path:
     return Path(settings.documents_dir) / course_code
 
 
+def build_course_scope_name(course_code: str, index_version: int) -> str:
+    return f"{course_code}_v{index_version}"
+
+
 def _resolve_documents_root(course: Course) -> Path:
     raw = Path(course.documents_dir)
     if raw.is_absolute():
@@ -72,8 +76,8 @@ def _sanitize_filename(filename: str | None) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", candidate)
 
 
-def _build_scope_name(course_id: uuid.UUID, index_version: int) -> str:
-    return f"course_{course_id.hex}_v{index_version}"
+def _build_scope_name(course: Course, index_version: int) -> str:
+    return build_course_scope_name(course.code, index_version)
 
 
 async def _get_course_for_teacher(
@@ -470,7 +474,7 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             )
 
             if snapshot_documents:
-                target_scope = _build_scope_name(course.id, next_version)
+                target_scope = _build_scope_name(course, next_version)
                 paths = [Path(doc.storage_path) for doc in snapshot_documents]
                 logger.info(
                     "course_material_rebuild_step",

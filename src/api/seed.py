@@ -19,6 +19,7 @@ from src.api.models.user import User
 from src.api.services.auth import hash_password
 from src.api.services.course_documents import (
     build_course_documents_dir,
+    build_course_scope_name,
     sync_course_documents_from_directory,
 )
 from src.config import get_settings
@@ -40,6 +41,7 @@ async def seed(db: AsyncSession) -> None:
     settings = get_settings()
     test_course_dir = build_course_documents_dir(_COURSE_CODE)
     second_course_dir = build_course_documents_dir(_SECOND_COURSE_CODE)
+    test_course_scope = build_course_scope_name(_COURSE_CODE, 1)
     test_course_dir.mkdir(parents=True, exist_ok=True)
     second_course_dir.mkdir(parents=True, exist_ok=True)
 
@@ -80,18 +82,21 @@ async def seed(db: AsyncSession) -> None:
         course = Course(
             name="Test Course",
             code=_COURSE_CODE,
-            chroma_collection=settings.chroma_collection_name,
+            chroma_collection=test_course_scope,
             documents_dir=str(test_course_dir),
             rag_mode="kg_rag",
             course_specific_instructions=_COURSE_SPECIFIC_INSTRUCTIONS,
+            index_version=1,
             created_by_id=teacher.id,
         )
         db.add(course)
         await db.flush()  # populate course.id before using it below
         logger.info("seed_created_course", code=_COURSE_CODE)
     else:
+        course.chroma_collection = test_course_scope
         course.documents_dir = str(test_course_dir)
         course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
+        course.index_version = max(course.index_version, 1)
         db.add(course)
         logger.info("seed_course_exists", code=_COURSE_CODE)
 
