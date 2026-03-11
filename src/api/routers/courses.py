@@ -263,7 +263,6 @@ async def add_enrollment(
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
 
-# TODO: add ability to enroll by id from selecting from drop down list of users
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_enrollment(

@@ -16,13 +16,13 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.course import Course
 from src.api.models.message import Message
 from src.api.services.conversations import get_conversation_for_user
+from src.api.utils.exception_util import not_found_error
 from src.vectorstore import get_chunks_by_ids
 
 
@@ -109,7 +109,7 @@ async def get_message_sources_for_user(
     )
     message = message_result.scalars().first()
     if message is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found.")
+        raise not_found_error("Message not found.")
 
     # Get the raw sources (chunk references) for this message.
     raw_sources = message.sources
@@ -120,7 +120,7 @@ async def get_message_sources_for_user(
     course_result = await db.execute(select(Course).where(Course.id == conversation.course_id))
     course = course_result.scalars().first()
     if course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
     if not course.chroma_collection:
         return []
 

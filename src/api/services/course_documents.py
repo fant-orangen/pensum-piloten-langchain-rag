@@ -11,7 +11,7 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,7 @@ from src.api.models.course import Course
 from src.api.models.course_document import CourseDocument
 from src.api.models.user import User
 from src.api.schemas.course import CourseMaterialsStatusRead
+from src.api.utils.exception_util import bad_request_error, conflict_error, not_found_error
 from src.api.utils import (
     bind_log_context,
     get_service_logger,
@@ -106,7 +107,7 @@ async def _get_course_for_teacher(
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalars().first()
     if course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
 
     await require_course_teacher_or_admin(current_user, course_id, db)
     return course
@@ -115,10 +116,7 @@ async def _get_course_for_teacher(
 def _ensure_not_rebuilding(course: Course) -> None:
     """Raise HTTP 409 if a rebuild is already queued or running for the course."""
     if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Course materials are currently being rebuilt.",
-        )
+        raise conflict_error("Course materials are currently being rebuilt.")
 
 
 async def _pending_counts(course_id: uuid.UUID, db: AsyncSession) -> tuple[int, int]:
@@ -296,7 +294,7 @@ async def stage_course_documents(
     _ensure_not_rebuilding(course)
 
     if not files:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No files uploaded.")
+        raise bad_request_error("No files uploaded.")
 
     storage_root = _resolve_documents_root(course)
     storage_root.mkdir(parents=True, exist_ok=True)
@@ -309,10 +307,7 @@ async def stage_course_documents(
         for upload in files:
             safe_name = _sanitize_filename(upload.filename)
             if not is_supported_document_path(Path(safe_name)):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Unsupported file type for '{safe_name}'.",
-                )
+                raise bad_request_error(f"Unsupported file type for '{safe_name}'.")
 
             doc_id = uuid.uuid4()
             stored_name = f"{doc_id.hex}_{safe_name}"
@@ -369,7 +364,7 @@ async def stage_course_document_removal(
     )
     document = result.scalars().first()
     if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+        raise not_found_error("Document not found.")
 
     if document.status == DOC_STATUS_PENDING_ADD:
         path = Path(document.storage_path)
@@ -414,10 +409,7 @@ async def queue_course_material_rebuild(
 
     pending_additions, pending_removals = await _pending_counts(course_id, db)
     if pending_additions == 0 and pending_removals == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No staged course material changes to apply.",
-        )
+        raise bad_request_error("No staged course material changes to apply.")
 
     course.rebuild_status = COURSE_REBUILD_QUEUED
     course.rebuild_error = None

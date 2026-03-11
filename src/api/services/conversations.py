@@ -2,7 +2,6 @@
 
 import uuid
 
-from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +9,7 @@ from src.api.models.conversation import Conversation
 from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
 from src.api.schemas.pagination import PaginationParams
+from src.api.utils.exception_util import forbidden_error, not_found_error
 
 
 async def get_user_conversations(
@@ -54,9 +54,9 @@ async def get_conversation_for_user(
     conversation = result.scalars().first()
 
     if conversation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
+        raise not_found_error("Conversation not found.")
     if conversation.user_id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+        raise forbidden_error("Access denied.")
 
     return conversation
 
@@ -73,7 +73,7 @@ async def create_conversation(
     """
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
 
     enrollment_result = await db.execute(
         select(CourseEnrollment).where(
@@ -82,7 +82,7 @@ async def create_conversation(
         )
     )
     if enrollment_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enrolled in this course.")
+        raise forbidden_error("Not enrolled in this course.")
 
     conversation = Conversation(
         user_id=user_id,

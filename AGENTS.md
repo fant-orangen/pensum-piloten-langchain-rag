@@ -50,7 +50,7 @@ src/
     services/     Business logic: auth, conversations, courses, messages
     database.py   Engine init and async session factory
     security.py   JWT creation and verification
-    authorization.py  Role-based access control helpers
+    utils/authorization_util.py  Role-based access control helpers
     dependencies.py   FastAPI dependency injection (current user, DB session)
     seed.py       Optional test data seeding (controlled by seed_test_data setting)
   ui/

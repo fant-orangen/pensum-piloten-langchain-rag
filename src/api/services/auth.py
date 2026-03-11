@@ -1,12 +1,12 @@
 """Authentication business logic."""
 
 import bcrypt
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from src.api.models.user import User
 from src.api.schemas.auth import RegisterRequest
+from src.api.utils.exception_util import conflict_error, unauthorized_error
 
 
 def hash_password(password: str) -> str:
@@ -23,10 +23,7 @@ async def register_user(request: RegisterRequest, db: AsyncSession) -> User:
     """Create a new user. Raises HTTP 409 if the email is already taken."""
     existing = await db.execute(select(User).where(User.email == request.email))
     if existing.scalars().first() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email already exists.",
-        )
+        raise conflict_error("An account with this email already exists.")
 
     user = User(
         email=request.email,
@@ -46,9 +43,8 @@ async def authenticate_user(email: str, password: str, db: AsyncSession) -> User
     user = result.scalars().first()
 
     if user is None or not verify_password(password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password.",
+        raise unauthorized_error(
+            "Incorrect email or password.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
