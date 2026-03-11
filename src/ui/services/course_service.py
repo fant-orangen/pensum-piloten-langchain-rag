@@ -42,7 +42,7 @@ def list_courses(token: str) -> tuple[list[dict[str, Any]], str]:
 
 
 def list_available_courses(token: str) -> tuple[list[dict[str, Any]], str]:
-    """Fetch all courses the authenticated user is enrolled in (any role).
+    """Fetch all courses where the authenticated user is enrolled as a student.
 
     Returns:
         (courses, error_message)

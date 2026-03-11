@@ -49,7 +49,7 @@ def main() -> None:
 
     code, body = get("/courses/available", token=teacher_token)
     check(code == 200, "Teacher: /courses/available → 200")
-    check(isinstance(body, list) and len(body) > 0, "Teacher sees enrolled courses in /courses/available")
+    check(isinstance(body, list) and len(body) == 0, "Teacher sees no student-role courses in /courses/available")
 
     code, _ = get("/courses/available")
     check(code == 401, "Unauthenticated /courses/available → 401")

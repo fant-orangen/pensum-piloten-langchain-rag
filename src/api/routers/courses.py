@@ -64,7 +64,7 @@ async def list_available_courses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseRead]:
-    """Return all courses the authenticated user is enrolled in (any role)."""
+    """Return all courses where the authenticated user is enrolled as a student."""
     courses = await get_available_courses(current_user.id, db)
     return [CourseRead.model_validate(c) for c in courses]
 
