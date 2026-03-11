@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import gradio as gr
+from email_validator import EmailNotValidError, validate_email
 
 import src.ui.services.course_service as _course_api
 from src.ui.router import ROUTE_CHAT
 from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token, with_route
 
 MAX_COURSE_INSTRUCTIONS_CHARS = 3000
+CSV_HEADER_LABELS = {"email", "e-mail", "epost", "e-post", "user_email"}
+MAX_IMPORT_RESULT_DETAIL_LINES = 10
 
 
 @dataclass(slots=True)
@@ -96,6 +101,85 @@ def teacher_course_student_import_file_update(_state: dict[str, Any]) -> Any:
 
 def teacher_course_student_import_results_update(_state: dict[str, Any]) -> str:
     return ""
+
+
+def _is_csv_header(value: str) -> bool:
+    return value.strip().lower() in CSV_HEADER_LABELS
+
+
+def _parse_student_import_csv(csv_path: str) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+    valid_emails: list[tuple[int, str]] = []
+    invalid_rows: list[tuple[int, str]] = []
+    seen_emails: set[str] = set()
+    first_non_empty_row_seen = False
+
+    with Path(csv_path).open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.reader(handle)
+        for row_number, row in enumerate(reader, start=1):
+            if not row:
+                continue
+            first_cell = str(row[0]).strip()
+            if not first_cell:
+                continue
+            if not first_non_empty_row_seen:
+                first_non_empty_row_seen = True
+                if _is_csv_header(first_cell):
+                    continue
+            try:
+                normalized_email = validate_email(
+                    first_cell,
+                    check_deliverability=False,
+                ).normalized
+            except EmailNotValidError:
+                invalid_rows.append((row_number, first_cell))
+                continue
+            dedupe_key = normalized_email.casefold()
+            if dedupe_key in seen_emails:
+                continue
+            seen_emails.add(dedupe_key)
+            valid_emails.append((row_number, normalized_email))
+
+    return valid_emails, invalid_rows
+
+
+def _classify_enrollment_error(message: str) -> str:
+    if message == "Brukeren er allerede registrert i faget.":
+        return "already_enrolled"
+    if message.startswith("Fant ingen bruker med e-post "):
+        return "missing_user"
+    return "other_error"
+
+
+def _build_import_results_text(
+    *,
+    imported_count: int,
+    already_enrolled_count: int,
+    missing_user_count: int,
+    invalid_row_count: int,
+    other_error_count: int,
+    missing_emails: list[str],
+    detail_lines: list[str],
+) -> str:
+    lines = [
+        "### Importresultat",
+        f"- Importert: {imported_count}",
+        f"- Allerede registrert: {already_enrolled_count}",
+        f"- Ikke registrert i appen: {missing_user_count}",
+        f"- Ugyldige rader: {invalid_row_count}",
+        f"- Andre feil: {other_error_count}",
+    ]
+    if missing_emails:
+        lines.append("")
+        lines.append("#### Ikke registrerte e-poster")
+        lines.extend(f"- {email}" for email in missing_emails)
+    if detail_lines:
+        lines.append("")
+        lines.append("#### Detaljer")
+        lines.extend(detail_lines[:MAX_IMPORT_RESULT_DETAIL_LINES])
+        extra_count = len(detail_lines) - MAX_IMPORT_RESULT_DETAIL_LINES
+        if extra_count > 0:
+            lines.append(f"- Og {extra_count} til.")
+    return "\n".join(lines)
 
 
 def handle_course_instructions_input(instructions_text: str | None) -> str:
@@ -314,13 +398,78 @@ def handle_add_student(state: dict[str, Any], student_email: str | None) -> tupl
 
 def handle_import_students_csv(
     state: dict[str, Any],
-    _csv_path: str | None,
+    csv_path: str | None,
 ) -> tuple[Any, str, str, str]:
+    course_id = _current_course_id(state)
+    if not course_id:
+        return (
+            teacher_course_student_import_file_update(state),
+            teacher_course_students_text(state),
+            teacher_course_student_import_results_update(state),
+            "Fant ikke faget.",
+        )
+
+    token = auth_token(state)
+    if not token:
+        return (
+            teacher_course_student_import_file_update(state),
+            teacher_course_students_text(state),
+            teacher_course_student_import_results_update(state),
+            "Sessionen er utløpt — logg inn på nytt.",
+        )
+
+    if not isinstance(csv_path, str) or not csv_path.strip():
+        return (
+            teacher_course_student_import_file_update(state),
+            teacher_course_students_text(state),
+            teacher_course_student_import_results_update(state),
+            "Velg en CSV-fil.",
+        )
+
+    valid_emails, invalid_rows = _parse_student_import_csv(csv_path)
+    imported_count = 0
+    already_enrolled_count = 0
+    missing_user_count = 0
+    other_error_count = 0
+    missing_emails: list[str] = []
+    detail_lines = [f"- Rad {row_number}: ugyldig e-post '{email}'." for row_number, email in invalid_rows]
+
+    for row_number, email in valid_emails:
+        success, message = _course_api.enroll_user(token, course_id, email, role="student")
+        if success:
+            imported_count += 1
+            continue
+        error_type = _classify_enrollment_error(message)
+        if error_type == "already_enrolled":
+            already_enrolled_count += 1
+            detail_lines.append(f"- Rad {row_number}: {email} er allerede registrert.")
+        elif error_type == "missing_user":
+            missing_user_count += 1
+            missing_emails.append(email)
+            detail_lines.append(f"- Rad {row_number}: {email} finnes ikke i systemet.")
+        else:
+            other_error_count += 1
+            detail_lines.append(f"- Rad {row_number}: {email} feilet ({message}).")
+
+    import_results = _build_import_results_text(
+        imported_count=imported_count,
+        already_enrolled_count=already_enrolled_count,
+        missing_user_count=missing_user_count,
+        invalid_row_count=len(invalid_rows),
+        other_error_count=other_error_count,
+        missing_emails=missing_emails,
+        detail_lines=detail_lines,
+    )
+    if missing_user_count > 0:
+        gr.Warning(
+            f"{missing_user_count} e-postadresser finnes ikke i systemet. "
+            "Se importresultatet for detaljer."
+        )
     return (
         teacher_course_student_import_file_update(state),
         teacher_course_students_text(state),
-        teacher_course_student_import_results_update(state),
-        "CSV-import kommer i neste commit.",
+        import_results,
+        "CSV-import fullført.",
     )
 
 
