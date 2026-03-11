@@ -12,10 +12,12 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
         page = build_chat_page(visible=False)
 
     assert page.references_panel.elem_id == "chat-references-panel"
-    assert page.references_accordion.elem_id == "chat-references-accordion"
+    assert page.references_drawer.elem_id == "chat-references-drawer"
+    assert page.open_references_button.elem_id == "chat-open-references-button"
+    assert page.close_references_button.elem_id == "chat-close-references-button"
     assert page.message.elem_id == "chat-message-composer"
 
 
 def test_chat_page_css_contains_reference_card_selectors() -> None:
-    assert "#chat-references-accordion" in CHAT_PAGE_CSS
+    assert "#chat-references-drawer" in CHAT_PAGE_CSS
     assert ".chat-reference-entry" in CHAT_PAGE_CSS

@@ -9,12 +9,28 @@ import src.ui.pages.chat_handlers.references as reference_handlers
 import src.ui.services.conversation_service as conversation_service
 
 
-def _assert_reference_block(panel: str, *, document: str, page: str, excerpt: str) -> None:
+def _update_visible(update: object) -> bool | None:
+    if isinstance(update, dict):
+        return update.get("visible")
+    return getattr(update, "visible", None)
+
+
+def _assert_reference_block(
+    panel: str,
+    *,
+    document: str,
+    page: str | None,
+    excerpt: str,
+) -> None:
     assert f'<span class="chat-reference-document">{document}</span>' in panel
-    assert f'<span class="chat-reference-page">Side {page}</span>' in panel
     assert f"Dokument:</strong> {document}" in panel
-    assert f"Side:</strong> {page}" in panel
     assert f'<div class="chat-reference-excerpt">{excerpt}</div>' in panel
+    if page is None:
+        assert 'class="chat-reference-page"' not in panel
+        assert "Side:</strong>" not in panel
+    else:
+        assert f'<span class="chat-reference-page">Side {page}</span>' in panel
+        assert f"Side:</strong> {page}" in panel
 
 
 def test_render_reference_panel_for_single_source() -> None:
@@ -51,7 +67,7 @@ def test_render_reference_panel_uses_fallbacks_for_missing_page_and_excerpt() ->
     _assert_reference_block(
         panel,
         document="doc1.pdf",
-        page="Ukjent",
+        page=None,
         excerpt="Ingen tekst tilgjengelig.",
     )
 
@@ -84,6 +100,44 @@ def test_render_reference_panel_escapes_html_and_preserves_line_breaks() -> None
     assert "&lt;doc&gt;.pdf" in panel
     assert "&lt;script&gt;<br>linje 2" in panel
     assert "<script>" not in panel
+
+
+def test_render_reference_panel_hides_page_badge_when_page_is_missing() -> None:
+    panel = chat_page._render_reference_panel_for_sources(
+        [{"document": "doc1.pdf", "page": "", "excerpt": "chunk"}]
+    )
+
+    _assert_reference_block(panel, document="doc1.pdf", page=None, excerpt="chunk")
+
+
+def test_open_and_close_reference_drawer_handlers_toggle_visibility() -> None:
+    open_state, open_update = chat_page._open_reference_drawer_handler()
+    close_state, close_update = chat_page._close_reference_drawer_handler()
+
+    assert open_state is True
+    assert close_state is False
+    assert _update_visible(open_update) is True
+    assert _update_visible(close_update) is False
+
+
+def test_reference_drawer_from_panel_handler_opens_for_populated_panel() -> None:
+    is_open, update = chat_page._reference_drawer_from_panel_handler(
+        "<div>panel</div>",
+        "Kunne ikke hente kilder: timeout Viser lagrede referanser uten tekstutdrag.",
+    )
+
+    assert is_open is True
+    assert _update_visible(update) is True
+
+
+def test_reference_drawer_from_panel_handler_closes_for_empty_state() -> None:
+    is_open, update = chat_page._reference_drawer_from_panel_handler(
+        "",
+        chat_page._REFERENCE_DEFAULT_STATUS,
+    )
+
+    assert is_open is False
+    assert _update_visible(update) is False
 
 
 def test_chatbot_select_handler_populates_panel_for_assistant_message() -> None:

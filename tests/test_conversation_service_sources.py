@@ -40,6 +40,22 @@ def test_normalize_sources_payload_cleans_html_entities_tags_and_line_breaks() -
     ]
 
 
+def test_normalize_sources_payload_reads_page_aliases() -> None:
+    normalized = conversation_service.normalize_sources_payload(
+        [
+            {"document": "doc-a.pdf", "page_label": "12", "excerpt": "alpha"},
+            {"document": "doc-b.pdf", "metadata": {"page_number": 7}, "excerpt": "beta"},
+            {"document": "doc-c.pdf", "loc": {"pageNumber": 4}, "excerpt": "gamma"},
+        ]
+    )
+
+    assert normalized == [
+        {"document": "doc-a.pdf", "page": "12", "excerpt": "alpha"},
+        {"document": "doc-b.pdf", "page": "7", "excerpt": "beta"},
+        {"document": "doc-c.pdf", "page": "4", "excerpt": "gamma"},
+    ]
+
+
 def test_normalize_sources_payload_truncates_long_excerpt() -> None:
     long_text = "word " * 100
 
