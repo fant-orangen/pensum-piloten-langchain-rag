@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import re
+from html import unescape
 from typing import Any
 
 from src.ui.services.api_client import ApiError, ApiUnauthorizedError, get, post
+
+_EXCERPT_MAX_LENGTH = 220
 
 
 def _extract_document(value: dict[str, Any]) -> str:
@@ -24,11 +28,34 @@ def _extract_page(value: dict[str, Any]) -> str:
     return str(page)
 
 
+def _truncate_excerpt(text: str, *, max_length: int = _EXCERPT_MAX_LENGTH) -> str:
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 3].rstrip() + "..."
+
+
+def _normalize_excerpt_text(value: str) -> str:
+    text = unescape(value).replace("\r\n", "\n").replace("\r", "\n").replace("\xa0", " ")
+    text = re.sub(r"(?is)<\s*(script|style)[^>]*>.*?<\s*/\s*\1\s*>", " ", text)
+    text = re.sub(r"(?i)<\s*br\s*/?\s*>", "\n", text)
+    text = re.sub(r"(?i)</\s*(p|div|section|article|h[1-6]|tr)\s*>", "\n", text)
+    text = re.sub(r"(?i)<\s*li[^>]*>", "- ", text)
+    text = re.sub(r"(?i)</\s*li\s*>", "\n", text)
+    text = re.sub(r"(?i)<[^>]+>", "", text)
+
+    normalized_lines = [
+        re.sub(r"[^\S\n]+", " ", line).strip()
+        for line in text.split("\n")
+    ]
+    collapsed = "\n".join(line for line in normalized_lines if line)
+    return _truncate_excerpt(collapsed)
+
+
 def _extract_excerpt(value: dict[str, Any]) -> str:
     for key in ("excerpt", "text", "content", "chunk", "snippet"):
         candidate = value.get(key)
         if isinstance(candidate, str) and candidate.strip():
-            return candidate.strip()
+            return _normalize_excerpt_text(candidate)
     return ""
 
 
