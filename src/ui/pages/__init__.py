@@ -3,7 +3,7 @@
 from src.ui.pages.ab_page import AB_PAGE_CSS, build_ab_app, build_ab_page
 from src.ui.pages.admin_page import build_admin_page, handle_admin_refresh, handle_upgrade_user
 from src.ui.pages.auth_page import build_auth_page, handle_login, handle_register
-from src.ui.pages.chat_page import build_chat_page
+from src.ui.pages.chat_page import CHAT_PAGE_CSS, build_chat_page
 from src.ui.pages.student_page import (
     build_student_page,
     handle_back_to_student,
@@ -60,6 +60,7 @@ __all__ = [
     "build_admin_page",
     "build_auth_page",
     "build_chat_page",
+    "CHAT_PAGE_CSS",
     "build_student_page",
     "build_student_course_page",
     "build_teacher_page",

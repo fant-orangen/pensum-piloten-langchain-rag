@@ -15,6 +15,45 @@ from src.ui.pages.chat_handlers import (
     _open_conversation_text,
 )
 
+CHAT_PAGE_CSS = """
+#chat-page-layout {
+    gap: 1rem;
+    align-items: stretch;
+}
+
+#chat-sidebar-column,
+#chat-main-column,
+#chat-references-column {
+    min-width: 0;
+}
+
+#chat-main-actions {
+    gap: 0.75rem;
+}
+
+#chat-message-composer textarea {
+    min-height: 96px;
+}
+
+#chat-references-panel {
+    max-height: 700px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    padding-right: 6px;
+}
+
+#chat-references-panel > div {
+    max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+    #chat-page-layout {
+        flex-wrap: wrap;
+    }
+}
+"""
+
 
 @dataclass(slots=True)
 class ChatPageComponents:
@@ -43,15 +82,20 @@ class ChatPageComponents:
 
 def build_chat_page(*, visible: bool) -> ChatPageComponents:
     """Build and return the chat page components."""
-    with gr.Group(visible=visible) as group:
+    with gr.Group(visible=visible, elem_id="chat-page") as group:
         token_state = gr.State(None)
         course_id_state = gr.State(None)
         route_state = gr.State(None)
         conversation_state = gr.State(_default_conversation_state())
         source_history_state = gr.State([])
 
-        with gr.Row():
-            with gr.Column(scale=1):
+        with gr.Row(elem_id="chat-page-layout"):
+            with gr.Column(
+                scale=1,
+                min_width=280,
+                elem_id="chat-sidebar-column",
+                elem_classes=["chat-layout-column"],
+            ):
                 gr.Markdown("## Samtaler")
                 with gr.Group():
                     gr.Markdown("### Ny samtale")
@@ -70,7 +114,12 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 )
                 conversation_count = gr.Markdown(_conversation_count_text(0))
 
-            with gr.Column(scale=4):
+            with gr.Column(
+                scale=4,
+                min_width=480,
+                elem_id="chat-main-column",
+                elem_classes=["chat-layout-column"],
+            ):
                 gr.Markdown("# Chat")
                 gr.Markdown("Chat med tutor (RAG).")
                 open_conversation = gr.Markdown(_open_conversation_text(None))
@@ -82,12 +131,18 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                             label="Melding",
                             placeholder="Spør om pensum ...",
                             lines=2,
+                            elem_id="chat-message-composer",
                         )
 
-                        with gr.Row():
+                        with gr.Row(elem_id="chat-main-actions"):
                             send_button = gr.Button("Send", variant="primary")
                             back_button = gr.Button("Tilbake")
-                    with gr.Column(scale=2, min_width=320):
+                    with gr.Column(
+                        scale=2,
+                        min_width=320,
+                        elem_id="chat-references-column",
+                        elem_classes=["chat-layout-column"],
+                    ):
                         gr.Markdown("### Kildereferanser")
                         references_status = gr.Markdown(_REFERENCE_DEFAULT_STATUS)
                         references_panel = gr.HTML(
