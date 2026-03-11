@@ -27,6 +27,7 @@ _chain_cache: dict[str, Any] = {}
 
 
 def _get_chain(scope: str) -> Any:
+    """Return a cached KG-RAG chain for the given collection scope, building it on first access."""
     if scope not in _chain_cache:
         _chain_cache[scope] = build_kg_rag_chain(
             chroma_collection=scope,

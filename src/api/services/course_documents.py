@@ -51,15 +51,18 @@ COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
 
 
 def build_course_documents_dir(course_code: str) -> Path:
+    """Return the filesystem path where documents for a course are stored."""
     settings = get_settings()
     return Path(settings.documents_dir) / course_code
 
 
 def build_course_scope_name(course_code: str, index_version: int) -> str:
+    """Return the ChromaDB/KG collection name for a given course and index version."""
     return f"{course_code}_v{index_version}"
 
 
 def _resolve_documents_root(course: Course) -> Path:
+    """Resolve the course documents directory to an absolute path."""
     raw = Path(course.documents_dir)
     if raw.is_absolute():
         return raw
@@ -67,10 +70,12 @@ def _resolve_documents_root(course: Course) -> Path:
 
 
 def get_course_artifacts_dir(course: Course) -> Path:
+    """Return the hidden artifacts directory inside the course documents root."""
     return _resolve_documents_root(course) / COURSE_ARTIFACTS_DIRNAME
 
 
 def _is_course_artifact_path(course: Course, path: Path) -> bool:
+    """Return True if the given path lives inside the course artifacts directory."""
     try:
         relative = path.resolve().relative_to(_resolve_documents_root(course).resolve())
     except ValueError:
@@ -79,11 +84,13 @@ def _is_course_artifact_path(course: Course, path: Path) -> bool:
 
 
 def _sanitize_filename(filename: str | None) -> str:
+    """Strip path components and replace unsafe characters with underscores."""
     candidate = Path(filename or "document").name.strip() or "document"
     return re.sub(r"[^A-Za-z0-9._-]+", "_", candidate)
 
 
 def _build_scope_name(course: Course, index_version: int) -> str:
+    """Return the versioned collection scope name for the given course."""
     return build_course_scope_name(course.code, index_version)
 
 
@@ -92,6 +99,10 @@ async def _get_course_for_teacher(
     course_id: uuid.UUID,
     db: AsyncSession,
 ) -> Course:
+    """Fetch a course and verify the caller has teacher or admin access.
+
+    Raises 404 if the course does not exist, 403 if access is denied.
+    """
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalars().first()
     if course is None:
@@ -102,6 +113,7 @@ async def _get_course_for_teacher(
 
 
 def _ensure_not_rebuilding(course: Course) -> None:
+    """Raise HTTP 409 if a rebuild is already queued or running for the course."""
     if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -110,6 +122,7 @@ def _ensure_not_rebuilding(course: Course) -> None:
 
 
 async def _pending_counts(course_id: uuid.UUID, db: AsyncSession) -> tuple[int, int]:
+    """Return (pending_additions, pending_removals) counts for a course."""
     pending_add_result = await db.execute(
         select(func.count())
         .select_from(CourseDocument)
@@ -133,6 +146,7 @@ async def build_course_materials_status(
     course: Course,
     db: AsyncSession,
 ) -> CourseMaterialsStatusRead:
+    """Assemble the current materials status (rebuild state, version, pending counts) for a course."""
     pending_additions, pending_removals = await _pending_counts(course.id, db)
     return CourseMaterialsStatusRead(
         course_id=course.id,
@@ -150,6 +164,7 @@ async def list_course_documents(
     course_id: uuid.UUID,
     db: AsyncSession,
 ) -> list[CourseDocument]:
+    """Return all document records for a course, ordered by upload time. Requires teacher or admin."""
     await _get_course_for_teacher(current_user, course_id, db)
     result = await db.execute(
         select(CourseDocument)
@@ -205,6 +220,7 @@ async def sync_course_documents_from_directory(
 
 
 def _clear_course_artifacts(course: Course) -> None:
+    """Delete the course artifacts directory and all its contents."""
     artifacts_dir = get_course_artifacts_dir(course)
     if artifacts_dir.exists():
         shutil.rmtree(artifacts_dir, ignore_errors=True)
@@ -219,6 +235,7 @@ def _write_course_artifacts(
     triplets: list,
     chunk_count: int,
 ) -> None:
+    """Persist KG triplets and a rebuild manifest to the course artifacts directory."""
     artifacts_dir = get_course_artifacts_dir(course)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -269,6 +286,12 @@ async def stage_course_documents(
     files: list[UploadFile],
     db: AsyncSession,
 ) -> list[CourseDocument]:
+    """Save uploaded files to disk and register them as pending-add documents.
+
+    File names are sanitised and prefixed with a UUID to avoid collisions.
+    If any write fails the transaction is rolled back and all written files are removed.
+    Raises 400 for unsupported file types or an empty upload list, 409 if a rebuild is in progress.
+    """
     course = await _get_course_for_teacher(current_user, course_id, db)
     _ensure_not_rebuilding(course)
 
@@ -328,6 +351,13 @@ async def stage_course_document_removal(
     document_id: uuid.UUID,
     db: AsyncSession,
 ) -> None:
+    """Stage a document for removal or delete it outright if it was never activated.
+
+    Documents in pending_add state are deleted immediately (file and row).
+    Documents in active state are transitioned to pending_remove; the file is
+    removed only when the next rebuild completes successfully.
+    Raises 404 if the document is not found, 409 if a rebuild is in progress.
+    """
     course = await _get_course_for_teacher(current_user, course_id, db)
     _ensure_not_rebuilding(course)
 
@@ -364,6 +394,7 @@ async def get_course_materials_status(
     course_id: uuid.UUID,
     db: AsyncSession,
 ) -> CourseMaterialsStatusRead:
+    """Return the materials rebuild status for a course. Requires teacher or admin."""
     course = await _get_course_for_teacher(current_user, course_id, db)
     return await build_course_materials_status(course, db)
 
@@ -373,6 +404,11 @@ async def queue_course_material_rebuild(
     course_id: uuid.UUID,
     db: AsyncSession,
 ) -> CourseMaterialsStatusRead:
+    """Transition a course to queued rebuild state so the background task can pick it up.
+
+    Raises 400 if there are no staged changes to apply, 409 if a rebuild is already in progress.
+    Returns the updated materials status.
+    """
     course = await _get_course_for_teacher(current_user, course_id, db)
     _ensure_not_rebuilding(course)
 
@@ -400,6 +436,10 @@ async def queue_course_material_rebuild(
 
 
 async def _get_snapshot_documents(course_id: uuid.UUID, db: AsyncSession) -> list[CourseDocument]:
+    """Return the set of documents that should be included in the next build.
+
+    Active documents and pending-add documents are included; pending-remove documents are excluded.
+    """
     result = await db.execute(
         select(CourseDocument)
         .where(
@@ -413,6 +453,10 @@ async def _get_snapshot_documents(course_id: uuid.UUID, db: AsyncSession) -> lis
 
 
 async def _activate_staged_documents(course_id: uuid.UUID, db: AsyncSession) -> list[Path]:
+    """Promote pending-add documents to active and delete pending-remove rows.
+
+    Returns the file paths of removed documents so they can be unlinted after the DB commit.
+    """
     result = await db.execute(
         select(CourseDocument).where(CourseDocument.course_id == course_id)
     )
@@ -436,6 +480,7 @@ async def _set_rebuild_failure(
     course_id: uuid.UUID,
     error_message: str,
 ) -> None:
+    """Persist a FAILED rebuild status and truncated error message on the course row."""
     session_factory = get_session_factory()
     async with session_factory() as db:
         result = await db.execute(select(Course).where(Course.id == course_id))

@@ -43,6 +43,8 @@ _CSV_HEADER_VALUES = {"email", "emails", "student_email", "student_emails"}
 
 @dataclass(slots=True)
 class ParsedEnrollmentImport:
+    """Result of parsing an enrollment CSV, categorised by validity and uniqueness."""
+
     total_rows: int
     accepted_emails: list[str]
     duplicate_emails: list[str]
@@ -217,10 +219,12 @@ async def update_course_specific_instructions(
 
 
 def _normalise_email(email: str) -> str:
+    """Strip whitespace and lower-case an email address for consistent comparison."""
     return email.strip().lower()
 
 
 def _validate_email(email: str) -> str:
+    """Normalise and validate an email address. Raises ValueError if invalid."""
     cleaned_email = _normalise_email(email)
     try:
         return str(_EMAIL_ADAPTER.validate_python(cleaned_email))
@@ -229,6 +233,11 @@ def _validate_email(email: str) -> str:
 
 
 def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
+    """Parse raw CSV text into accepted, duplicate, and invalid email buckets.
+
+    Accepts an optional single-column header row matching known header names.
+    Raises HTTP 400 if any data row contains more than one column value.
+    """
     accepted_emails: list[str] = []
     duplicate_emails: list[str] = []
     invalid_emails: list[str] = []
@@ -283,6 +292,7 @@ def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
 
 
 async def _get_course_or_404(course_id: uuid.UUID, db: AsyncSession) -> Course:
+    """Fetch a course by ID or raise HTTP 404."""
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalars().first()
     if course is None:
@@ -295,6 +305,12 @@ async def _classify_import_candidates(
     candidate_emails: list[str],
     db: AsyncSession,
 ) -> tuple[list[str], list[str], list[str]]:
+    """Split candidate emails into (enrollable, missing, already_enrolled) groups.
+
+    - enrollable: emails matched to an existing user who is not yet enrolled.
+    - missing: emails not found in the user table.
+    - already_enrolled: emails matched to a user already enrolled in the course.
+    """
     if not candidate_emails:
         return [], [], []
 
@@ -334,6 +350,11 @@ async def _get_import_preview_for_actor(
     preview_id: uuid.UUID,
     db: AsyncSession,
 ) -> EnrollmentImportPreview:
+    """Fetch an enrollment import preview, verifying course access and preview ownership.
+
+    Raises 403 if the caller is not the teacher who created the preview (admins are exempt).
+    Raises 404 if the preview does not exist for the given course.
+    """
     await require_course_teacher_or_admin(current_user, course_id, db)
 
     preview_result = await db.execute(
@@ -364,6 +385,11 @@ async def preview_enrollment_import(
     upload: UploadFile,
     db: AsyncSession,
 ) -> EnrollmentImportPreviewRead:
+    """Parse a CSV of student emails and return an enrollment preview without committing any changes.
+
+    Replaces any previous pending preview created by the same teacher for this course.
+    Raises 400 if the file is not valid UTF-8 or contains no valid addresses.
+    """
     await _get_course_or_404(course_id, db)
     await require_course_teacher_or_admin(current_user, course_id, db)
 
@@ -433,6 +459,11 @@ async def confirm_enrollment_import(
     preview_id: uuid.UUID,
     db: AsyncSession,
 ) -> EnrollmentImportConfirmRead:
+    """Execute the enrollment import from a confirmed preview, then delete the preview row.
+
+    Re-classifies candidates at confirm time to catch any changes since the preview was generated.
+    Raises 409 if a concurrent enrollment change causes an integrity conflict.
+    """
     preview = await _get_import_preview_for_actor(current_user, course_id, preview_id, db)
 
     enrollable_emails, missing_emails, already_enrolled_emails = await _classify_import_candidates(
@@ -482,6 +513,7 @@ async def cancel_enrollment_import(
     preview_id: uuid.UUID,
     db: AsyncSession,
 ) -> None:
+    """Delete a pending enrollment import preview without enrolling anyone."""
     preview = await _get_import_preview_for_actor(current_user, course_id, preview_id, db)
     await db.delete(preview)
     await db.commit()
