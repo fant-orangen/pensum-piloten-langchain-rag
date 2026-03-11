@@ -84,21 +84,27 @@ def render_reference_panel_for_sources(sources: list[dict[str, Any]] | None) -> 
     entries: list[str] = []
     for source in normalized_sources:
         document = escape(source["document"] or "Ukjent dokument")
-        page_value = source["page"] or "Ukjent"
+        page_value = str(source["page"] or "").strip()
         page = escape(page_value)
         excerpt = escape(source["excerpt"] or "Ingen tekst tilgjengelig.").replace("\n", "<br>")
+        page_summary = (
+            f'<span class="chat-reference-page">Side {page}</span>'
+            if page_value
+            else ""
+        )
+        page_meta = f'<div><strong>Side:</strong> {page}</div>' if page_value else ""
         entries.append(
             "".join(
                 [
                     '<details class="chat-reference-entry">',
                     '<summary class="chat-reference-summary">',
                     f'<span class="chat-reference-document">{document}</span>',
-                    f'<span class="chat-reference-page">Side {page}</span>',
+                    page_summary,
                     "</summary>",
                     '<div class="chat-reference-body">',
                     '<div class="chat-reference-meta">',
                     f'<div><strong>Dokument:</strong> {document}</div>',
-                    f'<div><strong>Side:</strong> {page}</div>',
+                    page_meta,
                     "</div>",
                     f'<div class="chat-reference-excerpt">{excerpt}</div>',
                     "</div>",
