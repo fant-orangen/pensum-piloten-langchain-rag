@@ -23,6 +23,9 @@ class TeacherCoursePageComponents:
     view_as_student_button: gr.Button
     add_student_username: gr.Textbox
     add_student_button: gr.Button
+    import_students_file: gr.File
+    import_students_button: gr.Button
+    import_results: gr.Markdown
     upload_files: gr.File
     upload_button: gr.Button
     materials_list: gr.CheckboxGroup
@@ -87,6 +90,14 @@ def teacher_course_instructions_counter_update(_state: dict[str, Any]) -> str:
     return _course_instructions_counter_text("")
 
 
+def teacher_course_student_import_file_update(_state: dict[str, Any]) -> Any:
+    return gr.update(value=None)
+
+
+def teacher_course_student_import_results_update(_state: dict[str, Any]) -> str:
+    return ""
+
+
 def handle_course_instructions_input(instructions_text: str | None) -> str:
     return _course_instructions_counter_text(instructions_text)
 
@@ -104,6 +115,19 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
             placeholder="student@example.com",
         )
         add_student_button = gr.Button("Legg til student", variant="primary")
+        gr.Markdown("### Importer studenter fra CSV")
+        gr.Markdown(
+            "Last opp en CSV-fil med én e-postadresse per rad. "
+            "Valgfri overskriftsrad støttes, og tomme rader ignoreres."
+        )
+        import_students_file = gr.File(
+            label="CSV med student-e-poster",
+            file_count="single",
+            file_types=[".csv"],
+            type="filepath",
+        )
+        import_students_button = gr.Button("Importer studenter", variant="secondary")
+        import_results = gr.Markdown()
 
         gr.Markdown("## Kursmateriale")
         upload_files = gr.File(
@@ -160,6 +184,9 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
         view_as_student_button=view_as_student_button,
         add_student_username=add_student_username,
         add_student_button=add_student_button,
+        import_students_file=import_students_file,
+        import_students_button=import_students_button,
+        import_results=import_results,
         upload_files=upload_files,
         upload_button=upload_button,
         materials_list=materials_list,
@@ -282,6 +309,18 @@ def handle_add_student(state: dict[str, Any], student_email: str | None) -> tupl
         gr.update(value=next_input_value),
         teacher_course_students_text(state),
         message,
+    )
+
+
+def handle_import_students_csv(
+    state: dict[str, Any],
+    _csv_path: str | None,
+) -> tuple[Any, str, str, str]:
+    return (
+        teacher_course_student_import_file_update(state),
+        teacher_course_students_text(state),
+        teacher_course_student_import_results_update(state),
+        "CSV-import kommer i neste commit.",
     )
 
 

@@ -77,6 +77,41 @@ def test_handle_add_student_refreshes_student_list_after_success(monkeypatch) ->
     assert message == "Bruker lagt til i faget."
 
 
+def test_teacher_course_import_reset_helpers_clear_controls() -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-3",
+        TOKEN_KEY: "token-3",
+    }
+
+    file_update = teacher_course_page.teacher_course_student_import_file_update(state)
+    results_text = teacher_course_page.teacher_course_student_import_results_update(state)
+
+    assert file_update.get("value") is None
+    assert results_text == ""
+
+
+def test_handle_import_students_csv_placeholder_resets_ui(monkeypatch) -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-4",
+        TOKEN_KEY: "token-4",
+    }
+    monkeypatch.setattr(
+        teacher_course_page,
+        "teacher_course_students_text",
+        lambda _state: "- Student: Ada Lovelace (ada@example.com)",
+    )
+
+    file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        "/tmp/students.csv",
+    )
+
+    assert file_update.get("value") is None
+    assert students_text == "- Student: Ada Lovelace (ada@example.com)"
+    assert import_results == ""
+    assert message == "CSV-import kommer i neste commit."
+
+
 def test_list_course_students_extracts_paginated_items(monkeypatch) -> None:
     captured: dict[str, Any] = {}
 

@@ -18,6 +18,7 @@ from src.ui.pages import (
     build_teacher_page,
     handle_add_course,
     handle_add_student,
+    handle_import_students_csv,
     handle_course_instructions_input,
     handle_delete_material,
     handle_admin_refresh,
@@ -43,6 +44,8 @@ from src.ui.pages import (
     teacher_course_instructions_counter_update,
     teacher_course_instructions_input_update,
     teacher_course_material_choices_update,
+    teacher_course_student_import_file_update,
+    teacher_course_student_import_results_update,
     teacher_course_student_choices_update,
     teacher_course_students_text,
     teacher_course_title_text,
@@ -148,6 +151,8 @@ def _render_main_app(
         teacher_course_title_text(state),
         teacher_course_students_text(state),
         teacher_course_material_choices_update(state),
+        teacher_course_student_import_file_update(state),
+        teacher_course_student_import_results_update(state),
         teacher_course_student_choices_update(state),
         teacher_course_ingestion_status_text(state),
         teacher_course_instructions_input_update(state),
@@ -172,6 +177,13 @@ def _handle_add_course(state: dict[str, Any], course_name: str) -> tuple[str, An
 
 def _handle_add_student(state: dict[str, Any], student_username: str | None) -> tuple[Any, str, str]:
     return handle_add_student(state, student_username)
+
+
+def _handle_import_students_csv(
+    state: dict[str, Any],
+    csv_path: str | None,
+) -> tuple[Any, str, str, str]:
+    return handle_import_students_csv(state, csv_path)
 
 
 def _handle_upload_materials(
@@ -341,6 +353,8 @@ def build_main_app() -> gr.Blocks:
             teacher_course_page.course_title,
             teacher_course_page.students_list,
             teacher_course_page.materials_list,
+            teacher_course_page.import_students_file,
+            teacher_course_page.import_results,
             teacher_course_page.add_student_username,
             teacher_course_page.ingestion_status,
             teacher_course_page.course_instructions_input,
@@ -434,6 +448,16 @@ def build_main_app() -> gr.Blocks:
             outputs=[
                 teacher_course_page.add_student_username,
                 teacher_course_page.students_list,
+                teacher_course_page.status_text,
+            ],
+        )
+        teacher_course_page.import_students_button.click(
+            fn=_handle_import_students_csv,
+            inputs=[app_state, teacher_course_page.import_students_file],
+            outputs=[
+                teacher_course_page.import_students_file,
+                teacher_course_page.students_list,
+                teacher_course_page.import_results,
                 teacher_course_page.status_text,
             ],
         )
