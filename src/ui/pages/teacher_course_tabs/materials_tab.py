@@ -46,28 +46,31 @@ def _material_label(material: dict[str, Any]) -> str:
 
 def build_teacher_course_materials_tab() -> TeacherCourseMaterialsTabComponents:
     with gr.Group() as group:
-        upload_files = gr.File(
-            label="Velg filer",
-            file_count="multiple",
-            type="filepath",
-        )
-        upload_button = gr.Button("Last opp filer", variant="primary")
-        gr.Markdown("Velg ett eller flere materialer under for sletting.")
-        gr.Markdown("Ingestering starter for alle stagede endringer i kurset.")
-        materials_list = gr.CheckboxGroup(
-            choices=[],
-            value=[],
-            label="Kursmateriell",
-        )
-        with gr.Row():
-            delete_material_button = gr.Button("Slett valgte materialer")
-            refresh_materials_button = gr.Button("Oppdater materialliste")
+        with gr.Group():
+            gr.Markdown("### Kildemateriale")
+            upload_files = gr.File(
+                label="Velg filer",
+                file_count="multiple",
+                type="filepath",
+            )
+            upload_button = gr.Button("Last opp filer", variant="primary")
+            gr.Markdown("Velg ett eller flere materialer under for sletting.")
+            materials_list = gr.CheckboxGroup(
+                choices=[],
+                value=[],
+                label="Kursmateriell",
+            )
+            with gr.Row():
+                delete_material_button = gr.Button("Slett valgte materialer", variant="secondary")
+                refresh_materials_button = gr.Button("Oppdater materialliste", variant="secondary")
 
-        gr.Markdown("## Ingestering (oppsummering)")
-        with gr.Row():
-            start_ingestion_button = gr.Button("Start ingestering", variant="primary")
-            refresh_ingestion_button = gr.Button("Oppdater status")
-        ingestion_status = gr.Markdown("Ingen ingesteringstatus ennå.")
+        with gr.Group():
+            gr.Markdown("### Ingestering")
+            gr.Markdown("Ingestering starter for alle stagede endringer i kurset.")
+            with gr.Row():
+                start_ingestion_button = gr.Button("Start ingestering", variant="primary")
+                refresh_ingestion_button = gr.Button("Oppdater status", variant="secondary")
+            ingestion_status = gr.Markdown("Ingen ingesteringstatus ennå.")
         status_text = gr.Markdown()
 
     return TeacherCourseMaterialsTabComponents(

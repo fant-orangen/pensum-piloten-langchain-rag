@@ -36,24 +36,27 @@ def _current_course_id(state: dict[str, Any]) -> str:
 def build_teacher_course_students_tab() -> TeacherCourseStudentsTabComponents:
     with gr.Group() as group:
         students_list = gr.Markdown("Ingen studenter ennå.")
-        add_student_username = gr.Textbox(
-            label="Studentens e-post",
-            placeholder="student@example.com",
-        )
-        add_student_button = gr.Button("Legg til student", variant="primary")
-        gr.Markdown("### Importer studenter fra CSV")
-        gr.Markdown(
-            "Last opp en CSV-fil med én e-postadresse per rad. "
-            "Valgfri overskriftsrad støttes, og tomme rader ignoreres."
-        )
-        import_students_file = gr.File(
-            label="CSV med student-e-poster",
-            file_count="single",
-            file_types=[".csv"],
-            type="filepath",
-        )
-        import_students_button = gr.Button("Importer studenter", variant="secondary")
-        import_results = gr.Markdown()
+        with gr.Group():
+            gr.Markdown("### Legg til én student")
+            add_student_username = gr.Textbox(
+                label="Studentens e-post",
+                placeholder="student@example.com",
+            )
+            add_student_button = gr.Button("Legg til student", variant="primary")
+        with gr.Group():
+            gr.Markdown("### Importer fra CSV")
+            gr.Markdown(
+                "Last opp en CSV-fil med én e-postadresse per rad. "
+                "Valgfri overskriftsrad støttes, og tomme rader ignoreres."
+            )
+            import_students_file = gr.File(
+                label="CSV med student-e-poster",
+                file_count="single",
+                file_types=[".csv"],
+                type="filepath",
+            )
+            import_students_button = gr.Button("Importer studenter", variant="primary")
+            import_results = gr.Markdown()
         status_text = gr.Markdown()
 
     return TeacherCourseStudentsTabComponents(

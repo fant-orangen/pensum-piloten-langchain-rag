@@ -33,24 +33,24 @@ def _course_instructions_counter_text(instructions_text: str | None) -> str:
 
 def build_teacher_course_instructions_tab() -> TeacherCourseInstructionsTabComponents:
     with gr.Group() as group:
-        gr.Markdown(
-            "Legg til egne instruksjoner som blir lagt til systemprompten for dette faget. "
-            "Det er foreløpig ikke mulig å hente eksisterende lagrede instruksjoner."
-        )
-        course_instructions_input = gr.Textbox(
-            label="Instruksjoner (maks 3000 tegn)",
-            placeholder=(
-                "Eksempel: Prioriter pensumbegreper fra uke 1–5, bruk norske fagtermer, "
-                "og gi korte stegvise hint før fasitsvar."
-            ),
-            lines=8,
-            max_lines=12,
-        )
-        course_instructions_counter = gr.Markdown(_course_instructions_counter_text(""))
-        save_course_instructions_button = gr.Button(
-            "Lagre instruksjoner",
-            variant="primary",
-        )
+        with gr.Group():
+            gr.Markdown(
+                "Legg til kursinstruksjoner som blir lagt til systemprompten for dette faget."
+            )
+            course_instructions_input = gr.Textbox(
+                label="Instruksjoner (maks 3000 tegn)",
+                placeholder=(
+                    "Eksempel: Prioriter pensumbegreper fra uke 1–5, bruk norske fagtermer, "
+                    "og gi korte stegvise hint før fasitsvar."
+                ),
+                lines=8,
+                max_lines=12,
+            )
+            course_instructions_counter = gr.Markdown(_course_instructions_counter_text(""))
+            save_course_instructions_button = gr.Button(
+                "Lagre instruksjoner",
+                variant="primary",
+            )
         status_text = gr.Markdown()
 
     return TeacherCourseInstructionsTabComponents(
