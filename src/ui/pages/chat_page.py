@@ -90,7 +90,10 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                     with gr.Column(scale=2, min_width=320):
                         gr.Markdown("### Kildereferanser")
                         references_status = gr.Markdown(_REFERENCE_DEFAULT_STATUS)
-                        references_panel = gr.HTML(value=_empty_reference_panel())
+                        references_panel = gr.HTML(
+                            value=_empty_reference_panel(),
+                            elem_id="chat-references-panel",
+                        )
 
     return ChatPageComponents(
         group=group,
