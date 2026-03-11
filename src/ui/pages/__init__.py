@@ -18,6 +18,7 @@ from src.ui.pages.student_course_page import (
     student_course_title_text,
 )
 from src.ui.pages.teacher_page import (
+    TEACHER_PAGE_CSS,
     build_teacher_page,
     handle_add_course,
     handle_open_responsible_course,
@@ -97,6 +98,7 @@ __all__ = [
     "teacher_course_student_choices_update",
     "student_course_title_text",
     "student_courses_update",
+    "TEACHER_PAGE_CSS",
     "teacher_course_students_text",
     "teacher_course_title_text",
     "teacher_available_courses_update",
