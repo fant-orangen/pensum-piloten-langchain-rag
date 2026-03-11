@@ -16,6 +16,7 @@ from src.ui.pages.teacher_course_tabs.instructions_tab import (
     handle_save_course_instructions,
     teacher_course_instructions_counter_update,
     teacher_course_instructions_input_update,
+    teacher_course_instructions_status_update,
 )
 from src.ui.pages.teacher_course_tabs.materials_tab import (
     TeacherCourseMaterialsTabComponents,
@@ -26,6 +27,7 @@ from src.ui.pages.teacher_course_tabs.materials_tab import (
     handle_upload_materials,
     teacher_course_ingestion_status_text,
     teacher_course_material_choices_update,
+    teacher_course_material_status_update,
 )
 from src.ui.pages.teacher_course_tabs.students_tab import (
     TeacherCourseStudentsTabComponents,
@@ -35,6 +37,7 @@ from src.ui.pages.teacher_course_tabs.students_tab import (
     teacher_course_student_choices_update,
     teacher_course_student_import_file_update,
     teacher_course_student_import_results_update,
+    teacher_course_student_status_update,
     teacher_course_students_text,
 )
 from src.ui.router import ROUTE_CHAT
@@ -55,7 +58,6 @@ class TeacherCoursePageComponents:
     students_tab: TeacherCourseStudentsTabComponents
     materials_tab: TeacherCourseMaterialsTabComponents
     instructions_tab: TeacherCourseInstructionsTabComponents
-    status_text: gr.Markdown
 
 
 def _current_course_id(state: dict[str, Any]) -> str:
@@ -81,8 +83,6 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
             with gr.Tab("Kursinstruksjoner", id=TEACHER_COURSE_TAB_INSTRUCTIONS):
                 instructions_tab = build_teacher_course_instructions_tab()
 
-        status_text = gr.Markdown()
-
     return TeacherCoursePageComponents(
         group=group,
         tabs=tabs,
@@ -92,7 +92,6 @@ def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
         students_tab=students_tab,
         materials_tab=materials_tab,
         instructions_tab=instructions_tab,
-        status_text=status_text,
     )
 
 

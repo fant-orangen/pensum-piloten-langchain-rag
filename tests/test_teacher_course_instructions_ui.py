@@ -12,6 +12,10 @@ def test_handle_course_instructions_input_shows_live_counter() -> None:
     assert counter == "Tegn brukt: 3/3000"
 
 
+def test_teacher_course_instructions_status_resets_to_empty() -> None:
+    assert instructions_tab.teacher_course_instructions_status_update({}) == ""
+
+
 def test_handle_save_course_instructions_requires_course_id() -> None:
     state: dict[str, Any] = {TOKEN_KEY: "token-1"}
     input_update, counter, message = instructions_tab.handle_save_course_instructions(

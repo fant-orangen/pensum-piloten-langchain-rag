@@ -43,10 +43,13 @@ from src.ui.pages import (
     teacher_course_ingestion_status_text,
     teacher_course_instructions_counter_update,
     teacher_course_instructions_input_update,
+    teacher_course_instructions_status_update,
     teacher_course_material_choices_update,
+    teacher_course_material_status_update,
     teacher_course_tabs_update,
     teacher_course_student_import_file_update,
     teacher_course_student_import_results_update,
+    teacher_course_student_status_update,
     teacher_course_student_choices_update,
     teacher_course_students_text,
     teacher_course_title_text,
@@ -159,7 +162,9 @@ def _render_main_app(
         teacher_course_ingestion_status_text(state),
         teacher_course_instructions_input_update(state),
         teacher_course_instructions_counter_update(state),
-        "",
+        teacher_course_student_status_update(state),
+        teacher_course_material_status_update(state),
+        teacher_course_instructions_status_update(state),
         student_course_title_text(state),
         login_message,
         register_message,
@@ -362,7 +367,9 @@ def build_main_app() -> gr.Blocks:
             teacher_course_page.materials_tab.ingestion_status,
             teacher_course_page.instructions_tab.course_instructions_input,
             teacher_course_page.instructions_tab.course_instructions_counter,
-            teacher_course_page.status_text,
+            teacher_course_page.students_tab.status_text,
+            teacher_course_page.materials_tab.status_text,
+            teacher_course_page.instructions_tab.status_text,
             student_course_page.course_title,
             auth_page.login_status,
             auth_page.register_status,
@@ -451,7 +458,7 @@ def build_main_app() -> gr.Blocks:
             outputs=[
                 teacher_course_page.students_tab.add_student_username,
                 teacher_course_page.students_tab.students_list,
-                teacher_course_page.status_text,
+                teacher_course_page.students_tab.status_text,
             ],
         )
         teacher_course_page.students_tab.import_students_button.click(
@@ -461,7 +468,7 @@ def build_main_app() -> gr.Blocks:
                 teacher_course_page.students_tab.import_students_file,
                 teacher_course_page.students_tab.students_list,
                 teacher_course_page.students_tab.import_results,
-                teacher_course_page.status_text,
+                teacher_course_page.students_tab.status_text,
             ],
         )
         teacher_course_page.materials_tab.upload_button.click(
@@ -470,7 +477,7 @@ def build_main_app() -> gr.Blocks:
             outputs=[
                 teacher_course_page.materials_tab.upload_files,
                 teacher_course_page.materials_tab.materials_list,
-                teacher_course_page.status_text,
+                teacher_course_page.materials_tab.status_text,
             ],
         )
         teacher_course_page.materials_tab.delete_material_button.click(
@@ -478,7 +485,7 @@ def build_main_app() -> gr.Blocks:
             inputs=[app_state, teacher_course_page.materials_tab.materials_list],
             outputs=[
                 teacher_course_page.materials_tab.materials_list,
-                teacher_course_page.status_text,
+                teacher_course_page.materials_tab.status_text,
             ],
         )
         teacher_course_page.materials_tab.refresh_materials_button.click(
@@ -494,7 +501,7 @@ def build_main_app() -> gr.Blocks:
             outputs=[
                 teacher_course_page.materials_tab.materials_list,
                 teacher_course_page.materials_tab.ingestion_status,
-                teacher_course_page.status_text,
+                teacher_course_page.materials_tab.status_text,
             ],
         )
         teacher_course_page.materials_tab.refresh_ingestion_button.click(
@@ -502,7 +509,7 @@ def build_main_app() -> gr.Blocks:
             inputs=[app_state],
             outputs=[
                 teacher_course_page.materials_tab.ingestion_status,
-                teacher_course_page.status_text,
+                teacher_course_page.materials_tab.status_text,
             ],
         )
         teacher_course_page.instructions_tab.course_instructions_input.input(
@@ -516,7 +523,7 @@ def build_main_app() -> gr.Blocks:
             outputs=[
                 teacher_course_page.instructions_tab.course_instructions_input,
                 teacher_course_page.instructions_tab.course_instructions_counter,
-                teacher_course_page.status_text,
+                teacher_course_page.instructions_tab.status_text,
             ],
         )
         teacher_course_page.view_as_student_button.click(

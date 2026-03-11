@@ -92,6 +92,10 @@ def test_teacher_course_import_reset_helpers_clear_controls() -> None:
     assert results_text == ""
 
 
+def test_teacher_course_student_status_resets_to_empty() -> None:
+    assert students_tab.teacher_course_student_status_update({}) == ""
+
+
 def test_teacher_course_tabs_default_to_students() -> None:
     update = teacher_course_page.teacher_course_tabs_update({})
 

@@ -19,6 +19,7 @@ class TeacherCourseInstructionsTabComponents:
     course_instructions_input: gr.Textbox
     course_instructions_counter: gr.Markdown
     save_course_instructions_button: gr.Button
+    status_text: gr.Markdown
 
 
 def _current_course_id(state: dict[str, Any]) -> str:
@@ -50,12 +51,14 @@ def build_teacher_course_instructions_tab() -> TeacherCourseInstructionsTabCompo
             "Lagre instruksjoner",
             variant="primary",
         )
+        status_text = gr.Markdown()
 
     return TeacherCourseInstructionsTabComponents(
         group=group,
         course_instructions_input=course_instructions_input,
         course_instructions_counter=course_instructions_counter,
         save_course_instructions_button=save_course_instructions_button,
+        status_text=status_text,
     )
 
 
@@ -65,6 +68,10 @@ def teacher_course_instructions_input_update(_state: dict[str, Any]) -> Any:
 
 def teacher_course_instructions_counter_update(_state: dict[str, Any]) -> str:
     return _course_instructions_counter_text("")
+
+
+def teacher_course_instructions_status_update(_state: dict[str, Any]) -> str:
+    return ""
 
 
 def handle_course_instructions_input(instructions_text: str | None) -> str:

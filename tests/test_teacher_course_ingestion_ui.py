@@ -133,3 +133,7 @@ def test_material_choices_include_status_labels(monkeypatch) -> None:
     assert any(label.endswith("Venter på ingestering") for label in choice_labels)
     assert any(label.endswith("Ingestert") for label in choice_labels)
     assert any(label.endswith("Markert for sletting") for label in choice_labels)
+
+
+def test_teacher_course_material_status_resets_to_empty() -> None:
+    assert materials_tab.teacher_course_material_status_update({}) == ""

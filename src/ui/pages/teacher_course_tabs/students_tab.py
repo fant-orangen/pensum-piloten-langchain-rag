@@ -26,6 +26,7 @@ class TeacherCourseStudentsTabComponents:
     import_students_file: gr.File
     import_students_button: gr.Button
     import_results: gr.Markdown
+    status_text: gr.Markdown
 
 
 def _current_course_id(state: dict[str, Any]) -> str:
@@ -53,6 +54,7 @@ def build_teacher_course_students_tab() -> TeacherCourseStudentsTabComponents:
         )
         import_students_button = gr.Button("Importer studenter", variant="secondary")
         import_results = gr.Markdown()
+        status_text = gr.Markdown()
 
     return TeacherCourseStudentsTabComponents(
         group=group,
@@ -62,6 +64,7 @@ def build_teacher_course_students_tab() -> TeacherCourseStudentsTabComponents:
         import_students_file=import_students_file,
         import_students_button=import_students_button,
         import_results=import_results,
+        status_text=status_text,
     )
 
 
@@ -99,6 +102,10 @@ def teacher_course_student_import_file_update(_state: dict[str, Any]) -> Any:
 
 
 def teacher_course_student_import_results_update(_state: dict[str, Any]) -> str:
+    return ""
+
+
+def teacher_course_student_status_update(_state: dict[str, Any]) -> str:
     return ""
 
 

@@ -22,6 +22,7 @@ class TeacherCourseMaterialsTabComponents:
     start_ingestion_button: gr.Button
     refresh_ingestion_button: gr.Button
     ingestion_status: gr.Markdown
+    status_text: gr.Markdown
 
 
 def _current_course_id(state: dict[str, Any]) -> str:
@@ -67,6 +68,7 @@ def build_teacher_course_materials_tab() -> TeacherCourseMaterialsTabComponents:
             start_ingestion_button = gr.Button("Start ingestering", variant="primary")
             refresh_ingestion_button = gr.Button("Oppdater status")
         ingestion_status = gr.Markdown("Ingen ingesteringstatus ennå.")
+        status_text = gr.Markdown()
 
     return TeacherCourseMaterialsTabComponents(
         group=group,
@@ -78,6 +80,7 @@ def build_teacher_course_materials_tab() -> TeacherCourseMaterialsTabComponents:
         start_ingestion_button=start_ingestion_button,
         refresh_ingestion_button=refresh_ingestion_button,
         ingestion_status=ingestion_status,
+        status_text=status_text,
     )
 
 
@@ -135,6 +138,10 @@ def teacher_course_ingestion_status_text(state: dict[str, Any]) -> str:
     if rebuild_error:
         lines.append(f"Siste feil: {rebuild_error}")
     return "\n".join(lines)
+
+
+def teacher_course_material_status_update(_state: dict[str, Any]) -> str:
+    return ""
 
 
 def handle_upload_materials(
