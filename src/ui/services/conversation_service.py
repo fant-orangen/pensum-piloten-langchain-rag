@@ -9,6 +9,20 @@ from typing import Any
 from src.ui.services.api_client import ApiError, ApiUnauthorizedError, get, post
 
 _EXCERPT_MAX_LENGTH = 220
+_PAGE_KEYS = (
+    "page",
+    "page_label",
+    "page_number",
+    "page_num",
+    "source_page",
+    "page_index",
+)
+_LOC_PAGE_KEYS = (
+    "page",
+    "page_label",
+    "pageNumber",
+    "page_number",
+)
 
 
 def _extract_document(value: dict[str, Any]) -> str:
@@ -20,12 +34,44 @@ def _extract_document(value: dict[str, Any]) -> str:
 
 
 def _extract_page(value: dict[str, Any]) -> str:
-    page = value.get("page")
-    if page is None:
-        return ""
-    if isinstance(page, str):
-        return page.strip()
-    return str(page)
+    for key in _PAGE_KEYS:
+        page = value.get(key)
+        if page is None:
+            continue
+        if isinstance(page, str):
+            candidate = page.strip()
+        else:
+            candidate = str(page).strip()
+        if candidate:
+            return candidate
+
+    metadata = value.get("metadata")
+    if isinstance(metadata, dict):
+        for key in _PAGE_KEYS:
+            page = metadata.get(key)
+            if page is None:
+                continue
+            if isinstance(page, str):
+                candidate = page.strip()
+            else:
+                candidate = str(page).strip()
+            if candidate:
+                return candidate
+
+    loc = value.get("loc")
+    if isinstance(loc, dict):
+        for key in _LOC_PAGE_KEYS:
+            page = loc.get(key)
+            if page is None:
+                continue
+            if isinstance(page, str):
+                candidate = page.strip()
+            else:
+                candidate = str(page).strip()
+            if candidate:
+                return candidate
+
+    return ""
 
 
 def _truncate_excerpt(text: str, *, max_length: int = _EXCERPT_MAX_LENGTH) -> str:
