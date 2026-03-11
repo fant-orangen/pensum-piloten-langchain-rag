@@ -11,6 +11,7 @@ from src.api.models.user import User
 from src.api.schemas.course import (
     CourseCreate,
     CourseDocumentRead,
+    CourseInstructionsRead,
     CourseInstructionsUpdate,
     EnrollmentImportConfirmRead,
     EnrollmentImportPreviewRead,
@@ -35,6 +36,7 @@ from src.api.services.courses import (
     create_course,
     delete_course,
     enroll_user,
+    get_course_specific_instructions,
     get_available_courses,
     get_course_students,
     get_enrolled_courses,
@@ -191,6 +193,16 @@ async def update_course_instructions(
     """Update the course-specific prompt instructions for a course."""
     course = await update_course_specific_instructions(current_user, course_id, body, db)
     return CourseRead.model_validate(course)
+
+
+@router.get("/{course_id}/instructions", response_model=CourseInstructionsRead)
+async def read_course_instructions(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseInstructionsRead:
+    """Return the current course-specific prompt instructions for a course."""
+    return await get_course_specific_instructions(current_user, course_id, db)
 
 
 @router.post(

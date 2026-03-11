@@ -35,6 +35,11 @@ class CourseInstructionsUpdate(BaseModel):
     course_specific_instructions: Optional[str] = None
 
 
+class CourseInstructionsRead(BaseModel):
+    course_id: uuid.UUID
+    course_specific_instructions: Optional[str] = None
+
+
 class EnrollmentCreate(BaseModel):
     # Email of the user to enroll; looked up server-side.
     user_email: str

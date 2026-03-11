@@ -24,6 +24,7 @@ from src.api.services.course_documents import (
 )
 from src.api.schemas.course import (
     CourseCreate,
+    CourseInstructionsRead,
     CourseInstructionsUpdate,
     EnrollmentCreate,
     EnrollmentImportConfirmRead,
@@ -216,6 +217,20 @@ async def update_course_specific_instructions(
     await db.commit()
     await db.refresh(course)
     return course
+
+
+async def get_course_specific_instructions(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> CourseInstructionsRead:
+    """Return the current teacher-authored instructions for a course."""
+    course = await _get_course_or_404(course_id, db)
+    await require_course_teacher_or_admin(current_user, course_id, db)
+    return CourseInstructionsRead(
+        course_id=course.id,
+        course_specific_instructions=course.course_specific_instructions,
+    )
 
 
 def _normalise_email(email: str) -> str:

@@ -2,6 +2,7 @@ import io
 
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -15,6 +16,7 @@ from src.api.models.user import User
 from src.api.services.courses import (
     cancel_enrollment_import,
     confirm_enrollment_import,
+    get_course_specific_instructions,
     preview_enrollment_import,
 )
 
@@ -78,11 +80,26 @@ async def seeded_course(db_session: AsyncSession) -> dict[str, object]:
         name="Algorithms",
         code="TDT9999",
         documents_dir="docs/TDT9999",
+        course_specific_instructions="Use Socratic questioning.",
         created_by_id=teacher.id,
+    )
+    outsider_teacher = User(
+        email="outsider-teacher@test.com",
+        hashed_password="hash",
+        first_name="Out",
+        last_name="Sider",
+        global_role="teacher",
     )
 
     db_session.add_all(
-        [teacher, second_teacher, enrollable_student, already_enrolled_student, course]
+        [
+            teacher,
+            second_teacher,
+            enrollable_student,
+            already_enrolled_student,
+            outsider_teacher,
+            course,
+        ]
     )
     await db_session.flush()
 
@@ -100,6 +117,7 @@ async def seeded_course(db_session: AsyncSession) -> dict[str, object]:
     return {
         "teacher": teacher,
         "second_teacher": second_teacher,
+        "outsider_teacher": outsider_teacher,
         "enrollable_student": enrollable_student,
         "already_enrolled_student": already_enrolled_student,
         "course": course,
@@ -231,3 +249,31 @@ async def test_cancel_enrollment_import_deletes_preview(
         )
     ).scalars().first()
     assert stored_preview is None
+
+
+@pytest.mark.asyncio
+async def test_get_course_specific_instructions_returns_current_value_for_teacher(
+    db_session: AsyncSession,
+    seeded_course: dict[str, object],
+) -> None:
+    teacher = seeded_course["teacher"]
+    course = seeded_course["course"]
+
+    result = await get_course_specific_instructions(teacher, course.id, db_session)
+
+    assert result.course_id == course.id
+    assert result.course_specific_instructions == "Use Socratic questioning."
+
+
+@pytest.mark.asyncio
+async def test_get_course_specific_instructions_rejects_teacher_not_in_course(
+    db_session: AsyncSession,
+    seeded_course: dict[str, object],
+) -> None:
+    outsider_teacher = seeded_course["outsider_teacher"]
+    course = seeded_course["course"]
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_course_specific_instructions(outsider_teacher, course.id, db_session)
+
+    assert exc_info.value.status_code == 403
