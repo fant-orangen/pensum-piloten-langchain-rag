@@ -91,6 +91,12 @@ def test_teacher_course_import_reset_helpers_clear_controls() -> None:
     assert results_text == ""
 
 
+def test_teacher_course_tabs_default_to_students() -> None:
+    update = teacher_course_page.teacher_course_tabs_update({})
+
+    assert update.get("selected") == teacher_course_page.TEACHER_COURSE_TAB_STUDENTS
+
+
 def test_handle_import_students_csv_parses_header_and_bom(monkeypatch, tmp_path: Path) -> None:
     state: dict[str, Any] = {
         COURSE_ID_KEY: "course-4",

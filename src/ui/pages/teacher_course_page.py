@@ -17,11 +17,15 @@ from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token, with_route
 MAX_COURSE_INSTRUCTIONS_CHARS = 3000
 CSV_HEADER_LABELS = {"email", "e-mail", "epost", "e-post", "user_email"}
 MAX_IMPORT_RESULT_DETAIL_LINES = 10
+TEACHER_COURSE_TAB_STUDENTS = "teacher_course_students"
+TEACHER_COURSE_TAB_MATERIALS = "teacher_course_materials"
+TEACHER_COURSE_TAB_INSTRUCTIONS = "teacher_course_instructions"
 
 
 @dataclass(slots=True)
 class TeacherCoursePageComponents:
     group: gr.Group
+    tabs: gr.Tabs
     back_button: gr.Button
     course_title: gr.Markdown
     students_list: gr.Markdown
@@ -101,6 +105,10 @@ def teacher_course_student_import_file_update(_state: dict[str, Any]) -> Any:
 
 def teacher_course_student_import_results_update(_state: dict[str, Any]) -> str:
     return ""
+
+
+def teacher_course_tabs_update(_state: dict[str, Any]) -> Any:
+    return gr.update(selected=TEACHER_COURSE_TAB_STUDENTS)
 
 
 def _is_csv_header(value: str) -> bool:
@@ -213,80 +221,82 @@ def handle_course_instructions_input(instructions_text: str | None) -> str:
 
 def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
     with gr.Group(visible=visible) as group:
-        gr.Markdown("# Fag")
-        course_title = gr.Markdown("Fag: -")
-        view_as_student_button = gr.Button("Se som student", variant="secondary")
+        with gr.Row(equal_height=True):
+            back_button = gr.Button("Tilbake", variant="secondary")
+            course_title = gr.Markdown("Fag: -")
+            view_as_student_button = gr.Button("Se som student", variant="secondary")
 
-        gr.Markdown("## Studenter")
-        students_list = gr.Markdown("Ingen studenter ennå.")
-        add_student_username = gr.Textbox(
-            label="Studentens e-post",
-            placeholder="student@example.com",
-        )
-        add_student_button = gr.Button("Legg til student", variant="primary")
-        gr.Markdown("### Importer studenter fra CSV")
-        gr.Markdown(
-            "Last opp en CSV-fil med én e-postadresse per rad. "
-            "Valgfri overskriftsrad støttes, og tomme rader ignoreres."
-        )
-        import_students_file = gr.File(
-            label="CSV med student-e-poster",
-            file_count="single",
-            file_types=[".csv"],
-            type="filepath",
-        )
-        import_students_button = gr.Button("Importer studenter", variant="secondary")
-        import_results = gr.Markdown()
+        with gr.Tabs(selected=TEACHER_COURSE_TAB_STUDENTS) as tabs:
+            with gr.Tab("Studenter", id=TEACHER_COURSE_TAB_STUDENTS):
+                students_list = gr.Markdown("Ingen studenter ennå.")
+                add_student_username = gr.Textbox(
+                    label="Studentens e-post",
+                    placeholder="student@example.com",
+                )
+                add_student_button = gr.Button("Legg til student", variant="primary")
+                gr.Markdown("### Importer studenter fra CSV")
+                gr.Markdown(
+                    "Last opp en CSV-fil med én e-postadresse per rad. "
+                    "Valgfri overskriftsrad støttes, og tomme rader ignoreres."
+                )
+                import_students_file = gr.File(
+                    label="CSV med student-e-poster",
+                    file_count="single",
+                    file_types=[".csv"],
+                    type="filepath",
+                )
+                import_students_button = gr.Button("Importer studenter", variant="secondary")
+                import_results = gr.Markdown()
 
-        gr.Markdown("## Kursmateriale")
-        upload_files = gr.File(
-            label="Velg filer",
-            file_count="multiple",
-            type="filepath",
-        )
-        upload_button = gr.Button("Last opp filer", variant="primary")
-        gr.Markdown("Velg ett eller flere materialer under for sletting.")
-        gr.Markdown("Ingestering starter for alle stagede endringer i kurset.")
-        materials_list = gr.CheckboxGroup(
-            choices=[],
-            value=[],
-            label="Kursmateriell",
-        )
-        with gr.Row():
-            delete_material_button = gr.Button("Slett valgte materialer")
-            refresh_materials_button = gr.Button("Oppdater materialliste")
+            with gr.Tab("Kursmateriale", id=TEACHER_COURSE_TAB_MATERIALS):
+                upload_files = gr.File(
+                    label="Velg filer",
+                    file_count="multiple",
+                    type="filepath",
+                )
+                upload_button = gr.Button("Last opp filer", variant="primary")
+                gr.Markdown("Velg ett eller flere materialer under for sletting.")
+                gr.Markdown("Ingestering starter for alle stagede endringer i kurset.")
+                materials_list = gr.CheckboxGroup(
+                    choices=[],
+                    value=[],
+                    label="Kursmateriell",
+                )
+                with gr.Row():
+                    delete_material_button = gr.Button("Slett valgte materialer")
+                    refresh_materials_button = gr.Button("Oppdater materialliste")
 
-        gr.Markdown("## Ingestering (oppsummering)")
-        with gr.Row():
-            start_ingestion_button = gr.Button("Start ingestering", variant="primary")
-            refresh_ingestion_button = gr.Button("Oppdater status")
-        ingestion_status = gr.Markdown("Ingen ingesteringstatus ennå.")
+                gr.Markdown("## Ingestering (oppsummering)")
+                with gr.Row():
+                    start_ingestion_button = gr.Button("Start ingestering", variant="primary")
+                    refresh_ingestion_button = gr.Button("Oppdater status")
+                ingestion_status = gr.Markdown("Ingen ingesteringstatus ennå.")
 
-        gr.Markdown("## Kursinstruksjoner for modellen")
-        gr.Markdown(
-            "Legg til egne instruksjoner som blir lagt til systemprompten for dette faget. "
-            "Det er foreløpig ikke mulig å hente eksisterende lagrede instruksjoner."
-        )
-        course_instructions_input = gr.Textbox(
-            label="Instruksjoner (maks 3000 tegn)",
-            placeholder=(
-                "Eksempel: Prioriter pensumbegreper fra uke 1–5, bruk norske fagtermer, "
-                "og gi korte stegvise hint før fasitsvar."
-            ),
-            lines=8,
-            max_lines=12,
-        )
-        course_instructions_counter = gr.Markdown(_course_instructions_counter_text(""))
-        save_course_instructions_button = gr.Button(
-            "Lagre instruksjoner",
-            variant="primary",
-        )
+            with gr.Tab("Kursinstruksjoner", id=TEACHER_COURSE_TAB_INSTRUCTIONS):
+                gr.Markdown(
+                    "Legg til egne instruksjoner som blir lagt til systemprompten for dette faget. "
+                    "Det er foreløpig ikke mulig å hente eksisterende lagrede instruksjoner."
+                )
+                course_instructions_input = gr.Textbox(
+                    label="Instruksjoner (maks 3000 tegn)",
+                    placeholder=(
+                        "Eksempel: Prioriter pensumbegreper fra uke 1–5, bruk norske fagtermer, "
+                        "og gi korte stegvise hint før fasitsvar."
+                    ),
+                    lines=8,
+                    max_lines=12,
+                )
+                course_instructions_counter = gr.Markdown(_course_instructions_counter_text(""))
+                save_course_instructions_button = gr.Button(
+                    "Lagre instruksjoner",
+                    variant="primary",
+                )
 
         status_text = gr.Markdown()
-        back_button = gr.Button("Tilbake")
 
     return TeacherCoursePageComponents(
         group=group,
+        tabs=tabs,
         back_button=back_button,
         course_title=course_title,
         students_list=students_list,
