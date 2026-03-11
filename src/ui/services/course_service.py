@@ -238,10 +238,19 @@ def unenroll_user(token: str, course_id: str, user_id: str) -> tuple[bool, str]:
     return True, "Bruker fjernet fra faget."
 
 
-def list_enrollments(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:
-    """Fetch enrollments in a course."""
+def list_course_students(
+    token: str,
+    course_id: str,
+    *,
+    page: int = 1,
+    page_size: int = 100,
+) -> tuple[list[dict[str, Any]], str]:
+    """Fetch student users in a course."""
     try:
-        data = get(f"/courses/{course_id}/enrollments", token=token)
+        data = get(
+            f"/courses/{course_id}/students?page={page}&page_size={page_size}",
+            token=token,
+        )
     except ApiUnauthorizedError:
         return [], "Sessionen er utløpt — logg inn på nytt."
     except ApiError as exc:
@@ -249,13 +258,16 @@ def list_enrollments(token: str, course_id: str) -> tuple[list[dict[str, Any]], 
             return [], "Ikke tillatt."
         if exc.status == 404:
             return [], "Fant ikke faget."
-        return [], f"Kunne ikke hente registreringer: {exc.detail}"
+        return [], f"Kunne ikke hente studenter: {exc.detail}"
     except Exception as exc:
         return [], f"Kunne ikke nå API-serveren: {exc}"
 
-    if not isinstance(data, list):
+    if not isinstance(data, dict):
         return [], "Uventet svar fra serveren."
-    return [item for item in data if isinstance(item, dict)], ""
+    items = data.get("items")
+    if not isinstance(items, list):
+        return [], "Uventet svar fra serveren."
+    return [item for item in items if isinstance(item, dict)], ""
 
 
 def list_materials(token: str, course_id: str) -> tuple[list[dict[str, Any]], str]:

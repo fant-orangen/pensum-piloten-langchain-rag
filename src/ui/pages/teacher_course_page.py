@@ -204,22 +204,19 @@ def teacher_course_students_text(state: dict[str, Any]) -> str:
     if not token:
         return "Sessionen er utløpt — logg inn på nytt."
 
-    enrollments, err = _course_api.list_enrollments(token, course_id)
+    students, err = _course_api.list_course_students(token, course_id)
     if err:
         return err
-    if not enrollments:
+    if not students:
         return "Ingen studenter ennå."
 
     lines: list[str] = []
-    for item in enrollments:
-        user = item.get("user", {}) if isinstance(item, dict) else {}
-        role = str(item.get("role") or "student")
-        role_label = "Lærer" if role == "teacher" else "Student"
-        email = str(user.get("email") or "-")
-        first = str(user.get("first_name") or "").strip()
-        last = str(user.get("last_name") or "").strip()
+    for item in students:
+        email = str(item.get("email") or "-")
+        first = str(item.get("first_name") or "").strip()
+        last = str(item.get("last_name") or "").strip()
         name = " ".join(part for part in (first, last) if part) or email
-        lines.append(f"- {role_label}: {name} ({email})")
+        lines.append(f"- Student: {name} ({email})")
     return "\n".join(lines)
 
 
