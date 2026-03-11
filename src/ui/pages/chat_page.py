@@ -26,8 +26,7 @@ CHAT_PAGE_CSS = """
 }
 
 #chat-sidebar-column,
-#chat-main-column,
-#chat-references-column {
+#chat-main-column {
     min-width: 0;
 }
 
@@ -54,6 +53,17 @@ CHAT_PAGE_CSS = """
     color: #6b7280;
 }
 
+.chat-page-toolbar {
+    align-items: flex-start;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.chat-page-toolbar > div:last-child {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .chat-status-text p {
     margin-bottom: 0;
 }
@@ -64,7 +74,6 @@ CHAT_PAGE_CSS = """
 }
 
 #chat-workspace {
-    gap: 1rem;
     align-items: stretch;
 }
 
@@ -101,8 +110,51 @@ CHAT_PAGE_CSS = """
     border-radius: 16px;
 }
 
+#chat-open-references-button,
+#chat-close-references-button {
+    min-height: 46px;
+}
+
+#chat-references-drawer {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    width: min(28rem, calc(100vw - 2rem));
+    height: calc(100vh - 2rem);
+}
+
+#chat-references-drawer > .gr-block,
+#chat-references-drawer > div {
+    height: 100%;
+}
+
+.chat-drawer-surface {
+    height: 100%;
+    border: 1px solid #eadac6;
+    border-radius: 24px;
+    background: linear-gradient(180deg, #fffdfa 0%, #fff6ee 100%);
+    box-shadow: 0 28px 80px rgba(55, 33, 11, 0.18);
+}
+
+.chat-drawer-surface > .gr-block,
+.chat-drawer-surface > div {
+    height: 100%;
+    gap: 0.9rem;
+}
+
+.chat-drawer-header {
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.chat-drawer-title h3 {
+    margin-bottom: 0;
+}
+
 #chat-references-panel {
-    max-height: 700px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
@@ -111,17 +163,6 @@ CHAT_PAGE_CSS = """
 
 #chat-references-panel > div {
     max-width: 100%;
-}
-
-#chat-references-accordion {
-    border: 1px solid #eadac6;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.72);
-}
-
-#chat-references-accordion label,
-#chat-references-accordion summary {
-    font-weight: 700;
 }
 
 .chat-reference-panel {
@@ -195,8 +236,12 @@ CHAT_PAGE_CSS = """
         flex-wrap: wrap;
     }
 
-    #chat-workspace {
-        flex-wrap: wrap;
+    #chat-references-drawer {
+        inset: auto 0 0 0;
+        width: 100%;
+        height: min(78vh, 44rem);
+        top: auto;
+        right: auto;
     }
 
     .chat-reference-summary {
@@ -228,7 +273,10 @@ class ChatPageComponents:
     chatbot: gr.Chatbot
     message: gr.Textbox
     send_button: gr.Button
-    references_accordion: gr.Accordion
+    references_drawer_state: gr.State
+    open_references_button: gr.Button
+    close_references_button: gr.Button
+    references_drawer: gr.Group
     references_panel: gr.HTML
     references_status: gr.Markdown
 
@@ -241,6 +289,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         route_state = gr.State(None)
         conversation_state = gr.State(_default_conversation_state())
         source_history_state = gr.State([])
+        references_drawer_state = gr.State(False)
 
         with gr.Row(elem_id="chat-page-layout"):
             with gr.Column(
@@ -278,15 +327,26 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 elem_classes=["chat-layout-column"],
             ):
                 with gr.Group(elem_classes=["chat-shell-card", "chat-main-panel"]):
-                    gr.Markdown("# Chat", elem_classes=["chat-page-title"])
-                    gr.Markdown("Chat med tutor (RAG).", elem_classes=["chat-page-subtitle"])
-                    open_conversation = gr.Markdown(
-                        _open_conversation_text(None),
-                        elem_classes=["chat-status-text"],
-                    )
-                    status = gr.Markdown("", elem_classes=["chat-muted-text", "chat-status-text"])
+                    with gr.Row(elem_classes=["chat-page-toolbar"]):
+                        with gr.Column(scale=4, min_width=320):
+                            gr.Markdown("# Chat", elem_classes=["chat-page-title"])
+                            gr.Markdown("Chat med tutor (RAG).", elem_classes=["chat-page-subtitle"])
+                            open_conversation = gr.Markdown(
+                                _open_conversation_text(None),
+                                elem_classes=["chat-status-text"],
+                            )
+                            status = gr.Markdown(
+                                "",
+                                elem_classes=["chat-muted-text", "chat-status-text"],
+                            )
+                        with gr.Column(scale=1, min_width=180):
+                            open_references_button = gr.Button(
+                                "Kildereferanser",
+                                variant="secondary",
+                                elem_id="chat-open-references-button",
+                            )
                     with gr.Row(elem_id="chat-workspace"):
-                        with gr.Column(scale=4, min_width=420):
+                        with gr.Column(scale=1, min_width=420):
                             with gr.Group(
                                 elem_classes=["chat-shell-card", "chat-workspace-panel"],
                             ):
@@ -302,29 +362,23 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                                     send_button = gr.Button("Send", variant="primary")
                                     back_button = gr.Button("Tilbake")
 
-                        with gr.Column(
-                            scale=2,
-                            min_width=320,
-                            elem_id="chat-references-column",
-                            elem_classes=["chat-layout-column"],
-                        ):
-                            with gr.Group(
-                                elem_classes=["chat-shell-card", "chat-workspace-panel"],
-                            ):
-                                references_accordion = gr.Accordion(
-                                    "Kildereferanser",
-                                    open=True,
-                                    elem_id="chat-references-accordion",
-                                )
-                                with references_accordion:
-                                    references_status = gr.Markdown(
-                                        _REFERENCE_DEFAULT_STATUS,
-                                        elem_classes=["chat-muted-text", "chat-status-text"],
-                                    )
-                                    references_panel = gr.HTML(
-                                        value=_empty_reference_panel(),
-                                        elem_id="chat-references-panel",
-                                    )
+        with gr.Group(visible=False, elem_id="chat-references-drawer") as references_drawer:
+            with gr.Group(elem_classes=["chat-drawer-surface"]):
+                with gr.Row(elem_classes=["chat-drawer-header"]):
+                    gr.Markdown("### Kildereferanser", elem_classes=["chat-drawer-title"])
+                    close_references_button = gr.Button(
+                        "Lukk",
+                        variant="secondary",
+                        elem_id="chat-close-references-button",
+                    )
+                references_status = gr.Markdown(
+                    _REFERENCE_DEFAULT_STATUS,
+                    elem_classes=["chat-muted-text", "chat-status-text"],
+                )
+                references_panel = gr.HTML(
+                    value=_empty_reference_panel(),
+                    elem_id="chat-references-panel",
+                )
 
     return ChatPageComponents(
         group=group,
@@ -344,7 +398,10 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         chatbot=chatbot,
         message=message,
         send_button=send_button,
-        references_accordion=references_accordion,
+        references_drawer_state=references_drawer_state,
+        open_references_button=open_references_button,
+        close_references_button=close_references_button,
+        references_drawer=references_drawer,
         references_panel=references_panel,
         references_status=references_status,
     )
