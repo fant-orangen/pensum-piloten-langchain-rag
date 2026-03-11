@@ -10,9 +10,11 @@ import src.ui.services.conversation_service as conversation_service
 
 
 def _assert_reference_block(panel: str, *, document: str, page: str, excerpt: str) -> None:
+    assert f'<span class="chat-reference-document">{document}</span>' in panel
+    assert f'<span class="chat-reference-page">Side {page}</span>' in panel
     assert f"Dokument:</strong> {document}" in panel
     assert f"Side:</strong> {page}" in panel
-    assert f"Tekst:</strong> {excerpt}" in panel
+    assert f'<div class="chat-reference-excerpt">{excerpt}</div>' in panel
 
 
 def test_render_reference_panel_for_single_source() -> None:
@@ -21,11 +23,13 @@ def test_render_reference_panel_for_single_source() -> None:
     )
 
     _assert_reference_block(panel, document="doc1.pdf", page="4", excerpt="chunk")
-    assert panel.count('class="chat-reference-entry"') == 1
+    assert panel.count('<details class="chat-reference-entry">') == 1
+    assert "<summary" in panel
+    assert 'open="' not in panel
     assert "<hr" not in panel
 
 
-def test_render_reference_panel_for_multiple_sources_adds_separators() -> None:
+def test_render_reference_panel_for_multiple_sources_renders_collapsible_cards() -> None:
     panel = chat_page._render_reference_panel_for_sources(
         [
             {"document": "doc1.pdf", "page": "4", "excerpt": "chunk 1"},
@@ -35,8 +39,8 @@ def test_render_reference_panel_for_multiple_sources_adds_separators() -> None:
 
     _assert_reference_block(panel, document="doc1.pdf", page="4", excerpt="chunk 1")
     _assert_reference_block(panel, document="doc2.pdf", page="9", excerpt="chunk 2")
-    assert panel.count('class="chat-reference-entry"') == 2
-    assert panel.count("<hr") == 1
+    assert panel.count('<details class="chat-reference-entry">') == 2
+    assert panel.count('<summary class="chat-reference-summary">') == 2
 
 
 def test_render_reference_panel_uses_fallbacks_for_missing_page_and_excerpt() -> None:
@@ -50,6 +54,26 @@ def test_render_reference_panel_uses_fallbacks_for_missing_page_and_excerpt() ->
         page="Ukjent",
         excerpt="Ingen tekst tilgjengelig.",
     )
+
+
+def test_render_reference_panel_uses_cleaned_excerpt_text() -> None:
+    normalized = conversation_service.normalize_sources_payload(
+        [
+            {
+                "document": "<doc>.pdf",
+                "page": "3",
+                "excerpt": "<p>&Aring;pningslinje</p><script>bad()</script><br>linje 2",
+            }
+        ]
+    )
+    panel = chat_page._render_reference_panel_for_sources(normalized)
+
+    assert "&lt;doc&gt;.pdf" in panel
+    assert "<doc>.pdf" not in panel
+    assert "bad()" not in panel
+    assert "Åpningslinje<br>linje 2" in panel
+    assert "&Aring;" not in panel
+    assert "<script>" not in panel
 
 
 def test_render_reference_panel_escapes_html_and_preserves_line_breaks() -> None:

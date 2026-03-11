@@ -24,6 +24,22 @@ def test_normalize_sources_payload_handles_structured_legacy_and_malformed() -> 
     ]
 
 
+def test_normalize_sources_payload_cleans_html_entities_tags_and_line_breaks() -> None:
+    normalized = conversation_service.normalize_sources_payload(
+        [
+            {
+                "document": "doc.pdf",
+                "page": 1,
+                "excerpt": "<p>&Aring;pning</p><script>bad()</script><br>linje 2&nbsp;&nbsp;her",
+            }
+        ]
+    )
+
+    assert normalized == [
+        {"document": "doc.pdf", "page": "1", "excerpt": "Åpning\nlinje 2 her"}
+    ]
+
+
 def test_normalize_sources_payload_truncates_long_excerpt() -> None:
     long_text = "word " * 100
 
