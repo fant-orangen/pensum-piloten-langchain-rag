@@ -62,8 +62,11 @@ from src.ui.pages.chat_handlers import (
     _bootstrap_chat_on_route_handler,
     _chat_handler,
     _chatbot_select_handler,
+    _close_reference_drawer_handler,
     _load_conversation_handler,
     _new_conversation_handler,
+    _open_reference_drawer_handler,
+    _reference_drawer_from_panel_handler,
     _refresh_handler,
     _reset_scope_handler,
 )
@@ -391,6 +394,10 @@ def build_main_app() -> gr.Blocks:
             chat_page.references_panel,
             chat_page.references_status,
         ]
+        reference_drawer_outputs = [
+            chat_page.references_drawer_state,
+            chat_page.references_drawer,
+        ]
         route_bootstrap_outputs = chat_outputs + [chat_page.course_id_state]
 
         auth_page.login_button.click(
@@ -549,7 +556,7 @@ def build_main_app() -> gr.Blocks:
                 inputs=[app_state],
                 outputs=app_outputs,
             )
-        chat_page.send_button.click(
+        send_click = chat_page.send_button.click(
             fn=_chat_handler,
             inputs=[
                 chat_page.message,
@@ -562,7 +569,12 @@ def build_main_app() -> gr.Blocks:
             ],
             outputs=chat_outputs,
         )
-        chat_page.message.submit(
+        send_click.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        message_submit = chat_page.message.submit(
             fn=_chat_handler,
             inputs=[
                 chat_page.message,
@@ -575,7 +587,12 @@ def build_main_app() -> gr.Blocks:
             ],
             outputs=chat_outputs,
         )
-        chat_page.chatbot.select(
+        message_submit.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        chatbot_select = chat_page.chatbot.select(
             fn=_chatbot_select_handler,
             inputs=[
                 chat_page.source_history_state,
@@ -588,12 +605,25 @@ def build_main_app() -> gr.Blocks:
                 chat_page.references_status,
             ],
         )
-        chat_page.conversation_selector.change(
+        chatbot_select.success(
+            fn=_reference_drawer_from_panel_handler,
+            inputs=[
+                chat_page.references_panel,
+                chat_page.references_status,
+            ],
+            outputs=reference_drawer_outputs,
+        )
+        conversation_change = chat_page.conversation_selector.change(
             fn=_load_conversation_handler,
             inputs=[chat_page.conversation_selector, chat_page.token_state, chat_page.course_id_state],
             outputs=chat_outputs,
         )
-        chat_page.new_conversation_button.click(
+        conversation_change.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        new_conversation_click = chat_page.new_conversation_button.click(
             fn=_new_conversation_handler,
             inputs=[
                 chat_page.token_state,
@@ -602,7 +632,12 @@ def build_main_app() -> gr.Blocks:
             ],
             outputs=chat_outputs,
         )
-        chat_page.refresh_button.click(
+        new_conversation_click.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        refresh_click = chat_page.refresh_button.click(
             fn=_refresh_handler,
             inputs=[
                 chat_page.conversation_state,
@@ -621,20 +656,50 @@ def build_main_app() -> gr.Blocks:
                 chat_page.references_status,
             ],
         )
-        chat_page.route_state.change(
+        refresh_click.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        route_change = chat_page.route_state.change(
             fn=_bootstrap_chat_on_route_handler,
             inputs=[chat_page.route_state, chat_page.token_state, chat_page.course_id_state],
             outputs=route_bootstrap_outputs,
         )
-        chat_page.token_state.change(
+        route_change.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        token_change = chat_page.token_state.change(
             fn=_reset_scope_handler,
             inputs=[chat_page.token_state, chat_page.course_id_state],
             outputs=chat_outputs,
         )
-        chat_page.course_id_state.change(
+        token_change.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        course_change = chat_page.course_id_state.change(
             fn=_reset_scope_handler,
             inputs=[chat_page.token_state, chat_page.course_id_state],
             outputs=chat_outputs,
+        )
+        course_change.success(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        chat_page.open_references_button.click(
+            fn=_open_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
+        )
+        chat_page.close_references_button.click(
+            fn=_close_reference_drawer_handler,
+            inputs=None,
+            outputs=reference_drawer_outputs,
         )
         chat_page.back_button.click(
             fn=_handle_back_to_home,
