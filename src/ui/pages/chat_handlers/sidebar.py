@@ -15,7 +15,7 @@ from src.ui.pages.chat_handlers.contracts import (
     ChatRefreshOutputs,
 )
 from src.ui.pages.chat_handlers.references import (
-    _empty_reference_rows,
+    _empty_reference_panel,
     _reference_panel_from_history,
     _visible_history_from_source_history,
 )
@@ -97,7 +97,7 @@ def _load_conversation_handler(
             "",
             _open_conversation_text(None),
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -117,7 +117,7 @@ def _load_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -134,7 +134,7 @@ def _load_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -152,7 +152,7 @@ def _load_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -175,7 +175,7 @@ def _load_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -193,7 +193,7 @@ def _load_conversation_handler(
             count_text,
             open_text,
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -210,7 +210,7 @@ def _load_conversation_handler(
         course_id=course_id,
         status_message=f"Lastet samtale: {title}.",
     )
-    reference_rows, reference_status = _reference_panel_from_history(source_history)
+    reference_panel, reference_status = _reference_panel_from_history(source_history)
     return (
         "",
         _visible_history_from_source_history(source_history),
@@ -220,7 +220,7 @@ def _load_conversation_handler(
         count_text,
         open_text,
         source_history,
-        reference_rows,
+        reference_panel,
         reference_status,
     )
 
@@ -242,7 +242,7 @@ def _refresh_handler(
             _open_conversation_text(None),
             _default_conversation_state(),
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -254,7 +254,7 @@ def _refresh_handler(
             _open_conversation_text(None),
             _default_conversation_state(),
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
@@ -273,7 +273,7 @@ def _refresh_handler(
         "course_id": active_course_id if selected_conv else None,
     }
     next_source_history = list(source_history or []) if resolved_value else []
-    reference_rows, reference_status = _reference_panel_from_history(next_source_history)
+    reference_panel, reference_status = _reference_panel_from_history(next_source_history)
     status_text = err or "Samtalelisten er oppdatert."
     return (
         gr.update(choices=choices, value=resolved_value),
@@ -282,6 +282,6 @@ def _refresh_handler(
         _open_conversation_text(next_state.get("title")),
         next_state if resolved_value else _default_conversation_state(),
         next_source_history,
-        reference_rows if resolved_value else _empty_reference_rows(),
+        reference_panel if resolved_value else _empty_reference_panel(),
         reference_status if resolved_value else _REFERENCE_DEFAULT_STATUS,
     )

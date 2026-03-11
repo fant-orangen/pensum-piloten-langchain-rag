@@ -11,7 +11,10 @@ from src.api.models.user import User
 from src.api.schemas.course import (
     CourseCreate,
     CourseDocumentRead,
+    CourseInstructionsRead,
     CourseInstructionsUpdate,
+    EnrollmentImportConfirmRead,
+    EnrollmentImportPreviewRead,
     CourseMaterialsStatusRead,
     CourseRead,
     CourseStudentRead,
@@ -28,12 +31,16 @@ from src.api.services.course_documents import (
     stage_course_documents,
 )
 from src.api.services.courses import (
+    cancel_enrollment_import,
+    confirm_enrollment_import,
     create_course,
     delete_course,
     enroll_user,
+    get_course_specific_instructions,
     get_available_courses,
     get_course_students,
     get_enrolled_courses,
+    preview_enrollment_import,
     get_responsible_courses,
     unenroll_user,
     update_course_specific_instructions,
@@ -186,6 +193,59 @@ async def update_course_instructions(
     """Update the course-specific prompt instructions for a course."""
     course = await update_course_specific_instructions(current_user, course_id, body, db)
     return CourseRead.model_validate(course)
+
+
+@router.get("/{course_id}/instructions", response_model=CourseInstructionsRead)
+async def read_course_instructions(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseInstructionsRead:
+    """Return the current course-specific prompt instructions for a course."""
+    return await get_course_specific_instructions(current_user, course_id, db)
+
+
+@router.post(
+    "/{course_id}/enrollment-imports/preview",
+    response_model=EnrollmentImportPreviewRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def preview_enrollment_csv(
+    course_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentImportPreviewRead:
+    """Parse a CSV of student emails and stage a preview for confirmation."""
+    return await preview_enrollment_import(current_user, course_id, file, db)
+
+
+@router.post(
+    "/{course_id}/enrollment-imports/{preview_id}/confirm",
+    response_model=EnrollmentImportConfirmRead,
+)
+async def confirm_enrollment_csv(
+    course_id: uuid.UUID,
+    preview_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentImportConfirmRead:
+    """Confirm a staged enrollment import and delete the preview entry."""
+    return await confirm_enrollment_import(current_user, course_id, preview_id, db)
+
+
+@router.delete(
+    "/{course_id}/enrollment-imports/{preview_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def cancel_enrollment_csv(
+    course_id: uuid.UUID,
+    preview_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Cancel a staged enrollment import and delete the preview entry."""
+    await cancel_enrollment_import(current_user, course_id, preview_id, db)
 
 
 @router.post(

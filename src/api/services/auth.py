@@ -10,10 +10,12 @@ from src.api.schemas.auth import RegisterRequest
 
 
 def hash_password(password: str) -> str:
+    """Return a bcrypt hash of the given plaintext password."""
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
+    """Return True if the plaintext password matches the stored bcrypt hash."""
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 

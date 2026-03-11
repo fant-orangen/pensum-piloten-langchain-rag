@@ -9,10 +9,9 @@ import gradio as gr
 from src.ui.pages.chat_handlers import (
     _MODE_CHOICES,
     _REFERENCE_DEFAULT_STATUS,
-    _REFERENCE_HEADERS,
     _conversation_count_text,
     _default_conversation_state,
-    _empty_reference_rows,
+    _empty_reference_panel,
     _open_conversation_text,
 )
 
@@ -38,7 +37,7 @@ class ChatPageComponents:
     chatbot: gr.Chatbot
     message: gr.Textbox
     send_button: gr.Button
-    references_table: gr.Dataframe
+    references_panel: gr.HTML
     references_status: gr.Markdown
 
 
@@ -91,14 +90,9 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                     with gr.Column(scale=2, min_width=320):
                         gr.Markdown("### Kildereferanser")
                         references_status = gr.Markdown(_REFERENCE_DEFAULT_STATUS)
-                        references_table = gr.Dataframe(
-                            headers=_REFERENCE_HEADERS,
-                            datatype=["str", "str", "str"],
-                            value=_empty_reference_rows(),
-                            interactive=False,
-                            wrap=True,
-                            row_count=(0, "dynamic"),
-                            col_count=(3, "fixed"),
+                        references_panel = gr.HTML(
+                            value=_empty_reference_panel(),
+                            elem_id="chat-references-panel",
                         )
 
     return ChatPageComponents(
@@ -119,6 +113,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         chatbot=chatbot,
         message=message,
         send_button=send_button,
-        references_table=references_table,
+        references_panel=references_panel,
         references_status=references_status,
     )

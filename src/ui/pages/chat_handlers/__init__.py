@@ -14,18 +14,17 @@ from src.ui.pages.chat_handlers.common import (
 from src.ui.pages.chat_handlers.contracts import (
     _MODE_CHOICES,
     _REFERENCE_DEFAULT_STATUS,
-    _REFERENCE_HEADERS,
 )
 from src.ui.pages.chat_handlers.messaging import _chat_handler, _new_conversation_handler
 from src.ui.pages.chat_handlers.references import (
     _chatbot_select_handler,
     _coerce_source_history,
-    _empty_reference_rows,
+    _empty_reference_panel,
     _latest_assistant_sources,
     _normalize_reference_entry,
     _reference_panel_from_history,
     _reference_panel_from_sources,
-    _reference_rows_for_sources,
+    _render_reference_panel_for_sources,
     _selected_message_index,
     _visible_history_from_source_history,
 )
@@ -43,14 +42,13 @@ from src.ui.pages.chat_handlers.sidebar import (
 __all__ = [
     "_MODE_CHOICES",
     "_REFERENCE_DEFAULT_STATUS",
-    "_REFERENCE_HEADERS",
     "_bootstrap_chat_on_route_handler",
     "_chat_handler",
     "_chatbot_select_handler",
     "_coerce_source_history",
     "_conversation_count_text",
     "_default_conversation_state",
-    "_empty_reference_rows",
+    "_empty_reference_panel",
     "_fetch_conversations",
     "_fetch_messages",
     "_get_user_system_prompt_mode",
@@ -62,7 +60,7 @@ __all__ = [
     "_open_conversation_text",
     "_reference_panel_from_history",
     "_reference_panel_from_sources",
-    "_reference_rows_for_sources",
+    "_render_reference_panel_for_sources",
     "_refresh_handler",
     "_refresh_sidebar",
     "_reset_scope_handler",

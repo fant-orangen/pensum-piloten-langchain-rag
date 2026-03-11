@@ -24,6 +24,7 @@ logger = get_service_logger(__name__)
 
 
 def _format_messages_for_summary(messages: list[Message]) -> str:
+    """Format a list of messages as a plain-text dialogue transcript for summarisation."""
     lines: list[str] = []
     for message in messages:
         speaker = "Student" if message.role == "human" else "Tutor"
@@ -40,6 +41,7 @@ def _estimate_history_tokens(
     messages: list[Message],
     pending_user_message: str,
 ) -> int:
+    """Estimate the combined token count of the current summary, recent messages, and the pending question."""
     parts: list[str] = []
     cleaned_summary = (summary or "").strip()
     if cleaned_summary:

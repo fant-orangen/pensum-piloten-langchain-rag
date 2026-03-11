@@ -8,6 +8,59 @@ import src.ui.pages.chat_handlers as chat_page
 import src.ui.services.conversation_service as conversation_service
 
 
+def _assert_reference_block(panel: str, *, document: str, page: str, excerpt: str) -> None:
+    assert f"Dokument:</strong> {document}" in panel
+    assert f"Side:</strong> {page}" in panel
+    assert f"Tekst:</strong> {excerpt}" in panel
+
+
+def test_render_reference_panel_for_single_source() -> None:
+    panel = chat_page._render_reference_panel_for_sources(
+        [{"document": "doc1.pdf", "page": "4", "excerpt": "chunk"}]
+    )
+
+    _assert_reference_block(panel, document="doc1.pdf", page="4", excerpt="chunk")
+    assert panel.count('class="chat-reference-entry"') == 1
+    assert "<hr" not in panel
+
+
+def test_render_reference_panel_for_multiple_sources_adds_separators() -> None:
+    panel = chat_page._render_reference_panel_for_sources(
+        [
+            {"document": "doc1.pdf", "page": "4", "excerpt": "chunk 1"},
+            {"document": "doc2.pdf", "page": "9", "excerpt": "chunk 2"},
+        ]
+    )
+
+    _assert_reference_block(panel, document="doc1.pdf", page="4", excerpt="chunk 1")
+    _assert_reference_block(panel, document="doc2.pdf", page="9", excerpt="chunk 2")
+    assert panel.count('class="chat-reference-entry"') == 2
+    assert panel.count("<hr") == 1
+
+
+def test_render_reference_panel_uses_fallbacks_for_missing_page_and_excerpt() -> None:
+    panel = chat_page._render_reference_panel_for_sources(
+        [{"document": "doc1.pdf", "page": "", "excerpt": ""}]
+    )
+
+    _assert_reference_block(
+        panel,
+        document="doc1.pdf",
+        page="Ukjent",
+        excerpt="Ingen tekst tilgjengelig.",
+    )
+
+
+def test_render_reference_panel_escapes_html_and_preserves_line_breaks() -> None:
+    panel = chat_page._render_reference_panel_for_sources(
+        [{"document": "<doc>.pdf", "page": "3", "excerpt": "<script>\nlinje 2"}]
+    )
+
+    assert "&lt;doc&gt;.pdf" in panel
+    assert "&lt;script&gt;<br>linje 2" in panel
+    assert "<script>" not in panel
+
+
 def test_chatbot_select_handler_populates_panel_for_assistant_message() -> None:
     source_history = [
         {"role": "user", "content": "Q1", "sources": []},
@@ -19,9 +72,14 @@ def test_chatbot_select_handler_populates_panel_for_assistant_message() -> None:
     ]
     evt = SimpleNamespace(index=1, selected=True)
 
-    rows, status = chat_page._chatbot_select_handler(source_history, evt)
+    panel, status = chat_page._chatbot_select_handler(
+        source_history,
+        None,
+        chat_page._default_conversation_state(),
+        evt,
+    )
 
-    assert rows == [["doc1.pdf", "4", "chunk"]]
+    _assert_reference_block(panel, document="doc1.pdf", page="4", excerpt="chunk")
     assert status == "Viser 1 kildehenvisninger."
 
 
@@ -32,9 +90,14 @@ def test_chatbot_select_handler_user_message_clears_panel() -> None:
     ]
     evt = SimpleNamespace(index=0, selected=True)
 
-    rows, status = chat_page._chatbot_select_handler(source_history, evt)
+    panel, status = chat_page._chatbot_select_handler(
+        source_history,
+        None,
+        chat_page._default_conversation_state(),
+        evt,
+    )
 
-    assert rows == []
+    assert panel == ""
     assert status == "Kilder vises bare for tutorsvar."
 
 
@@ -44,9 +107,14 @@ def test_chatbot_select_handler_assistant_without_sources_shows_empty_state() ->
     ]
     evt = SimpleNamespace(index=0, selected=True)
 
-    rows, status = chat_page._chatbot_select_handler(source_history, evt)
+    panel, status = chat_page._chatbot_select_handler(
+        source_history,
+        None,
+        chat_page._default_conversation_state(),
+        evt,
+    )
 
-    assert rows == []
+    assert panel == ""
     assert status == "Ingen kilder registrert for dette svaret."
 
 
@@ -105,7 +173,7 @@ def test_load_handler_auto_populates_latest_assistant_sources(monkeypatch) -> No
         _count,
         _open,
         source_history,
-        ref_rows,
+        ref_panel,
         ref_status,
     ) = chat_page._load_conversation_handler(
         conversation_id="conv-1",
@@ -121,7 +189,7 @@ def test_load_handler_auto_populates_latest_assistant_sources(monkeypatch) -> No
     assert source_history[-1]["sources"] == [
         {"document": "doc1.pdf", "page": "2", "excerpt": "chunk 1"}
     ]
-    assert ref_rows == [["doc1.pdf", "2", "chunk 1"]]
+    _assert_reference_block(ref_panel, document="doc1.pdf", page="2", excerpt="chunk 1")
     assert ref_status == "Viser 1 kildehenvisninger."
 
 
@@ -164,7 +232,7 @@ def test_chat_handler_updates_reference_panel_from_ai_sources(monkeypatch) -> No
         _count,
         _open,
         source_history,
-        ref_rows,
+        ref_panel,
         ref_status,
     ) = chat_page._chat_handler(
         user_message="Q1",
@@ -179,7 +247,7 @@ def test_chat_handler_updates_reference_panel_from_ai_sources(monkeypatch) -> No
     assert source_history[-1]["sources"] == [
         {"document": "doc2.pdf", "page": "6", "excerpt": "chunk 2"}
     ]
-    assert ref_rows == [["doc2.pdf", "6", "chunk 2"]]
+    _assert_reference_block(ref_panel, document="doc2.pdf", page="6", excerpt="chunk 2")
     assert ref_status == "Viser 1 kildehenvisninger."
 
 
@@ -230,7 +298,7 @@ def test_chat_handler_auto_create_preserves_reference_panel_behavior(monkeypatch
         _count,
         _open,
         source_history,
-        ref_rows,
+        ref_panel,
         ref_status,
     ) = chat_page._chat_handler(
         user_message="Q1",
@@ -246,5 +314,5 @@ def test_chat_handler_auto_create_preserves_reference_panel_behavior(monkeypatch
     assert source_history[-1]["sources"] == [
         {"document": "doc3.pdf", "page": "9", "excerpt": "chunk 3"}
     ]
-    assert ref_rows == [["doc3.pdf", "9", "chunk 3"]]
+    _assert_reference_block(ref_panel, document="doc3.pdf", page="9", excerpt="chunk 3")
     assert ref_status == "Viser 1 kildehenvisninger."

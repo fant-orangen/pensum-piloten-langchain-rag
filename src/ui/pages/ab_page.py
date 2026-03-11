@@ -52,6 +52,18 @@ AB_PAGE_CSS = """
     padding: 12px;
     background: #ffffff;
 }
+
+#chat-references-panel {
+    max-height: 700px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    padding-right: 6px;
+}
+
+#chat-references-panel > div {
+    max-width: 100%;
+}
 """
 
 

@@ -6,16 +6,6 @@ from typing import Any
 
 from src.ui.services.api_client import ApiError, ApiUnauthorizedError, get, post
 
-_EXCERPT_PREVIEW_CHARS = 220
-
-
-def _normalize_excerpt(value: Any) -> str:
-    """Return a compact one-line preview for display in the references panel."""
-    text = " ".join(str(value or "").split())
-    if len(text) <= _EXCERPT_PREVIEW_CHARS:
-        return text
-    return text[: _EXCERPT_PREVIEW_CHARS - 3].rstrip() + "..."
-
 
 def _extract_document(value: dict[str, Any]) -> str:
     for key in ("document", "source_file", "filename", "file", "source", "name"):
@@ -38,7 +28,7 @@ def _extract_excerpt(value: dict[str, Any]) -> str:
     for key in ("excerpt", "text", "content", "chunk", "snippet"):
         candidate = value.get(key)
         if isinstance(candidate, str) and candidate.strip():
-            return _normalize_excerpt(candidate)
+            return candidate.strip()
     return ""
 
 

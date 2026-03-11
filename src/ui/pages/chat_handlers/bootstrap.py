@@ -13,7 +13,7 @@ from src.ui.pages.chat_handlers.contracts import (
     ChatBootstrapOutputs,
     ChatOutputs,
 )
-from src.ui.pages.chat_handlers.references import _empty_reference_rows
+from src.ui.pages.chat_handlers.references import _empty_reference_panel
 from src.ui.pages.chat_handlers.sidebar import (
     _conversation_count_text,
     _open_conversation_text,
@@ -74,7 +74,7 @@ def _bootstrap_chat_on_route_handler(
             _conversation_count_text(0),
             _open_conversation_text(None),
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
             None,
         )
@@ -93,7 +93,7 @@ def _bootstrap_chat_on_route_handler(
             _conversation_count_text(0),
             _open_conversation_text(None),
             [],
-            _empty_reference_rows(),
+            _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
             None,
         )
@@ -113,7 +113,7 @@ def _bootstrap_chat_on_route_handler(
         count_text,
         open_text,
         [],
-        _empty_reference_rows(),
+        _empty_reference_panel(),
         _REFERENCE_DEFAULT_STATUS,
         resolved_course_id,
     )
@@ -139,6 +139,6 @@ def _reset_scope_handler(
         _conversation_count_text(0),
         _open_conversation_text(None),
         [],
-        _empty_reference_rows(),
+        _empty_reference_panel(),
         _REFERENCE_DEFAULT_STATUS,
     )
