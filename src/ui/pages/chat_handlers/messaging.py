@@ -19,7 +19,10 @@ from src.ui.pages.chat_handlers.contracts import (
 from src.ui.pages.chat_handlers.references import (
     _coerce_source_history,
     _empty_reference_panel,
+    _hydrate_latest_assistant_sources,
+    _reference_fallback_status,
     _reference_panel_from_history,
+    _reference_panel_from_sources,
     _visible_history_from_source_history,
 )
 from src.ui.pages.chat_handlers.sidebar import _open_conversation_text, _refresh_sidebar
@@ -346,10 +349,23 @@ def _chat_handler(
             "sources": list(ai_msg_data.get("sources") or []),
         },
     ]
-    updated_history = _visible_history_from_source_history(updated_source_history)
-    updated_reference_panel, updated_reference_status = _reference_panel_from_history(
-        updated_source_history
+    hydrated_source_history, hydrated_sources, hydration_error = _hydrate_latest_assistant_sources(
+        updated_source_history,
+        token,
+        conv_id,
     )
+    updated_history = _visible_history_from_source_history(hydrated_source_history)
+    updated_reference_panel, updated_reference_status = _reference_panel_from_history(
+        hydrated_source_history
+    )
+    if hydration_error:
+        if hydrated_sources:
+            updated_reference_panel, _ignored_status = _reference_panel_from_sources(
+                hydrated_sources
+            )
+            updated_reference_status = _reference_fallback_status(hydration_error)
+        else:
+            updated_reference_status = hydration_error
 
     selector_update, count_text, status_text, open_text = _refresh_sidebar(
         token,
@@ -364,7 +380,7 @@ def _chat_handler(
         selector_update,
         count_text,
         open_text,
-        updated_source_history,
+        hydrated_source_history,
         updated_reference_panel,
         updated_reference_status,
     )

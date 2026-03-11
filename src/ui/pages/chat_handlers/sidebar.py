@@ -16,7 +16,10 @@ from src.ui.pages.chat_handlers.contracts import (
 )
 from src.ui.pages.chat_handlers.references import (
     _empty_reference_panel,
+    _hydrate_latest_assistant_sources,
+    _reference_fallback_status,
     _reference_panel_from_history,
+    _reference_panel_from_sources,
     _visible_history_from_source_history,
 )
 from src.ui.pages.chat_state import ChatConversationState, normalize_conversation_state
@@ -210,16 +213,27 @@ def _load_conversation_handler(
         course_id=course_id,
         status_message=f"Lastet samtale: {title}.",
     )
-    reference_panel, reference_status = _reference_panel_from_history(source_history)
+    hydrated_source_history, hydrated_sources, hydration_error = _hydrate_latest_assistant_sources(
+        source_history,
+        token,
+        conversation_id,
+    )
+    reference_panel, reference_status = _reference_panel_from_history(hydrated_source_history)
+    if hydration_error:
+        if hydrated_sources:
+            reference_panel, _ignored_status = _reference_panel_from_sources(hydrated_sources)
+            reference_status = _reference_fallback_status(hydration_error)
+        else:
+            reference_status = hydration_error
     return (
         "",
-        _visible_history_from_source_history(source_history),
+        _visible_history_from_source_history(hydrated_source_history),
         status_text,
         conv_state,
         selector_update,
         count_text,
         open_text,
-        source_history,
+        hydrated_source_history,
         reference_panel,
         reference_status,
     )

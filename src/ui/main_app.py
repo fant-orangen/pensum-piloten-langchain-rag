@@ -581,7 +581,11 @@ def build_main_app() -> gr.Blocks:
                 chat_page.token_state,
                 chat_page.conversation_state,
             ],
-            outputs=[chat_page.references_panel, chat_page.references_status],
+            outputs=[
+                chat_page.source_history_state,
+                chat_page.references_panel,
+                chat_page.references_status,
+            ],
         )
         chat_page.conversation_selector.change(
             fn=_load_conversation_handler,
