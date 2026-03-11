@@ -25,6 +25,72 @@ from src.ui.state import (
     with_selected_course,
 )
 
+TEACHER_PAGE_CSS = """
+.teacher-course-nav .wrap {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.teacher-course-nav .wrap label {
+    position: relative;
+    width: 100%;
+    min-height: 92px;
+    margin: 0;
+    padding: 18px 20px 44px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    background: #ffffff;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.teacher-course-nav .wrap label:hover {
+    border-color: #fb923c;
+    box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.15);
+}
+
+.teacher-course-nav .wrap label:has(input:checked) {
+    border-color: #f97316;
+    background: #fff7ed;
+    box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.22);
+}
+
+.teacher-course-nav .wrap label input,
+.teacher-course-nav .wrap label .gradio-radio,
+.teacher-course-nav .wrap label .radio-item-circle {
+    display: none !important;
+}
+
+.teacher-course-nav .wrap label span {
+    display: block;
+    width: 100%;
+    padding-right: 0;
+    font-weight: 600;
+}
+
+.teacher-course-nav .wrap label::after {
+    content: "Åpne";
+    position: absolute;
+    bottom: 16px;
+    left: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #9a3412;
+}
+
+@media (max-width: 1100px) {
+    .teacher-course-nav .wrap {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .teacher-course-nav .wrap {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+"""
+
 
 @dataclass(slots=True)
 class TeacherPageComponents:
@@ -47,7 +113,7 @@ def teacher_name_text(state: dict[str, Any]) -> str:
 
 
 def _course_choices(courses: list[Any]) -> list[tuple[str, str]]:
-    """Convert a list of course dicts into (label, id) pairs for a Gradio Radio widget."""
+    """Convert a list of course dicts into (label, id) pairs for course navigation controls."""
     return [
         (f"{course['name']} ({course['code']})", course["id"])
         for course in courses
@@ -106,9 +172,19 @@ def build_teacher_page(*, visible: bool) -> TeacherPageComponents:
         gr.Markdown("# Lærer")
         name_text = gr.Markdown("Navn: -")
         gr.Markdown("## Ansvarlig for")
-        responsible_list = gr.Radio(choices=[], value=None, label="Ansvarlig for")
+        responsible_list = gr.Radio(
+            choices=[],
+            value=None,
+            label="Åpne fag du er ansvarlig for",
+            elem_classes=["teacher-course-nav"],
+        )
         gr.Markdown("## Tilgjengelige fag")
-        available_list = gr.Radio(choices=[], value=None, label="Tilgjengelige fag")
+        available_list = gr.Radio(
+            choices=[],
+            value=None,
+            label="Åpne andre fag du har tilgang til",
+            elem_classes=["teacher-course-nav"],
+        )
         gr.Markdown("## Legg til fag")
         add_course_name = gr.Textbox(label="Nytt fag")
         add_course_button = gr.Button("Legg til fag", variant="primary")
