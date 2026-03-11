@@ -4,6 +4,7 @@ from typing import Any
 from pathlib import Path
 
 import src.ui.pages.teacher_course_page as teacher_course_page
+import src.ui.pages.teacher_course_tabs.students_tab as students_tab
 import src.ui.services.course_service as course_service
 from src.ui.state import COURSE_ID_KEY, TOKEN_KEY
 
@@ -15,7 +16,7 @@ def test_teacher_course_students_text_uses_students_endpoint_shape(monkeypatch) 
     }
 
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        students_tab._course_api,
         "list_course_students",
         lambda _token, _course_id: (
             [
@@ -30,7 +31,7 @@ def test_teacher_course_students_text_uses_students_endpoint_shape(monkeypatch) 
         ),
     )
 
-    text = teacher_course_page.teacher_course_students_text(state)
+    text = students_tab.teacher_course_students_text(state)
 
     assert text == "- Student: Ada Lovelace (ada@example.com)"
 
@@ -55,14 +56,14 @@ def test_handle_add_student_refreshes_student_list_after_success(monkeypatch) ->
         captured["role"] = role
         return True, "Bruker lagt til i faget."
 
-    monkeypatch.setattr(teacher_course_page._course_api, "enroll_user", _fake_enroll_user)
+    monkeypatch.setattr(students_tab._course_api, "enroll_user", _fake_enroll_user)
     monkeypatch.setattr(
-        teacher_course_page,
+        students_tab,
         "teacher_course_students_text",
         lambda _state: "- Student: Ada Lovelace (ada@example.com)",
     )
 
-    input_update, students_text, message = teacher_course_page.handle_add_student(
+    input_update, students_text, message = students_tab.handle_add_student(
         state,
         "ada@example.com",
     )
@@ -84,8 +85,8 @@ def test_teacher_course_import_reset_helpers_clear_controls() -> None:
         TOKEN_KEY: "token-3",
     }
 
-    file_update = teacher_course_page.teacher_course_student_import_file_update(state)
-    results_text = teacher_course_page.teacher_course_student_import_results_update(state)
+    file_update = students_tab.teacher_course_student_import_file_update(state)
+    results_text = students_tab.teacher_course_student_import_results_update(state)
 
     assert file_update.get("value") is None
     assert results_text == ""
@@ -118,16 +119,16 @@ def test_handle_import_students_csv_parses_header_and_bom(monkeypatch, tmp_path:
         captured["emails"].append((user_email, role))
         return True, "Bruker lagt til i faget."
 
-    monkeypatch.setattr(teacher_course_page._course_api, "enroll_user", _fake_enroll_user)
+    monkeypatch.setattr(students_tab._course_api, "enroll_user", _fake_enroll_user)
     monkeypatch.setattr(
-        teacher_course_page,
+        students_tab,
         "teacher_course_students_text",
         lambda _state: "- Student: Ada Lovelace (ada@example.com)",
     )
     warnings: list[str] = []
-    monkeypatch.setattr(teacher_course_page.gr, "Warning", warnings.append)
+    monkeypatch.setattr(students_tab.gr, "Warning", warnings.append)
 
-    file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -165,11 +166,11 @@ def test_handle_import_students_csv_ignores_blank_rows_and_duplicates(monkeypatc
         captured.append(user_email)
         return True, "Bruker lagt til i faget."
 
-    monkeypatch.setattr(teacher_course_page._course_api, "enroll_user", _fake_enroll_user)
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
-    monkeypatch.setattr(teacher_course_page.gr, "Warning", lambda _message: None)
+    monkeypatch.setattr(students_tab._course_api, "enroll_user", _fake_enroll_user)
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab.gr, "Warning", lambda _message: None)
 
-    _file_update, _students_text, import_results, _message = teacher_course_page.handle_import_students_csv(
+    _file_update, _students_text, import_results, _message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -188,14 +189,14 @@ def test_handle_import_students_csv_reports_invalid_rows(monkeypatch, tmp_path: 
     csv_path.write_text("email\nnot-an-email\nada@example.com\n", encoding="utf-8")
 
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        students_tab._course_api,
         "enroll_user",
         lambda *_args, **_kwargs: (True, "Bruker lagt til i faget."),
     )
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
-    monkeypatch.setattr(teacher_course_page.gr, "Warning", lambda _message: None)
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab.gr, "Warning", lambda _message: None)
 
-    _file_update, _students_text, import_results, _message = teacher_course_page.handle_import_students_csv(
+    _file_update, _students_text, import_results, _message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -225,11 +226,11 @@ def test_handle_import_students_csv_warns_and_lists_missing_users(monkeypatch, t
             return False, "Fant ingen bruker med e-post 'missing@example.com'."
         return True, "Bruker lagt til i faget."
 
-    monkeypatch.setattr(teacher_course_page._course_api, "enroll_user", _fake_enroll_user)
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
-    monkeypatch.setattr(teacher_course_page.gr, "Warning", warnings.append)
+    monkeypatch.setattr(students_tab._course_api, "enroll_user", _fake_enroll_user)
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab.gr, "Warning", warnings.append)
 
-    _file_update, _students_text, import_results, _message = teacher_course_page.handle_import_students_csv(
+    _file_update, _students_text, import_results, _message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -271,11 +272,11 @@ def test_handle_import_students_csv_handles_mixed_results(monkeypatch, tmp_path:
             return False, "Fant ingen bruker med e-post 'missing@example.com'."
         return False, "Kunne ikke nå API-serveren: timeout"
 
-    monkeypatch.setattr(teacher_course_page._course_api, "enroll_user", _fake_enroll_user)
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
-    monkeypatch.setattr(teacher_course_page.gr, "Warning", lambda _message: None)
+    monkeypatch.setattr(students_tab._course_api, "enroll_user", _fake_enroll_user)
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab.gr, "Warning", lambda _message: None)
 
-    _file_update, _students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    _file_update, _students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -293,7 +294,7 @@ def test_handle_import_students_csv_handles_mixed_results(monkeypatch, tmp_path:
 def test_handle_import_students_csv_requires_token() -> None:
     state: dict[str, Any] = {COURSE_ID_KEY: "course-9"}
 
-    file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         "/tmp/students.csv",
     )
@@ -307,7 +308,7 @@ def test_handle_import_students_csv_requires_token() -> None:
 def test_handle_import_students_csv_requires_course_id() -> None:
     state: dict[str, Any] = {TOKEN_KEY: "token-9"}
 
-    file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         "/tmp/students.csv",
     )
@@ -323,9 +324,9 @@ def test_handle_import_students_csv_requires_file(monkeypatch) -> None:
         COURSE_ID_KEY: "course-10",
         TOKEN_KEY: "token-10",
     }
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
 
-    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    _file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         None,
     )
@@ -343,9 +344,9 @@ def test_handle_import_students_csv_rejects_wrong_extension(monkeypatch, tmp_pat
     file_path = tmp_path / "students.txt"
     file_path.write_text("ada@example.com\n", encoding="utf-8")
 
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
 
-    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    _file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         str(file_path),
     )
@@ -363,9 +364,9 @@ def test_handle_import_students_csv_handles_empty_csv(monkeypatch, tmp_path: Pat
     csv_path = tmp_path / "students.csv"
     csv_path.write_text("email\n\n", encoding="utf-8")
 
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
 
-    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    _file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -383,9 +384,9 @@ def test_handle_import_students_csv_handles_all_invalid_rows(monkeypatch, tmp_pa
     csv_path = tmp_path / "students.csv"
     csv_path.write_text("email\nnot-an-email\nstill-bad\n", encoding="utf-8")
 
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
 
-    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    _file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -416,11 +417,11 @@ def test_handle_import_students_csv_reports_when_all_enrollments_fail(monkeypatc
             return False, "Brukeren er allerede registrert i faget."
         return False, "Fant ingen bruker med e-post 'missing@example.com'."
 
-    monkeypatch.setattr(teacher_course_page._course_api, "enroll_user", _fake_enroll_user)
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
-    monkeypatch.setattr(teacher_course_page.gr, "Warning", lambda _message: None)
+    monkeypatch.setattr(students_tab._course_api, "enroll_user", _fake_enroll_user)
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab.gr, "Warning", lambda _message: None)
 
-    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+    _file_update, students_text, import_results, message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )
@@ -441,9 +442,9 @@ def test_handle_import_students_csv_limits_detail_lines(monkeypatch, tmp_path: P
     invalid_rows = "".join(f"bad-{index}\n" for index in range(12))
     csv_path.write_text(f"email\n{invalid_rows}", encoding="utf-8")
 
-    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(students_tab, "teacher_course_students_text", lambda _state: "students")
 
-    _file_update, _students_text, import_results, _message = teacher_course_page.handle_import_students_csv(
+    _file_update, _students_text, import_results, _message = students_tab.handle_import_students_csv(
         state,
         str(csv_path),
     )

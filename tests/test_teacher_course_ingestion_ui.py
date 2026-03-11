@@ -3,6 +3,7 @@
 from typing import Any
 
 import src.ui.pages.teacher_course_page as teacher_course_page
+import src.ui.pages.teacher_course_tabs.materials_tab as materials_tab
 from src.ui.state import COURSE_ID_KEY, TOKEN_KEY
 
 
@@ -25,13 +26,13 @@ def test_handle_start_ingestion_clears_selection_and_starts_staged_ingestion(mon
         return True, "started", {"id": "job-1"}
 
     monkeypatch.setattr(
-        teacher_course_page,
+        materials_tab,
         "teacher_course_ingestion_status_text",
         lambda _state: "status",
     )
-    monkeypatch.setattr(teacher_course_page._course_api, "start_ingestion", _fake_start_ingestion)
+    monkeypatch.setattr(materials_tab._course_api, "start_ingestion", _fake_start_ingestion)
 
-    selection_update, status_text, message = teacher_course_page.handle_start_ingestion(
+    selection_update, status_text, message = materials_tab.handle_start_ingestion(
         state,
         ["material-a", " ", "material-b"],
     )
@@ -53,7 +54,7 @@ def test_teacher_course_ingestion_status_text_formats_summary(monkeypatch) -> No
     }
 
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        materials_tab._course_api,
         "list_ingestions",
         lambda _token, _course_id: (
             [
@@ -70,7 +71,7 @@ def test_teacher_course_ingestion_status_text_formats_summary(monkeypatch) -> No
         ),
     )
 
-    text = teacher_course_page.teacher_course_ingestion_status_text(state)
+    text = materials_tab.teacher_course_ingestion_status_text(state)
     assert "Status: Bygger indeks" in text
     assert "Venter på ingestering: 3" in text
     assert "Markert for sletting: 1" in text
@@ -86,7 +87,7 @@ def test_handle_delete_material_supports_multi_selection(monkeypatch) -> None:
     captured: list[str] = []
 
     monkeypatch.setattr(
-        teacher_course_page,
+        materials_tab,
         "teacher_course_material_choices_update",
         lambda _state: "delete-update",
     )
@@ -97,9 +98,9 @@ def test_handle_delete_material_supports_multi_selection(monkeypatch) -> None:
         captured.append(material_id)
         return True, "deleted"
 
-    monkeypatch.setattr(teacher_course_page._course_api, "delete_material", _fake_delete_material)
+    monkeypatch.setattr(materials_tab._course_api, "delete_material", _fake_delete_material)
 
-    delete_update, message = teacher_course_page.handle_delete_material(
+    delete_update, message = materials_tab.handle_delete_material(
         state,
         ["material-a", " ", "material-b"],
     )
@@ -115,7 +116,7 @@ def test_material_choices_include_status_labels(monkeypatch) -> None:
         TOKEN_KEY: "token-4",
     }
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        materials_tab._course_api,
         "list_materials",
         lambda _token, _course_id: (
             [
@@ -127,7 +128,7 @@ def test_material_choices_include_status_labels(monkeypatch) -> None:
         ),
     )
 
-    update = teacher_course_page.teacher_course_material_choices_update(state)
+    update = materials_tab.teacher_course_material_choices_update(state)
     choice_labels = [label for label, _value in update.get("choices", [])]
     assert any(label.endswith("Venter på ingestering") for label in choice_labels)
     assert any(label.endswith("Ingestert") for label in choice_labels)

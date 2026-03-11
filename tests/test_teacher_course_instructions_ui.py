@@ -3,17 +3,18 @@
 from typing import Any
 
 import src.ui.pages.teacher_course_page as teacher_course_page
+import src.ui.pages.teacher_course_tabs.instructions_tab as instructions_tab
 from src.ui.state import COURSE_ID_KEY, TOKEN_KEY
 
 
 def test_handle_course_instructions_input_shows_live_counter() -> None:
-    counter = teacher_course_page.handle_course_instructions_input("abc")
+    counter = instructions_tab.handle_course_instructions_input("abc")
     assert counter == "Tegn brukt: 3/3000"
 
 
 def test_handle_save_course_instructions_requires_course_id() -> None:
     state: dict[str, Any] = {TOKEN_KEY: "token-1"}
-    input_update, counter, message = teacher_course_page.handle_save_course_instructions(
+    input_update, counter, message = instructions_tab.handle_save_course_instructions(
         state,
         "abc",
     )
@@ -25,7 +26,7 @@ def test_handle_save_course_instructions_requires_course_id() -> None:
 
 def test_handle_save_course_instructions_requires_token() -> None:
     state: dict[str, Any] = {COURSE_ID_KEY: "course-1"}
-    input_update, counter, message = teacher_course_page.handle_save_course_instructions(
+    input_update, counter, message = instructions_tab.handle_save_course_instructions(
         state,
         "abc",
     )
@@ -40,18 +41,18 @@ def test_handle_save_course_instructions_rejects_too_long_input(monkeypatch) -> 
         COURSE_ID_KEY: "course-1",
         TOKEN_KEY: "token-1",
     }
-    too_long = "x" * (teacher_course_page.MAX_COURSE_INSTRUCTIONS_CHARS + 1)
+    too_long = "x" * (instructions_tab.MAX_COURSE_INSTRUCTIONS_CHARS + 1)
 
     def _should_not_call(*_args: Any, **_kwargs: Any) -> tuple[bool, str, dict[str, Any] | None]:
         raise AssertionError("API should not be called when input exceeds max length.")
 
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        instructions_tab._course_api,
         "update_course_instructions",
         _should_not_call,
     )
 
-    input_update, counter, message = teacher_course_page.handle_save_course_instructions(
+    input_update, counter, message = instructions_tab.handle_save_course_instructions(
         state,
         too_long,
     )
@@ -79,12 +80,12 @@ def test_handle_save_course_instructions_trims_and_saves(monkeypatch) -> None:
         return True, "lagret", {"id": "course-2"}
 
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        instructions_tab._course_api,
         "update_course_instructions",
         _fake_update_course_instructions,
     )
 
-    input_update, counter, message = teacher_course_page.handle_save_course_instructions(
+    input_update, counter, message = instructions_tab.handle_save_course_instructions(
         state,
         "  Bruk korte svar  ",
     )
@@ -117,12 +118,12 @@ def test_handle_save_course_instructions_empty_text_clears_value(monkeypatch) ->
         return True, "tømt", {"id": "course-3"}
 
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        instructions_tab._course_api,
         "update_course_instructions",
         _fake_update_course_instructions,
     )
 
-    input_update, counter, message = teacher_course_page.handle_save_course_instructions(
+    input_update, counter, message = instructions_tab.handle_save_course_instructions(
         state,
         "   ",
     )
@@ -155,13 +156,13 @@ def test_handle_save_course_instructions_keeps_raw_input_on_api_error(monkeypatc
         return False, "feilet", None
 
     monkeypatch.setattr(
-        teacher_course_page._course_api,
+        instructions_tab._course_api,
         "update_course_instructions",
         _fake_update_course_instructions,
     )
 
     raw_value = "  hold dette  "
-    input_update, counter, message = teacher_course_page.handle_save_course_instructions(
+    input_update, counter, message = instructions_tab.handle_save_course_instructions(
         state,
         raw_value,
     )

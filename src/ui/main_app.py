@@ -354,14 +354,14 @@ def build_main_app() -> gr.Blocks:
             teacher_page.status_text,
             teacher_course_page.tabs,
             teacher_course_page.course_title,
-            teacher_course_page.students_list,
-            teacher_course_page.materials_list,
-            teacher_course_page.import_students_file,
-            teacher_course_page.import_results,
-            teacher_course_page.add_student_username,
-            teacher_course_page.ingestion_status,
-            teacher_course_page.course_instructions_input,
-            teacher_course_page.course_instructions_counter,
+            teacher_course_page.students_tab.students_list,
+            teacher_course_page.materials_tab.materials_list,
+            teacher_course_page.students_tab.import_students_file,
+            teacher_course_page.students_tab.import_results,
+            teacher_course_page.students_tab.add_student_username,
+            teacher_course_page.materials_tab.ingestion_status,
+            teacher_course_page.instructions_tab.course_instructions_input,
+            teacher_course_page.instructions_tab.course_instructions_counter,
             teacher_course_page.status_text,
             student_course_page.course_title,
             auth_page.login_status,
@@ -445,77 +445,77 @@ def build_main_app() -> gr.Blocks:
             inputs=None,
             outputs=app_outputs,
         )
-        teacher_course_page.add_student_button.click(
+        teacher_course_page.students_tab.add_student_button.click(
             fn=_handle_add_student,
-            inputs=[app_state, teacher_course_page.add_student_username],
+            inputs=[app_state, teacher_course_page.students_tab.add_student_username],
             outputs=[
-                teacher_course_page.add_student_username,
-                teacher_course_page.students_list,
+                teacher_course_page.students_tab.add_student_username,
+                teacher_course_page.students_tab.students_list,
                 teacher_course_page.status_text,
             ],
         )
-        teacher_course_page.import_students_button.click(
+        teacher_course_page.students_tab.import_students_button.click(
             fn=_handle_import_students_csv,
-            inputs=[app_state, teacher_course_page.import_students_file],
+            inputs=[app_state, teacher_course_page.students_tab.import_students_file],
             outputs=[
-                teacher_course_page.import_students_file,
-                teacher_course_page.students_list,
-                teacher_course_page.import_results,
+                teacher_course_page.students_tab.import_students_file,
+                teacher_course_page.students_tab.students_list,
+                teacher_course_page.students_tab.import_results,
                 teacher_course_page.status_text,
             ],
         )
-        teacher_course_page.upload_button.click(
+        teacher_course_page.materials_tab.upload_button.click(
             fn=_handle_upload_materials,
-            inputs=[app_state, teacher_course_page.upload_files],
+            inputs=[app_state, teacher_course_page.materials_tab.upload_files],
             outputs=[
-                teacher_course_page.upload_files,
-                teacher_course_page.materials_list,
+                teacher_course_page.materials_tab.upload_files,
+                teacher_course_page.materials_tab.materials_list,
                 teacher_course_page.status_text,
             ],
         )
-        teacher_course_page.delete_material_button.click(
+        teacher_course_page.materials_tab.delete_material_button.click(
             fn=_handle_delete_material,
-            inputs=[app_state, teacher_course_page.materials_list],
+            inputs=[app_state, teacher_course_page.materials_tab.materials_list],
             outputs=[
-                teacher_course_page.materials_list,
+                teacher_course_page.materials_tab.materials_list,
                 teacher_course_page.status_text,
             ],
         )
-        teacher_course_page.refresh_materials_button.click(
+        teacher_course_page.materials_tab.refresh_materials_button.click(
             fn=_handle_refresh_materials,
             inputs=[app_state],
             outputs=[
-                teacher_course_page.materials_list,
+                teacher_course_page.materials_tab.materials_list,
             ],
         )
-        teacher_course_page.start_ingestion_button.click(
+        teacher_course_page.materials_tab.start_ingestion_button.click(
             fn=_handle_start_ingestion,
-            inputs=[app_state, teacher_course_page.materials_list],
+            inputs=[app_state, teacher_course_page.materials_tab.materials_list],
             outputs=[
-                teacher_course_page.materials_list,
-                teacher_course_page.ingestion_status,
+                teacher_course_page.materials_tab.materials_list,
+                teacher_course_page.materials_tab.ingestion_status,
                 teacher_course_page.status_text,
             ],
         )
-        teacher_course_page.refresh_ingestion_button.click(
+        teacher_course_page.materials_tab.refresh_ingestion_button.click(
             fn=_handle_refresh_ingestion,
             inputs=[app_state],
             outputs=[
-                teacher_course_page.ingestion_status,
+                teacher_course_page.materials_tab.ingestion_status,
                 teacher_course_page.status_text,
             ],
         )
-        teacher_course_page.course_instructions_input.input(
+        teacher_course_page.instructions_tab.course_instructions_input.input(
             fn=_handle_course_instructions_input,
-            inputs=[teacher_course_page.course_instructions_input],
-            outputs=[teacher_course_page.course_instructions_counter],
+            inputs=[teacher_course_page.instructions_tab.course_instructions_input],
+            outputs=[teacher_course_page.instructions_tab.course_instructions_counter],
         )
-        teacher_course_page.save_course_instructions_button.click(
+        teacher_course_page.instructions_tab.save_course_instructions_button.click(
             fn=_handle_save_course_instructions,
-            inputs=[app_state, teacher_course_page.course_instructions_input],
+            inputs=[app_state, teacher_course_page.instructions_tab.course_instructions_input],
             outputs=[
-                teacher_course_page.course_instructions_input,
-                teacher_course_page.course_instructions_counter,
+                teacher_course_page.instructions_tab.course_instructions_input,
+                teacher_course_page.instructions_tab.course_instructions_counter,
                 teacher_course_page.status_text,
             ],
         )
