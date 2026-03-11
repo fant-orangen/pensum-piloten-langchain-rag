@@ -27,14 +27,17 @@ from src.ui.state import (
 
 TEACHER_PAGE_CSS = """
 .teacher-course-nav .wrap {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
 }
 
 .teacher-course-nav .wrap label {
     position: relative;
     width: 100%;
+    min-height: 92px;
     margin: 0;
-    padding: 16px 20px;
+    padding: 18px 20px 44px;
     border: 1px solid #d1d5db;
     border-radius: 12px;
     background: #ffffff;
@@ -61,19 +64,30 @@ TEACHER_PAGE_CSS = """
 .teacher-course-nav .wrap label span {
     display: block;
     width: 100%;
-    padding-right: 28px;
+    padding-right: 0;
     font-weight: 600;
 }
 
 .teacher-course-nav .wrap label::after {
     content: "Åpne";
     position: absolute;
-    top: 50%;
-    right: 18px;
-    transform: translateY(-50%);
+    bottom: 16px;
+    left: 20px;
     font-size: 0.9rem;
     font-weight: 600;
     color: #9a3412;
+}
+
+@media (max-width: 1100px) {
+    .teacher-course-nav .wrap {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .teacher-course-nav .wrap {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 """
 
