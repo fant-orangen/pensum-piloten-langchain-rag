@@ -93,3 +93,17 @@ async def create_conversation(
     await db.commit()
     await db.refresh(conversation)
     return conversation
+
+
+async def delete_conversation_for_user(
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """Delete one conversation owned by the given user.
+
+    Dependent rows are removed by database-level ON DELETE CASCADE constraints.
+    """
+    conversation = await get_conversation_for_user(conversation_id, user_id, db)
+    await db.delete(conversation)
+    await db.commit()

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import Column
+from sqlalchemy import Column, ForeignKey, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -13,7 +13,13 @@ class Message(SQLModel, table=True):
     __tablename__ = "message"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    conversation_id: uuid.UUID = Field(foreign_key="conversation.id")
+    conversation_id: uuid.UUID = Field(
+        sa_column=Column(
+            Uuid(as_uuid=True),
+            ForeignKey("conversation.id", ondelete="CASCADE"),
+            nullable=False,
+        )
+    )
     role: str  # "human" | "ai"
     content: str
     # Source documents used by the RAG system to produce this message.

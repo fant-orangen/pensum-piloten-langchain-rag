@@ -4,6 +4,7 @@ This table is only responsible for storing per-conversation, personalised contex
 import uuid
 from datetime import datetime
 
+from sqlalchemy import Column, ForeignKey, Uuid
 from sqlmodel import Field, SQLModel
 
 
@@ -11,8 +12,12 @@ class ConversationContextSummary(SQLModel, table=True):
     __tablename__ = "conversation_context_summary"
 
     conversation_id: uuid.UUID = Field(
-        foreign_key="conversation.id",
-        primary_key=True,
+        sa_column=Column(
+            Uuid(as_uuid=True),
+            ForeignKey("conversation.id", ondelete="CASCADE"),
+            primary_key=True,
+            nullable=False,
+        )
     )
     context_summary: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
