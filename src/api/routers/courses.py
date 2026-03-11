@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
@@ -14,9 +14,11 @@ from src.api.schemas.course import (
     CourseInstructionsUpdate,
     CourseMaterialsStatusRead,
     CourseRead,
+    CourseStudentRead,
     EnrollmentCreate,
     EnrollmentRead,
 )
+from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.course_documents import (
     get_course_materials_status,
     list_course_documents,
@@ -30,6 +32,7 @@ from src.api.services.courses import (
     delete_course,
     enroll_user,
     get_available_courses,
+    get_course_students,
     get_enrolled_courses,
     get_responsible_courses,
     unenroll_user,
@@ -65,8 +68,26 @@ async def list_responsible_courses(
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseRead]:
     """Return all courses where the authenticated user is enrolled as a teacher."""
-    courses = await get_responsible_courses(current_user.id, db)
+    courses = await get_responsible_courses(current_user, db)
     return [CourseRead.model_validate(c) for c in courses]
+
+
+@router.get("/{course_id}/students", response_model=Page[CourseStudentRead])
+async def list_course_students(
+    course_id: uuid.UUID,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Page[CourseStudentRead]:
+    """Return paginated student enrollments for a course."""
+    params = PaginationParams(page=page, page_size=page_size)
+    items, total = await get_course_students(current_user, course_id, params, db)
+    return Page.create(
+        items=[CourseStudentRead.model_validate(student) for student in items],
+        total=total,
+        params=params,
+    )
 
 
 @router.post("", response_model=CourseRead, status_code=status.HTTP_201_CREATED)

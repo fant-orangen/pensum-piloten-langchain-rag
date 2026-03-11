@@ -31,7 +31,10 @@ def require_admin(user: User) -> None:
 
 def require_course_owner_or_admin(user: User, created_by_id: uuid.UUID) -> None:
     """Raise 403 unless the user created the course or is an admin."""
-    if user.global_role != "admin" and user.id != created_by_id:
+    if user.global_role == "admin":
+        return
+
+    if user.global_role != "teacher" or user.id != created_by_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the creating teacher or an admin can perform this action.",
@@ -46,6 +49,12 @@ async def require_course_teacher_or_admin(
     """Raise 403 unless the user is enrolled as a teacher in the course or is an admin."""
     if user.global_role == "admin":
         return
+
+    if user.global_role != "teacher":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only a teacher of this course or an admin can perform this action.",
+        )
 
     result = await db.execute(
         select(CourseEnrollment).where(

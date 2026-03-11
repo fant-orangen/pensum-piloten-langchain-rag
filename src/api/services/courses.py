@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete as sa_delete, select
+from sqlalchemy import delete as sa_delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.conversation import Conversation
@@ -18,6 +18,7 @@ from src.api.services.course_documents import (
     purge_course_materials,
 )
 from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
+from src.api.schemas.pagination import PaginationParams
 from src.api.utils import (
     require_course_owner_or_admin,
     require_course_teacher_or_admin,
@@ -41,17 +42,54 @@ async def get_available_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Co
     return await get_enrolled_courses(user_id, db)
 
 
-async def get_responsible_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
+async def get_responsible_courses(current_user: User, db: AsyncSession) -> list[Course]:
     """Return all courses where the given user is enrolled as a teacher."""
+    require_teacher_or_admin(current_user)
+
     result = await db.execute(
         select(Course)
         .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
         .where(
-            CourseEnrollment.user_id == user_id,
+            CourseEnrollment.user_id == current_user.id,
             CourseEnrollment.role == "teacher",
         )
     )
     return list(result.scalars().all())
+
+
+async def get_course_students(
+    current_user: User,
+    course_id: uuid.UUID,
+    params: PaginationParams,
+    db: AsyncSession,
+) -> tuple[list[User], int]:
+    """Return a page of users enrolled in the course as students."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    base = (
+        select(User)
+        .join(CourseEnrollment, CourseEnrollment.user_id == User.id)
+        .where(
+            CourseEnrollment.course_id == course_id,
+            CourseEnrollment.role == "student",
+        )
+    )
+
+    count_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total: int = count_result.scalar_one()
+
+    result = await db.execute(
+        base.order_by(User.last_name.asc(), User.first_name.asc(), User.email.asc())
+        .offset(params.offset)
+        .limit(params.page_size)
+    )
+    items = list(result.scalars().all())
+
+    return items, total
 
 
 async def create_course(current_user: User, body: CourseCreate, db: AsyncSession) -> Course:
@@ -107,6 +145,7 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
+    require_teacher_or_admin(current_user)
     require_course_owner_or_admin(current_user, course.created_by_id)
     if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
         raise HTTPException(
