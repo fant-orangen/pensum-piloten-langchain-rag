@@ -13,6 +13,7 @@ from src.api.schemas.message import MessageCreate, MessageRead, MessageSourceRea
 from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.conversations import (
     create_conversation,
+    delete_conversation_for_user,
     get_conversation_for_user,
     get_user_conversations,
 )
@@ -132,3 +133,13 @@ async def new_message(
     return MessageRead.model_validate(message).model_copy(
         update={"conversation_compression_triggered": compression_triggered}
     )
+
+
+@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete a conversation owned by the authenticated user."""
+    await delete_conversation_for_user(conversation_id, current_user.id, db)

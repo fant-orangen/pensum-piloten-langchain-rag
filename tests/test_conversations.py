@@ -13,7 +13,7 @@ import os
 import uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from tests.http_client import RUN_ID, check, get, login, post, section, summarise
+from tests.http_client import RUN_ID, check, delete, get, login, post, section, summarise
 
 STUDENT_EMAIL = "student@test.com"
 STUDENT_PASSWORD = "password123"
@@ -87,6 +87,30 @@ def main() -> None:
 
     code, _ = get(f"/conversations/{conv_id}/messages")
     check(code == 401, "Unauthenticated → 401")
+
+    # ------------------------------------------------------------------
+    section("DELETE /conversations/{id}")
+    # ------------------------------------------------------------------
+
+    code, _ = delete(f"/conversations/{conv_id}", token=other_token)
+    check(code == 403, "Non-owner deletes conversation → 403")
+
+    code, _ = delete(f"/conversations/{str(uuid.uuid4())}", token=student_token)
+    check(code == 404, "Delete nonexistent conversation → 404")
+
+    code, _ = delete(f"/conversations/{conv_id}")
+    check(code == 401, "Unauthenticated delete → 401")
+
+    code, body = delete(f"/conversations/{conv_id}", token=student_token)
+    check(code == 204, "Owner deletes conversation → 204")
+    check(body is None, "Delete returns empty body")
+
+    code, _ = get(f"/conversations/{conv_id}/messages", token=student_token)
+    check(code == 404, "Deleted conversation messages no longer accessible → 404")
+
+    code, body = get("/conversations", token=student_token)
+    ids_in_page = [c["id"] for c in body["items"]] if body else []
+    check(conv_id not in ids_in_page, "Deleted conversation no longer appears in list")
 
     summarise()
 
