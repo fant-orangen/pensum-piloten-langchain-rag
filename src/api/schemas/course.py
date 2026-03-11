@@ -49,6 +49,15 @@ class EnrollmentRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CourseStudentRead(BaseModel):
+    id: uuid.UUID
+    email: str
+    first_name: str
+    last_name: str
+
+    model_config = {"from_attributes": True}
+
+
 class CourseDocumentRead(BaseModel):
     id: uuid.UUID
     course_id: uuid.UUID

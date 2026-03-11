@@ -1,4 +1,5 @@
-"""Per-conversation compressed context summary."""
+"""Per-conversation compressed context summary and related information to be appended to the system prompt.
+This table is only responsible for storing per-conversation, personalised context for response optimisation."""
 
 import uuid
 from datetime import datetime
