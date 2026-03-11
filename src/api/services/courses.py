@@ -4,10 +4,15 @@ import csv
 import uuid
 from dataclasses import dataclass
 
+
 from fastapi import HTTPException, UploadFile, status
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import delete as sa_delete, func, select
 from sqlalchemy.exc import IntegrityError
+
+from fastapi import HTTPException, status
+from sqlalchemy import delete as sa_delete, func, select
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.conversation import Conversation
@@ -16,12 +21,14 @@ from src.api.models.enrollment import CourseEnrollment
 from src.api.models.enrollment_import_preview import EnrollmentImportPreview
 from src.api.models.message import Message
 from src.api.models.user import User
+from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
 from src.api.services.course_documents import (
     COURSE_REBUILD_BUILDING,
     COURSE_REBUILD_QUEUED,
     build_course_documents_dir,
     purge_course_materials,
 )
+
 from src.api.schemas.course import (
     CourseCreate,
     CourseInstructionsRead,
@@ -30,6 +37,7 @@ from src.api.schemas.course import (
     EnrollmentImportConfirmRead,
     EnrollmentImportPreviewRead,
 )
+
 from src.api.schemas.pagination import PaginationParams
 from src.api.utils import (
     require_course_owner_or_admin,
