@@ -135,7 +135,7 @@ def test_handle_import_students_csv_parses_header_and_bom(monkeypatch, tmp_path:
     assert students_text == "- Student: Ada Lovelace (ada@example.com)"
     assert "- Importert: 1" in import_results
     assert "- Ikke registrert i appen: 0" in import_results
-    assert message == "CSV-import fullført."
+    assert message == "Import fullført."
     assert warnings == []
 
 
@@ -231,7 +231,7 @@ def test_handle_import_students_csv_warns_and_lists_missing_users(monkeypatch, t
     assert "- Ikke registrert i appen: 1" in import_results
     assert "#### Ikke registrerte e-poster" in import_results
     assert "- missing@example.com" in import_results
-    assert warnings == ["1 e-postadresser finnes ikke i systemet. Se importresultatet for detaljer."]
+    assert warnings == ["1 e-postadresse finnes ikke i systemet. Se importresultatet for detaljer."]
 
 
 def test_handle_import_students_csv_handles_mixed_results(monkeypatch, tmp_path: Path) -> None:
@@ -281,7 +281,168 @@ def test_handle_import_students_csv_handles_mixed_results(monkeypatch, tmp_path:
     assert "- Rad 3: already@example.com er allerede registrert." in import_results
     assert "- Rad 4: missing@example.com finnes ikke i systemet." in import_results
     assert "- Rad 5: broken@example.com feilet (Kunne ikke nå API-serveren: timeout)." in import_results
-    assert message == "CSV-import fullført."
+    assert message == "Import fullført med delvise feil."
+
+
+def test_handle_import_students_csv_requires_token() -> None:
+    state: dict[str, Any] = {COURSE_ID_KEY: "course-9"}
+
+    file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        "/tmp/students.csv",
+    )
+
+    assert file_update.get("value") is None
+    assert students_text == "Sessionen er utløpt — logg inn på nytt."
+    assert import_results == ""
+    assert message == "Sessionen er utløpt — logg inn på nytt."
+
+
+def test_handle_import_students_csv_requires_course_id() -> None:
+    state: dict[str, Any] = {TOKEN_KEY: "token-9"}
+
+    file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        "/tmp/students.csv",
+    )
+
+    assert file_update.get("value") is None
+    assert students_text == "Ingen studenter ennå."
+    assert import_results == ""
+    assert message == "Fant ikke faget."
+
+
+def test_handle_import_students_csv_requires_file(monkeypatch) -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-10",
+        TOKEN_KEY: "token-10",
+    }
+    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+
+    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        None,
+    )
+
+    assert students_text == "students"
+    assert import_results == ""
+    assert message == "Velg en CSV-fil."
+
+
+def test_handle_import_students_csv_rejects_wrong_extension(monkeypatch, tmp_path: Path) -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-11",
+        TOKEN_KEY: "token-11",
+    }
+    file_path = tmp_path / "students.txt"
+    file_path.write_text("ada@example.com\n", encoding="utf-8")
+
+    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+
+    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        str(file_path),
+    )
+
+    assert students_text == "students"
+    assert import_results == ""
+    assert message == "Velg en CSV-fil med filendelsen .csv."
+
+
+def test_handle_import_students_csv_handles_empty_csv(monkeypatch, tmp_path: Path) -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-12",
+        TOKEN_KEY: "token-12",
+    }
+    csv_path = tmp_path / "students.csv"
+    csv_path.write_text("email\n\n", encoding="utf-8")
+
+    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+
+    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        str(csv_path),
+    )
+
+    assert students_text == "students"
+    assert "Ingen e-postadresser funnet i CSV-filen." in import_results
+    assert message == "CSV-filen inneholder ingen e-postadresser."
+
+
+def test_handle_import_students_csv_handles_all_invalid_rows(monkeypatch, tmp_path: Path) -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-13",
+        TOKEN_KEY: "token-13",
+    }
+    csv_path = tmp_path / "students.csv"
+    csv_path.write_text("email\nnot-an-email\nstill-bad\n", encoding="utf-8")
+
+    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+
+    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        str(csv_path),
+    )
+
+    assert students_text == "students"
+    assert "- Ugyldige rader: 2" in import_results
+    assert "Ingen gyldige e-postadresser funnet i CSV-filen." in import_results
+    assert message == "Ingen gyldige e-postadresser funnet."
+
+
+def test_handle_import_students_csv_reports_when_all_enrollments_fail(monkeypatch, tmp_path: Path) -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-14",
+        TOKEN_KEY: "token-14",
+    }
+    csv_path = tmp_path / "students.csv"
+    csv_path.write_text("email\nalready@example.com\nmissing@example.com\n", encoding="utf-8")
+
+    def _fake_enroll_user(
+        _token: str,
+        _course_id: str,
+        user_email: str,
+        *,
+        role: str = "student",
+    ) -> tuple[bool, str]:
+        assert role == "student"
+        if user_email == "already@example.com":
+            return False, "Brukeren er allerede registrert i faget."
+        return False, "Fant ingen bruker med e-post 'missing@example.com'."
+
+    monkeypatch.setattr(teacher_course_page._course_api, "enroll_user", _fake_enroll_user)
+    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+    monkeypatch.setattr(teacher_course_page.gr, "Warning", lambda _message: None)
+
+    _file_update, students_text, import_results, message = teacher_course_page.handle_import_students_csv(
+        state,
+        str(csv_path),
+    )
+
+    assert students_text == "students"
+    assert "- Importert: 0" in import_results
+    assert "- Allerede registrert: 1" in import_results
+    assert "- Ikke registrert i appen: 1" in import_results
+    assert message == "Ingen studenter ble importert."
+
+
+def test_handle_import_students_csv_limits_detail_lines(monkeypatch, tmp_path: Path) -> None:
+    state: dict[str, Any] = {
+        COURSE_ID_KEY: "course-15",
+        TOKEN_KEY: "token-15",
+    }
+    csv_path = tmp_path / "students.csv"
+    invalid_rows = "".join(f"bad-{index}\n" for index in range(12))
+    csv_path.write_text(f"email\n{invalid_rows}", encoding="utf-8")
+
+    monkeypatch.setattr(teacher_course_page, "teacher_course_students_text", lambda _state: "students")
+
+    _file_update, _students_text, import_results, _message = teacher_course_page.handle_import_students_csv(
+        state,
+        str(csv_path),
+    )
+
+    assert "- Og 2 til." in import_results
 
 
 def test_list_course_students_extracts_paginated_items(monkeypatch) -> None:

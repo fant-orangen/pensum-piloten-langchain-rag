@@ -159,6 +159,7 @@ def _build_import_results_text(
     other_error_count: int,
     missing_emails: list[str],
     detail_lines: list[str],
+    note: str | None = None,
 ) -> str:
     lines = [
         "### Importresultat",
@@ -168,6 +169,9 @@ def _build_import_results_text(
         f"- Ugyldige rader: {invalid_row_count}",
         f"- Andre feil: {other_error_count}",
     ]
+    if note:
+        lines.append("")
+        lines.append(note)
     if missing_emails:
         lines.append("")
         lines.append("#### Ikke registrerte e-poster")
@@ -180,6 +184,27 @@ def _build_import_results_text(
         if extra_count > 0:
             lines.append(f"- Og {extra_count} til.")
     return "\n".join(lines)
+
+
+def _build_import_status_message(
+    *,
+    imported_count: int,
+    already_enrolled_count: int,
+    missing_user_count: int,
+    invalid_row_count: int,
+    other_error_count: int,
+) -> str:
+    issue_count = (
+        already_enrolled_count
+        + missing_user_count
+        + invalid_row_count
+        + other_error_count
+    )
+    if imported_count > 0 and issue_count == 0:
+        return "Import fullført."
+    if imported_count > 0:
+        return "Import fullført med delvise feil."
+    return "Ingen studenter ble importert."
 
 
 def handle_course_instructions_input(instructions_text: str | None) -> str:
@@ -426,7 +451,63 @@ def handle_import_students_csv(
             "Velg en CSV-fil.",
         )
 
-    valid_emails, invalid_rows = _parse_student_import_csv(csv_path)
+    cleaned_csv_path = csv_path.strip()
+    csv_file_path = Path(cleaned_csv_path)
+    if csv_file_path.suffix.lower() != ".csv":
+        return (
+            teacher_course_student_import_file_update(state),
+            teacher_course_students_text(state),
+            teacher_course_student_import_results_update(state),
+            "Velg en CSV-fil med filendelsen .csv.",
+        )
+
+    try:
+        valid_emails, invalid_rows = _parse_student_import_csv(cleaned_csv_path)
+    except (OSError, UnicodeDecodeError, csv.Error):
+        return (
+            teacher_course_student_import_file_update(state),
+            teacher_course_students_text(state),
+            teacher_course_student_import_results_update(state),
+            "Kunne ikke lese CSV-filen.",
+        )
+
+    if not valid_emails and not invalid_rows:
+        return (
+            teacher_course_student_import_file_update(state),
+            teacher_course_students_text(state),
+            _build_import_results_text(
+                imported_count=0,
+                already_enrolled_count=0,
+                missing_user_count=0,
+                invalid_row_count=0,
+                other_error_count=0,
+                missing_emails=[],
+                detail_lines=[],
+                note="Ingen e-postadresser funnet i CSV-filen.",
+            ),
+            "CSV-filen inneholder ingen e-postadresser.",
+        )
+
+    if not valid_emails and invalid_rows:
+        return (
+            teacher_course_student_import_file_update(state),
+            teacher_course_students_text(state),
+            _build_import_results_text(
+                imported_count=0,
+                already_enrolled_count=0,
+                missing_user_count=0,
+                invalid_row_count=len(invalid_rows),
+                other_error_count=0,
+                missing_emails=[],
+                detail_lines=[
+                    f"- Rad {row_number}: ugyldig e-post '{email}'."
+                    for row_number, email in invalid_rows
+                ],
+                note="Ingen gyldige e-postadresser funnet i CSV-filen.",
+            ),
+            "Ingen gyldige e-postadresser funnet.",
+        )
+
     imported_count = 0
     already_enrolled_count = 0
     missing_user_count = 0
@@ -461,15 +542,22 @@ def handle_import_students_csv(
         detail_lines=detail_lines,
     )
     if missing_user_count > 0:
+        missing_label = "e-postadresse" if missing_user_count == 1 else "e-postadresser"
         gr.Warning(
-            f"{missing_user_count} e-postadresser finnes ikke i systemet. "
+            f"{missing_user_count} {missing_label} finnes ikke i systemet. "
             "Se importresultatet for detaljer."
         )
     return (
         teacher_course_student_import_file_update(state),
         teacher_course_students_text(state),
         import_results,
-        "CSV-import fullført.",
+        _build_import_status_message(
+            imported_count=imported_count,
+            already_enrolled_count=already_enrolled_count,
+            missing_user_count=missing_user_count,
+            invalid_row_count=len(invalid_rows),
+            other_error_count=other_error_count,
+        ),
     )
 
 
