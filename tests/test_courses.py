@@ -355,28 +355,30 @@ def main() -> None:
     check(code == 404, "Enroll into nonexistent course → 404")
 
     # ------------------------------------------------------------------
-    section("GET /courses/{course_id}/enrollments")
+    section("GET /courses/{course_id}/students")
     # ------------------------------------------------------------------
 
-    code, body = get(f"/courses/{course_id}/enrollments", token=teacher_token)
-    check(code == 200, "Teacher lists enrollments → 200")
+    code, body = get(f"/courses/{course_id}/students", token=teacher_token)
+    check(code == 200, "Teacher lists students → 200")
     check(
-        isinstance(body, list) and any(item.get("user", {}).get("email") == enroll_email for item in body),
-        "Teacher sees newly enrolled user in enrollment list",
+        isinstance(body, dict)
+        and isinstance(body.get("items"), list)
+        and any(item.get("email") == enroll_email for item in body["items"]),
+        "Teacher sees newly enrolled user in student list",
     )
 
-    code, body = get(f"/courses/{course_id}/enrollments", token=admin_token)
-    check(code == 200, "Admin lists enrollments → 200")
-    check(isinstance(body, list), "Admin receives enrollment list")
+    code, body = get(f"/courses/{course_id}/students", token=admin_token)
+    check(code == 200, "Admin lists students → 200")
+    check(isinstance(body, dict) and isinstance(body.get("items"), list), "Admin receives student page")
 
-    code, _ = get(f"/courses/{course_id}/enrollments", token=student_token)
-    check(code == 403, "Non-teacher lists enrollments → 403")
+    code, _ = get(f"/courses/{course_id}/students", token=student_token)
+    check(code == 403, "Non-teacher lists students → 403")
 
-    code, _ = get(f"/courses/{str(uuid.uuid4())}/enrollments", token=teacher_token)
-    check(code == 404, "List enrollments for nonexistent course → 404")
+    code, _ = get(f"/courses/{str(uuid.uuid4())}/students", token=teacher_token)
+    check(code == 404, "List students for nonexistent course → 404")
 
-    code, _ = get(f"/courses/{course_id}/enrollments")
-    check(code == 401, "Unauthenticated list enrollments → 401")
+    code, _ = get(f"/courses/{course_id}/students")
+    check(code == 401, "Unauthenticated list students → 401")
 
     # ------------------------------------------------------------------
     section("DELETE /courses/{course_id}/enrollments/{user_id}")

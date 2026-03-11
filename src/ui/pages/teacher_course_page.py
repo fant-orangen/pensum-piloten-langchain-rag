@@ -1,4 +1,4 @@
-"""Teacher course page UI and handlers."""
+"""Teacher course page root UI and shared helpers."""
 
 from __future__ import annotations
 
@@ -8,170 +8,90 @@ from typing import Any
 import gradio as gr
 
 import src.ui.services.course_service as _course_api
+from src.ui.pages.teacher_course_tabs.instructions_tab import (
+    MAX_COURSE_INSTRUCTIONS_CHARS,
+    TeacherCourseInstructionsTabComponents,
+    build_teacher_course_instructions_tab,
+    handle_course_instructions_input,
+    handle_save_course_instructions,
+    teacher_course_instructions_counter_update,
+    teacher_course_instructions_input_update,
+    teacher_course_instructions_status_update,
+)
+from src.ui.pages.teacher_course_tabs.materials_tab import (
+    TeacherCourseMaterialsTabComponents,
+    build_teacher_course_materials_tab,
+    handle_delete_material,
+    handle_refresh_ingestion,
+    handle_start_ingestion,
+    handle_upload_materials,
+    teacher_course_ingestion_status_text,
+    teacher_course_material_choices_update,
+    teacher_course_material_status_update,
+)
+from src.ui.pages.teacher_course_tabs.students_tab import (
+    TeacherCourseStudentsTabComponents,
+    build_teacher_course_students_tab,
+    handle_add_student,
+    handle_import_students_csv,
+    teacher_course_student_choices_update,
+    teacher_course_student_import_file_update,
+    teacher_course_student_import_results_update,
+    teacher_course_student_status_update,
+    teacher_course_students_text,
+)
 from src.ui.router import ROUTE_CHAT
 from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token, with_route
 
-MAX_COURSE_INSTRUCTIONS_CHARS = 3000
+TEACHER_COURSE_TAB_STUDENTS = "teacher_course_students"
+TEACHER_COURSE_TAB_MATERIALS = "teacher_course_materials"
+TEACHER_COURSE_TAB_INSTRUCTIONS = "teacher_course_instructions"
 
 
 @dataclass(slots=True)
 class TeacherCoursePageComponents:
     group: gr.Group
+    tabs: gr.Tabs
     back_button: gr.Button
     course_title: gr.Markdown
-    students_list: gr.Markdown
     view_as_student_button: gr.Button
-    add_student_username: gr.Textbox
-    add_student_button: gr.Button
-    upload_files: gr.File
-    upload_button: gr.Button
-    materials_list: gr.CheckboxGroup
-    delete_material_button: gr.Button
-    refresh_materials_button: gr.Button
-    start_ingestion_button: gr.Button
-    refresh_ingestion_button: gr.Button
-    ingestion_status: gr.Markdown
-    course_instructions_input: gr.Textbox
-    course_instructions_counter: gr.Markdown
-    save_course_instructions_button: gr.Button
-    status_text: gr.Markdown
+    students_tab: TeacherCourseStudentsTabComponents
+    materials_tab: TeacherCourseMaterialsTabComponents
+    instructions_tab: TeacherCourseInstructionsTabComponents
 
 
 def _current_course_id(state: dict[str, Any]) -> str:
     return str(state.get(COURSE_ID_KEY) or "").strip()
 
 
-def _material_label(material: dict[str, Any]) -> str:
-    filename = str(material.get("original_filename") or "ukjent")
-    size_bytes = int(material.get("size_bytes") or 0)
-    status = str(material.get("status") or "").strip().lower()
-    status_label = {
-        "pending_add": "Venter på ingestering",
-        "active": "Ingestert",
-        "pending_remove": "Markert for sletting",
-    }.get(status, "Ukjent status")
-    if size_bytes > 0:
-        size_kb = max(1, size_bytes // 1024)
-        return f"{filename} ({size_kb} KB) - {status_label}"
-    return f"{filename} - {status_label}"
-
-
-def teacher_course_material_choices_update(state: dict[str, Any]) -> Any:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return gr.update(choices=[], value=[])
-    token = auth_token(state)
-    if not token:
-        return gr.update(choices=[], value=[])
-
-    materials, _err = _course_api.list_materials(token, course_id)
-    choices = [
-        (_material_label(item), str(item["id"]))
-        for item in materials
-        if isinstance(item, dict) and item.get("id")
-    ]
-    return gr.update(choices=choices, value=[])
-
-
-def _course_instructions_counter_text(instructions_text: str | None) -> str:
-    instruction_length = len(str(instructions_text or ""))
-    return f"Tegn brukt: {instruction_length}/{MAX_COURSE_INSTRUCTIONS_CHARS}"
-
-
-def teacher_course_instructions_input_update(_state: dict[str, Any]) -> Any:
-    # Frontend is currently write-only for this field; do not prefill saved value yet.
-    return gr.update(value="")
-
-
-def teacher_course_instructions_counter_update(_state: dict[str, Any]) -> str:
-    return _course_instructions_counter_text("")
-
-
-def handle_course_instructions_input(instructions_text: str | None) -> str:
-    return _course_instructions_counter_text(instructions_text)
+def teacher_course_tabs_update(_state: dict[str, Any]) -> Any:
+    return gr.update(selected=TEACHER_COURSE_TAB_STUDENTS)
 
 
 def build_teacher_course_page(*, visible: bool) -> TeacherCoursePageComponents:
     with gr.Group(visible=visible) as group:
-        gr.Markdown("# Fag")
-        course_title = gr.Markdown("Fag: -")
-        view_as_student_button = gr.Button("Se som student", variant="secondary")
+        with gr.Row(equal_height=True):
+            back_button = gr.Button("Tilbake", variant="secondary")
+            course_title = gr.Markdown("Fag: -")
+            view_as_student_button = gr.Button("Se som student", variant="secondary")
 
-        gr.Markdown("## Studenter")
-        students_list = gr.Markdown("Ingen studenter ennå.")
-        add_student_username = gr.Textbox(
-            label="Studentens e-post",
-            placeholder="student@example.com",
-        )
-        add_student_button = gr.Button("Legg til student", variant="primary")
-
-        gr.Markdown("## Kursmateriale")
-        upload_files = gr.File(
-            label="Velg filer",
-            file_count="multiple",
-            type="filepath",
-        )
-        upload_button = gr.Button("Last opp filer", variant="primary")
-        gr.Markdown("Velg ett eller flere materialer under for sletting.")
-        gr.Markdown("Ingestering starter for alle stagede endringer i kurset.")
-        materials_list = gr.CheckboxGroup(
-            choices=[],
-            value=[],
-            label="Kursmateriell",
-        )
-        with gr.Row():
-            delete_material_button = gr.Button("Slett valgte materialer")
-            refresh_materials_button = gr.Button("Oppdater materialliste")
-
-        gr.Markdown("## Ingestering (oppsummering)")
-        with gr.Row():
-            start_ingestion_button = gr.Button("Start ingestering", variant="primary")
-            refresh_ingestion_button = gr.Button("Oppdater status")
-        ingestion_status = gr.Markdown("Ingen ingesteringstatus ennå.")
-
-        gr.Markdown("## Kursinstruksjoner for modellen")
-        gr.Markdown(
-            "Legg til egne instruksjoner som blir lagt til systemprompten for dette faget. "
-            "Det er foreløpig ikke mulig å hente eksisterende lagrede instruksjoner."
-        )
-        course_instructions_input = gr.Textbox(
-            label="Instruksjoner (maks 3000 tegn)",
-            placeholder=(
-                "Eksempel: Prioriter pensumbegreper fra uke 1–5, bruk norske fagtermer, "
-                "og gi korte stegvise hint før fasitsvar."
-            ),
-            lines=8,
-            max_lines=12,
-        )
-        course_instructions_counter = gr.Markdown(_course_instructions_counter_text(""))
-        save_course_instructions_button = gr.Button(
-            "Lagre instruksjoner",
-            variant="primary",
-        )
-
-        status_text = gr.Markdown()
-        back_button = gr.Button("Tilbake")
+        with gr.Tabs(selected=TEACHER_COURSE_TAB_STUDENTS) as tabs:
+            with gr.Tab("Studenter", id=TEACHER_COURSE_TAB_STUDENTS):
+                students_tab = build_teacher_course_students_tab()
+            with gr.Tab("Kursmateriale", id=TEACHER_COURSE_TAB_MATERIALS):
+                materials_tab = build_teacher_course_materials_tab()
+            with gr.Tab("Kursinstruksjoner", id=TEACHER_COURSE_TAB_INSTRUCTIONS):
+                instructions_tab = build_teacher_course_instructions_tab()
 
     return TeacherCoursePageComponents(
         group=group,
+        tabs=tabs,
         back_button=back_button,
         course_title=course_title,
-        students_list=students_list,
         view_as_student_button=view_as_student_button,
-        add_student_username=add_student_username,
-        add_student_button=add_student_button,
-        upload_files=upload_files,
-        upload_button=upload_button,
-        materials_list=materials_list,
-        delete_material_button=delete_material_button,
-        refresh_materials_button=refresh_materials_button,
-        start_ingestion_button=start_ingestion_button,
-        refresh_ingestion_button=refresh_ingestion_button,
-        ingestion_status=ingestion_status,
-        course_instructions_input=course_instructions_input,
-        course_instructions_counter=course_instructions_counter,
-        save_course_instructions_button=save_course_instructions_button,
-        status_text=status_text,
+        students_tab=students_tab,
+        materials_tab=materials_tab,
+        instructions_tab=instructions_tab,
     )
 
 
@@ -193,263 +113,6 @@ def teacher_course_title_text(state: dict[str, Any]) -> str:
             return "Fag: -"
         return f"Fag: {course.get('name', '-')}"
     return f"Fag: {course_name}"
-
-
-def teacher_course_students_text(state: dict[str, Any]) -> str:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return "Ingen studenter ennå."
-
-    token = auth_token(state)
-    if not token:
-        return "Sessionen er utløpt — logg inn på nytt."
-
-    enrollments, err = _course_api.list_enrollments(token, course_id)
-    if err:
-        return err
-    if not enrollments:
-        return "Ingen studenter ennå."
-
-    lines: list[str] = []
-    for item in enrollments:
-        user = item.get("user", {}) if isinstance(item, dict) else {}
-        role = str(item.get("role") or "student")
-        role_label = "Lærer" if role == "teacher" else "Student"
-        email = str(user.get("email") or "-")
-        first = str(user.get("first_name") or "").strip()
-        last = str(user.get("last_name") or "").strip()
-        name = " ".join(part for part in (first, last) if part) or email
-        lines.append(f"- {role_label}: {name} ({email})")
-    return "\n".join(lines)
-
-
-def teacher_course_ingestion_status_text(state: dict[str, Any]) -> str:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return "Velg et fag for å se ingesteringstatus."
-
-    token = auth_token(state)
-    if not token:
-        return "Sessionen er utløpt — logg inn på nytt."
-
-    jobs, err = _course_api.list_ingestions(token, course_id)
-    if err:
-        return err
-    if not jobs:
-        return "Ingen ingesteringstatus tilgjengelig."
-
-    latest = jobs[0]
-    status = str(latest.get("status") or "ukjent").strip().lower()
-    status_label = {
-        "idle": "Klar",
-        "queued": "Venter i kø",
-        "building": "Bygger indeks",
-        "failed": "Feilet",
-    }.get(status, status or "ukjent")
-    pending_additions = int(latest.get("pending_additions") or 0)
-    pending_removals = int(latest.get("pending_removals") or 0)
-    index_version = int(latest.get("index_version") or 0)
-    rebuild_error = str(latest.get("rebuild_error") or "").strip()
-
-    lines = [
-        f"Status: {status_label}",
-        f"Venter på ingestering: {pending_additions}",
-        f"Markert for sletting: {pending_removals}",
-        f"Aktiv indeksversjon: {index_version}",
-    ]
-    if rebuild_error:
-        lines.append(f"Siste feil: {rebuild_error}")
-    return "\n".join(lines)
-
-
-def teacher_course_student_choices_update(state: dict[str, Any], *, selected_username: str | None = None) -> Any:
-    return gr.update(value=selected_username or "")
-
-
-def handle_add_student(state: dict[str, Any], student_email: str | None) -> tuple[Any, str, str]:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return gr.update(value=""), teacher_course_students_text(state), "Fant ikke faget."
-
-    token = auth_token(state)
-    if not token:
-        return gr.update(value=""), teacher_course_students_text(state), "Sessionen er utløpt — logg inn på nytt."
-
-    email = (student_email or "").strip()
-    if not email:
-        return gr.update(value=""), teacher_course_students_text(state), "Fyll ut e-postadressen."
-
-    success, message = _course_api.enroll_user(token, course_id, email, role="student")
-    next_input_value = "" if success else email
-    return (
-        gr.update(value=next_input_value),
-        teacher_course_students_text(state),
-        message,
-    )
-
-
-def handle_upload_materials(
-    state: dict[str, Any],
-    file_paths: str | list[str] | None,
-) -> tuple[Any, Any, str]:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return (
-            gr.update(value=None),
-            teacher_course_material_choices_update(state),
-            "Fant ikke faget.",
-        )
-
-    token = auth_token(state)
-    if not token:
-        return (
-            gr.update(value=None),
-            teacher_course_material_choices_update(state),
-            "Sessionen er utløpt — logg inn på nytt.",
-        )
-
-    if isinstance(file_paths, str):
-        files = [file_paths]
-    elif isinstance(file_paths, list):
-        files = [str(item) for item in file_paths if item]
-    else:
-        files = []
-
-    if not files:
-        return (
-            gr.update(value=None),
-            teacher_course_material_choices_update(state),
-            "Velg minst én fil.",
-        )
-
-    uploaded = 0
-    errors: list[str] = []
-    for path in files:
-        success, message, _data = _course_api.upload_material(token, course_id, path)
-        if success:
-            uploaded += 1
-        else:
-            errors.append(message)
-
-    status_message = f"Lastet opp {uploaded} fil(er)."
-    if errors:
-        status_message += f" Feil: {' | '.join(errors)}"
-    return (
-        gr.update(value=None),
-        teacher_course_material_choices_update(state),
-        status_message,
-    )
-
-
-def handle_delete_material(
-    state: dict[str, Any],
-    material_ids: list[str] | None,
-) -> tuple[Any, str]:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return (
-            teacher_course_material_choices_update(state),
-            "Fant ikke faget.",
-        )
-
-    token = auth_token(state)
-    if not token:
-        return (
-            teacher_course_material_choices_update(state),
-            "Sessionen er utløpt — logg inn på nytt.",
-        )
-
-    selected_ids = [item.strip() for item in (material_ids or []) if item and item.strip()]
-    if not selected_ids:
-        return (
-            teacher_course_material_choices_update(state),
-            "Velg minst ett materiale som skal slettes.",
-        )
-
-    deleted = 0
-    errors: list[str] = []
-    for selected_id in selected_ids:
-        success, message = _course_api.delete_material(token, course_id, selected_id)
-        if success:
-            deleted += 1
-        else:
-            errors.append(message)
-
-    status_message = f"Slettet {deleted} materiale(r)."
-    if errors:
-        status_message += f" Feil: {' | '.join(errors)}"
-    return (
-        teacher_course_material_choices_update(state),
-        status_message,
-    )
-
-
-def handle_start_ingestion(
-    state: dict[str, Any],
-    _selected_material_ids: list[str] | None,
-) -> tuple[Any, str, str]:
-    course_id = _current_course_id(state)
-    if not course_id:
-        return gr.update(value=[]), teacher_course_ingestion_status_text(state), "Fant ikke faget."
-
-    token = auth_token(state)
-    if not token:
-        return (
-            gr.update(value=[]),
-            teacher_course_ingestion_status_text(state),
-            "Sessionen er utløpt — logg inn på nytt.",
-        )
-
-    success, message, _job = _course_api.start_ingestion(token, course_id)
-    return gr.update(value=[]), teacher_course_ingestion_status_text(state), message if success else message
-
-
-def handle_refresh_ingestion(state: dict[str, Any]) -> tuple[str, str]:
-    return teacher_course_ingestion_status_text(state), "Ingestion-status oppdatert."
-
-
-def handle_save_course_instructions(
-    state: dict[str, Any],
-    instructions_text: str | None,
-) -> tuple[Any, str, str]:
-    course_id = _current_course_id(state)
-    if not course_id:
-        counter_text = _course_instructions_counter_text(instructions_text)
-        return gr.update(value=instructions_text or ""), counter_text, "Fant ikke faget."
-
-    token = auth_token(state)
-    if not token:
-        counter_text = _course_instructions_counter_text(instructions_text)
-        return (
-            gr.update(value=instructions_text or ""),
-            counter_text,
-            "Sessionen er utløpt — logg inn på nytt.",
-        )
-
-    raw_instructions = str(instructions_text or "")
-    if len(raw_instructions) > MAX_COURSE_INSTRUCTIONS_CHARS:
-        counter_text = _course_instructions_counter_text(raw_instructions)
-        return (
-            gr.update(value=raw_instructions),
-            counter_text,
-            f"Instruksjonene er for lange. Maks {MAX_COURSE_INSTRUCTIONS_CHARS} tegn.",
-        )
-
-    cleaned_instructions = raw_instructions.strip()
-    payload_instructions = cleaned_instructions or None
-
-    success, message, _course = _course_api.update_course_instructions(
-        token,
-        course_id,
-        payload_instructions,
-    )
-    # Keep the visible input normalized after successful save.
-    next_input_value = cleaned_instructions if success else raw_instructions
-    return (
-        gr.update(value=next_input_value),
-        _course_instructions_counter_text(next_input_value),
-        message,
-    )
 
 
 def handle_view_as_student(state: dict[str, Any]) -> tuple[dict[str, Any], str]:
