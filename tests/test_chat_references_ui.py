@@ -356,11 +356,14 @@ def test_load_handler_hydration_failure_falls_back_to_stored_references(monkeypa
 
 
 def test_chat_handler_updates_reference_panel_from_ai_sources(monkeypatch) -> None:
+    calls = {"get_sources": 0}
+
     def _fake_send_message(token: str, conversation_id: str, content: str):
         del token, conversation_id, content
         return True, "", {
+            "id": "msg-1",
             "content": "A1",
-            "sources": [{"document": "doc2.pdf", "page": "6", "excerpt": "chunk 2"}],
+            "sources": [{"document": "doc2.pdf", "page": "6", "excerpt": ""}],
         }
 
     def _fake_list_conversations(
@@ -382,8 +385,16 @@ def test_chat_handler_updates_reference_panel_from_ai_sources(monkeypatch) -> No
             ], 1, ""
         return [], 0, ""
 
+    def _fake_get_message_sources(token: str, conversation_id: str, message_id: str):
+        assert token == "token-1"
+        assert conversation_id == "conv-1"
+        assert message_id == "msg-1"
+        calls["get_sources"] += 1
+        return [{"document": "doc2.pdf", "page": "6", "excerpt": "resolved chunk 2"}], ""
+
     monkeypatch.setattr(conversation_service, "send_message", _fake_send_message)
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
+    monkeypatch.setattr(reference_handlers, "get_message_sources", _fake_get_message_sources)
 
     (
         _message,
@@ -406,10 +417,11 @@ def test_chat_handler_updates_reference_panel_from_ai_sources(monkeypatch) -> No
     )
 
     assert history[-1] == {"role": "assistant", "content": "A1"}
+    assert calls["get_sources"] == 1
     assert source_history[-1]["sources"] == [
-        {"document": "doc2.pdf", "page": "6", "excerpt": "chunk 2"}
+        {"document": "doc2.pdf", "page": "6", "excerpt": "resolved chunk 2"}
     ]
-    _assert_reference_block(ref_panel, document="doc2.pdf", page="6", excerpt="chunk 2")
+    _assert_reference_block(ref_panel, document="doc2.pdf", page="6", excerpt="resolved chunk 2")
     assert ref_status == "Viser 1 kildehenvisninger."
 
 
@@ -448,6 +460,8 @@ def test_chatbot_select_handler_reuses_hydrated_sources_without_refetch(monkeypa
 
 
 def test_chat_handler_auto_create_preserves_reference_panel_behavior(monkeypatch) -> None:
+    calls = {"get_sources": 0}
+
     def _fake_create_conversation(token: str, course_id: str):
         assert token == "token-1"
         assert course_id == "course-1"
@@ -458,8 +472,9 @@ def test_chat_handler_auto_create_preserves_reference_panel_behavior(monkeypatch
         assert conversation_id == "conv-new"
         assert content == "Q1"
         return True, "", {
+            "id": "msg-new",
             "content": "A1",
-            "sources": [{"document": "doc3.pdf", "page": "9", "excerpt": "chunk 3"}],
+            "sources": [{"document": "doc3.pdf", "page": "9", "excerpt": ""}],
         }
 
     def _fake_list_conversations(
@@ -481,9 +496,17 @@ def test_chat_handler_auto_create_preserves_reference_panel_behavior(monkeypatch
             ], 1, ""
         return [], 0, ""
 
+    def _fake_get_message_sources(token: str, conversation_id: str, message_id: str):
+        assert token == "token-1"
+        assert conversation_id == "conv-new"
+        assert message_id == "msg-new"
+        calls["get_sources"] += 1
+        return [{"document": "doc3.pdf", "page": "9", "excerpt": "resolved chunk 3"}], ""
+
     monkeypatch.setattr(conversation_service, "create_conversation", _fake_create_conversation)
     monkeypatch.setattr(conversation_service, "send_message", _fake_send_message)
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
+    monkeypatch.setattr(reference_handlers, "get_message_sources", _fake_get_message_sources)
 
     (
         _message,
@@ -507,8 +530,9 @@ def test_chat_handler_auto_create_preserves_reference_panel_behavior(monkeypatch
 
     assert conv_state["conversation_id"] == "conv-new"
     assert history[-1] == {"role": "assistant", "content": "A1"}
+    assert calls["get_sources"] == 1
     assert source_history[-1]["sources"] == [
-        {"document": "doc3.pdf", "page": "9", "excerpt": "chunk 3"}
+        {"document": "doc3.pdf", "page": "9", "excerpt": "resolved chunk 3"}
     ]
-    _assert_reference_block(ref_panel, document="doc3.pdf", page="9", excerpt="chunk 3")
+    _assert_reference_block(ref_panel, document="doc3.pdf", page="9", excerpt="resolved chunk 3")
     assert ref_status == "Viser 1 kildehenvisninger."
