@@ -49,6 +49,29 @@ class EnrollmentRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class EnrollmentImportPreviewRead(BaseModel):
+    preview_id: uuid.UUID
+    course_id: uuid.UUID
+    uploaded_filename: Optional[str] = None
+    requested_role: str
+    total_rows: int
+    accepted_email_count: int
+    enrollable_emails: list[str]
+    missing_emails: list[str]
+    already_enrolled_emails: list[str]
+    duplicate_emails: list[str]
+    invalid_emails: list[str]
+    has_warnings: bool
+
+
+class EnrollmentImportConfirmRead(BaseModel):
+    course_id: uuid.UUID
+    requested_role: str
+    enrolled_emails: list[str]
+    missing_emails: list[str]
+    already_enrolled_emails: list[str]
+
+
 class CourseStudentRead(BaseModel):
     id: uuid.UUID
     email: str
