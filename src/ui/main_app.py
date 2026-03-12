@@ -395,8 +395,8 @@ def build_main_app() -> gr.Blocks:
             chat_page.references_status,
         ]
         reference_drawer_outputs = [
-            chat_page.references_drawer_state,
-            chat_page.references_drawer,
+            chat_page.references_open_state,
+            chat_page.references_container,
         ]
         route_bootstrap_outputs = chat_outputs + [chat_page.course_id_state]
 
