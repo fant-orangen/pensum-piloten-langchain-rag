@@ -12,7 +12,6 @@ from src.ui.pages.chat_handlers import (
     _conversation_count_text,
     _default_conversation_state,
     _empty_reference_panel,
-    _open_conversation_text,
 )
 
 CHAT_PAGE_CSS = """
@@ -44,11 +43,12 @@ CHAT_PAGE_CSS = """
 
 .chat-panel-title h2,
 .chat-panel-title h3,
-.chat-page-title h1 {
+.chat-course-title h1,
+.chat-course-title h2,
+.chat-course-title h3 {
     margin-bottom: 0;
 }
 
-.chat-page-subtitle p,
 .chat-muted-text p {
     color: #6b7280;
 }
@@ -66,6 +66,10 @@ CHAT_PAGE_CSS = """
 
 .chat-status-text p {
     margin-bottom: 0;
+}
+
+.chat-main-status {
+    padding: 0 0.25rem;
 }
 
 .chat-conversation-summary {
@@ -282,6 +286,7 @@ class ChatPageComponents:
     conversation_selector: gr.Radio
     conversation_count: gr.Markdown
     open_conversation: gr.Markdown
+    course_title: gr.Markdown
     status: gr.Markdown
     chatbot: gr.Chatbot
     message: gr.Textbox
@@ -343,15 +348,9 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 with gr.Group(elem_classes=["chat-shell-card", "chat-main-panel"]):
                     with gr.Row(elem_classes=["chat-page-toolbar"]):
                         with gr.Column(scale=4, min_width=320):
-                            gr.Markdown("# Chat", elem_classes=["chat-page-title"])
-                            gr.Markdown("Chat med tutor (RAG).", elem_classes=["chat-page-subtitle"])
-                            open_conversation = gr.Markdown(
-                                _open_conversation_text(None),
-                                elem_classes=["chat-status-text"],
-                            )
-                            status = gr.Markdown(
-                                "",
-                                elem_classes=["chat-muted-text", "chat-status-text"],
+                            course_title = gr.Markdown(
+                                "## Ingen fag valgt",
+                                elem_classes=["chat-course-title"],
                             )
                         with gr.Column(scale=1, min_width=180):
                             with gr.Group(
@@ -362,6 +361,12 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                                     variant="secondary",
                                     elem_id="chat-open-references-button",
                                 )
+                    with gr.Group(elem_classes=["chat-main-status"]):
+                        status = gr.Markdown(
+                            "",
+                            elem_classes=["chat-muted-text", "chat-status-text"],
+                        )
+                        open_conversation = gr.Markdown("", visible=False)
                     with gr.Row(elem_id="chat-workspace"):
                         with gr.Column(
                             scale=5,
@@ -422,6 +427,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         conversation_selector=conversation_selector,
         conversation_count=conversation_count,
         open_conversation=open_conversation,
+        course_title=course_title,
         status=status,
         chatbot=chatbot,
         message=message,
