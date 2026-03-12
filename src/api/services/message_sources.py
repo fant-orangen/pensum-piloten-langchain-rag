@@ -23,6 +23,7 @@ from src.api.models.course import Course
 from src.api.models.message import Message
 from src.api.services.conversations import get_conversation_for_user
 from src.api.utils.exception_util import not_found_error
+from src.api.services.source_metadata import extract_source_page
 from src.vectorstore import get_chunks_by_ids
 
 
@@ -62,10 +63,7 @@ def _source_page(source: dict[str, Any], fallback: dict[str, Any]) -> str:
     Looks in the source dict, then in the fallback.
     Returns an empty string if not present.
     """
-    value = source.get("page", fallback.get("page"))
-    if value is None:
-        return ""
-    return str(value).strip()
+    return extract_source_page(source, fallback)
 
 
 async def get_message_sources_for_user(

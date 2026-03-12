@@ -3,7 +3,8 @@
 from src.ui.pages.ab_page import AB_PAGE_CSS, build_ab_app, build_ab_page
 from src.ui.pages.admin_page import build_admin_page, handle_admin_refresh, handle_upgrade_user
 from src.ui.pages.auth_page import build_auth_page, handle_login, handle_register
-from src.ui.pages.chat_page import build_chat_page
+from src.ui.pages.chat_page import CHAT_PAGE_CSS, build_chat_page
+from src.ui.pages.chat_page import chat_course_title_from_scope, chat_course_title_text
 from src.ui.pages.student_page import (
     build_student_page,
     handle_back_to_student,
@@ -39,6 +40,7 @@ from src.ui.pages.teacher_course_page import (
     handle_upload_materials,
     handle_view_as_student,
     teacher_course_ingestion_status_text,
+    teacher_course_instructions_updates,
     teacher_course_instructions_counter_update,
     teacher_course_instructions_input_update,
     teacher_course_instructions_status_update,
@@ -60,6 +62,9 @@ __all__ = [
     "build_admin_page",
     "build_auth_page",
     "build_chat_page",
+    "chat_course_title_from_scope",
+    "chat_course_title_text",
+    "CHAT_PAGE_CSS",
     "build_student_page",
     "build_student_course_page",
     "build_teacher_page",
@@ -86,6 +91,7 @@ __all__ = [
     "handle_upgrade_user",
     "handle_view_as_student",
     "teacher_course_ingestion_status_text",
+    "teacher_course_instructions_updates",
     "teacher_course_instructions_counter_update",
     "teacher_course_instructions_input_update",
     "teacher_course_instructions_status_update",

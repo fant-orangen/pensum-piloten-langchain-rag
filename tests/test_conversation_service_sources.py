@@ -24,6 +24,38 @@ def test_normalize_sources_payload_handles_structured_legacy_and_malformed() -> 
     ]
 
 
+def test_normalize_sources_payload_cleans_html_entities_tags_and_line_breaks() -> None:
+    normalized = conversation_service.normalize_sources_payload(
+        [
+            {
+                "document": "doc.pdf",
+                "page": 1,
+                "excerpt": "<p>&Aring;pning</p><script>bad()</script><br>linje 2&nbsp;&nbsp;her",
+            }
+        ]
+    )
+
+    assert normalized == [
+        {"document": "doc.pdf", "page": "1", "excerpt": "Åpning\nlinje 2 her"}
+    ]
+
+
+def test_normalize_sources_payload_reads_page_aliases() -> None:
+    normalized = conversation_service.normalize_sources_payload(
+        [
+            {"document": "doc-a.pdf", "page_label": "12", "excerpt": "alpha"},
+            {"document": "doc-b.pdf", "metadata": {"page_number": 7}, "excerpt": "beta"},
+            {"document": "doc-c.pdf", "loc": {"pageNumber": 4}, "excerpt": "gamma"},
+        ]
+    )
+
+    assert normalized == [
+        {"document": "doc-a.pdf", "page": "12", "excerpt": "alpha"},
+        {"document": "doc-b.pdf", "page": "7", "excerpt": "beta"},
+        {"document": "doc-c.pdf", "page": "4", "excerpt": "gamma"},
+    ]
+
+
 def test_normalize_sources_payload_truncates_long_excerpt() -> None:
     long_text = "word " * 100
 

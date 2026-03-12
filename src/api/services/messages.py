@@ -16,6 +16,7 @@ from src.api.models.message import Message
 from src.api.services.conversation_context_summaries import (
     maybe_compress_conversation_history,
 )
+from src.api.services.source_metadata import extract_source_page
 from src.api.schemas.pagination import PaginationParams
 from src.api.utils.exception_util import bad_request_error, not_found_error, stage_error
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
@@ -50,7 +51,7 @@ def _serialize_source_documents(docs: list[Any]) -> list[dict[str, Any]]:
             {
                 "chunk_id": chunk_id.strip(),
                 "source_file": str(metadata.get("source_file") or "").strip(),
-                "page": str(metadata.get("page") or "").strip(),
+                "page": extract_source_page(metadata),
             }
         )
     return serialized
