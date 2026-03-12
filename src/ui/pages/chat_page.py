@@ -328,10 +328,6 @@ CHAT_PAGE_CSS = """
         height: auto;
     }
 
-    #chat-sidebar-list-container {
-        max-height: 20rem;
-    }
-
     #chat-conversation-selector .wrap {
         max-height: 20rem;
     }
