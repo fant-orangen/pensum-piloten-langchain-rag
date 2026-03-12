@@ -276,6 +276,8 @@ class ChatPageComponents:
     """Holds all Gradio components and state required by the chat page."""
 
     group: gr.Group
+    sidebar_container: gr.Group
+    conversation_list_container: gr.Group
     back_button: gr.Button
     token_state: gr.State
     course_id_state: gr.State
@@ -318,7 +320,10 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                 elem_id="chat-sidebar-column",
                 elem_classes=["chat-layout-column"],
             ):
-                with gr.Group(elem_classes=["chat-shell-card", "chat-sidebar-panel"]):
+                with gr.Group(
+                    elem_id="chat-sidebar-shell",
+                    elem_classes=["chat-shell-card", "chat-sidebar-panel"],
+                ) as sidebar_container:
                     gr.Markdown("## Samtaler", elem_classes=["chat-panel-title"])
                     with gr.Group():
                         gr.Markdown("### Ny samtale", elem_classes=["chat-panel-title"])
@@ -330,15 +335,24 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                         )
                         new_conversation_button = gr.Button("Start ny samtale", variant="primary")
                     refresh_button = gr.Button("Oppdater", variant="secondary")
-                    conversation_selector = gr.Radio(
-                        choices=[],
-                        value=None,
-                        label=None,
-                    )
-                    conversation_count = gr.Markdown(
-                        _conversation_count_text(0),
-                        elem_classes=["chat-muted-text", "chat-conversation-summary"],
-                    )
+                    with gr.Group(
+                        elem_id="chat-sidebar-list-section",
+                        elem_classes=["chat-sidebar-list-section"],
+                    ):
+                        with gr.Group(
+                            elem_id="chat-sidebar-list-container",
+                            elem_classes=["chat-sidebar-list-container"],
+                        ) as conversation_list_container:
+                            conversation_selector = gr.Radio(
+                                choices=[],
+                                value=None,
+                                label=None,
+                            )
+                        conversation_count = gr.Markdown(
+                            _conversation_count_text(0),
+                            elem_id="chat-conversation-count",
+                            elem_classes=["chat-muted-text", "chat-conversation-summary"],
+                        )
 
             with gr.Column(
                 scale=4,
@@ -415,6 +429,8 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
 
     return ChatPageComponents(
         group=group,
+        sidebar_container=sidebar_container,
+        conversation_list_container=conversation_list_container,
         back_button=back_button,
         token_state=token_state,
         course_id_state=course_id_state,
