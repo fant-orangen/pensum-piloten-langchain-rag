@@ -5,6 +5,8 @@ from __future__ import annotations
 from textwrap import shorten
 from typing import Any, TypedDict
 
+_CONVERSATION_PAGE_SIZE = 100
+
 
 class ChatSidebarModel(TypedDict):
     choices: list[tuple[str, str]]
@@ -59,15 +61,31 @@ def fetch_conversations(
     course_id: str | None,
     *,
     no_course_status: str,
-) -> tuple[list[dict[str, Any]], str]:
+) -> tuple[list[dict[str, Any]], int, str]:
     resolved_course_id = (course_id or "").strip()
     if not resolved_course_id:
-        return [], no_course_status
+        return [], 0, no_course_status
 
     from src.ui.services.conversation_service import list_conversations
 
-    items, _total, err = list_conversations(token, course_id=resolved_course_id)
-    return items, err
+    all_items: list[dict[str, Any]] = []
+    page = 1
+    total = 0
+    while True:
+        items, total, err = list_conversations(
+            token,
+            page=page,
+            page_size=_CONVERSATION_PAGE_SIZE,
+            course_id=resolved_course_id,
+        )
+        if err:
+            return [], 0, err
+        all_items.extend(items)
+        if len(all_items) >= total or not items:
+            break
+        page += 1
+
+    return all_items, total, ""
 
 
 def fetch_messages(conversation_token: str, conversation_id: str) -> tuple[list[dict[str, Any]], str]:
@@ -133,7 +151,11 @@ def build_sidebar_model(
             "status_text": status_text,
         }
 
-    conversations, err = fetch_conversations(token, resolved_course_id, no_course_status=no_course_status)
+    conversations, total, err = fetch_conversations(
+        token,
+        resolved_course_id,
+        no_course_status=no_course_status,
+    )
     if err:
         status_message = err
 
@@ -148,7 +170,7 @@ def build_sidebar_model(
     return {
         "choices": choices,
         "selected_id": resolved_value,
-        "count": len(conversations),
+        "count": total,
         "status_text": status_message,
     }
 

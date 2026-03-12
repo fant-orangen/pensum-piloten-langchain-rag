@@ -47,7 +47,12 @@ def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, st
 
 def _fetch_conversations(token: str, course_id: str | None = None) -> tuple[list[dict[str, Any]], str]:
     """Return (conversations, error_message). Conversations are ordered newest-first."""
-    return fetch_conversations(token, course_id, no_course_status=_NO_COURSE_STATUS)
+    conversations, _total, err = fetch_conversations(
+        token,
+        course_id,
+        no_course_status=_NO_COURSE_STATUS,
+    )
+    return conversations, err
 
 
 def _fetch_messages(token: str, conversation_id: str) -> tuple[list[dict[str, Any]], str]:
