@@ -18,6 +18,8 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
 
     assert page.course_title.elem_classes == ["chat-course-title"]
     assert page.sidebar_container.elem_id == "chat-sidebar-shell"
+    assert page.sidebar_controls_container.elem_id == "chat-sidebar-controls"
+    assert page.sidebar_conversations_container.elem_id == "chat-sidebar-list-section"
     assert page.conversation_list_container.elem_id == "chat-sidebar-list-container"
     assert page.conversation_selector.elem_id == "chat-conversation-selector"
     assert page.references_panel.elem_id == "chat-references-panel"
@@ -31,6 +33,7 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
 
 def test_chat_page_css_contains_reference_card_selectors() -> None:
     assert "#chat-sidebar-shell" in CHAT_PAGE_CSS
+    assert "#chat-sidebar-controls" in CHAT_PAGE_CSS
     assert "#chat-sidebar-list-container" in CHAT_PAGE_CSS
     assert "#chat-conversation-selector" in CHAT_PAGE_CSS
     assert "#chat-references-column" in CHAT_PAGE_CSS
@@ -38,7 +41,11 @@ def test_chat_page_css_contains_reference_card_selectors() -> None:
     assert ".chat-course-title" in CHAT_PAGE_CSS
     assert "overflow-y: auto;" in CHAT_PAGE_CSS
     assert "max-height: 20rem;" in CHAT_PAGE_CSS
+    assert "show_label=False" not in CHAT_PAGE_CSS
+    assert "#chat-conversation-selector > label" in CHAT_PAGE_CSS
+    assert "#chat-conversation-selector legend" in CHAT_PAGE_CSS
     assert "#chat-conversation-selector .wrap" in CHAT_PAGE_CSS
+    assert ".chat-sidebar-list-section {\n    display: flex;\n    flex-direction: column;\n    gap: 0.75rem;\n    min-height: 0;\n    max-height: 44rem;" in CHAT_PAGE_CSS
     assert "#chat-sidebar-list-container {\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;" in CHAT_PAGE_CSS
     assert ".chat-reference-entry" in CHAT_PAGE_CSS
 
