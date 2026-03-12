@@ -31,6 +31,10 @@ CHAT_PAGE_CSS = """
     min-width: 0;
 }
 
+#chat-sidebar-column {
+    display: flex;
+}
+
 .chat-shell-card {
     border: 1px solid #e9dccd;
     border-radius: 20px;
@@ -74,17 +78,32 @@ CHAT_PAGE_CSS = """
     padding: 0 0.25rem;
 }
 
+#chat-sidebar-shell,
+.chat-sidebar-panel {
+    height: 100%;
+    min-height: 0;
+}
+
+#chat-sidebar-shell > .gr-block,
+#chat-sidebar-shell > div {
+    height: 100%;
+    min-height: 0;
+}
+
 .chat-sidebar-list-section {
     display: flex;
     flex-direction: column;
+    flex: 1;
     gap: 0.75rem;
+    min-height: 0;
 }
 
 #chat-sidebar-list-container {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
-    max-height: 26rem;
     padding-right: 6px;
 }
 
@@ -264,6 +283,10 @@ CHAT_PAGE_CSS = """
         flex-wrap: wrap;
     }
 
+    #chat-sidebar-column {
+        display: block;
+    }
+
     #chat-workspace {
         flex-wrap: wrap;
     }
@@ -275,6 +298,11 @@ CHAT_PAGE_CSS = """
     }
 
     .chat-references-surface {
+        height: auto;
+    }
+
+    #chat-sidebar-shell,
+    .chat-sidebar-panel {
         height: auto;
     }
 
