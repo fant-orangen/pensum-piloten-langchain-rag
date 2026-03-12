@@ -98,6 +98,11 @@ CHAT_PAGE_CSS = """
     min-height: 0;
 }
 
+#chat-conversation-selector > label,
+#chat-conversation-selector legend {
+    display: none !important;
+}
+
 #chat-sidebar-list-container {
     flex: 1;
     min-height: 0;
@@ -425,6 +430,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                                 choices=[],
                                 value=None,
                                 label=None,
+                                show_label=False,
                                 elem_id="chat-conversation-selector",
                             )
                         conversation_count = gr.Markdown(
