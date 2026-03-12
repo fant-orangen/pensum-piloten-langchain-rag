@@ -9,11 +9,11 @@ import gradio as gr
 
 import src.ui.services.course_service as _course_api
 from src.ui.pages.teacher_course_tabs.instructions_tab import (
-    MAX_COURSE_INSTRUCTIONS_CHARS,
     TeacherCourseInstructionsTabComponents,
     build_teacher_course_instructions_tab,
     handle_course_instructions_input,
     handle_save_course_instructions,
+    teacher_course_instructions_updates,
     teacher_course_instructions_counter_update,
     teacher_course_instructions_input_update,
     teacher_course_instructions_status_update,
@@ -46,6 +46,37 @@ from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token, with_route
 TEACHER_COURSE_TAB_STUDENTS = "teacher_course_students"
 TEACHER_COURSE_TAB_MATERIALS = "teacher_course_materials"
 TEACHER_COURSE_TAB_INSTRUCTIONS = "teacher_course_instructions"
+
+__all__ = [
+    "TEACHER_COURSE_TAB_STUDENTS",
+    "TEACHER_COURSE_TAB_MATERIALS",
+    "TEACHER_COURSE_TAB_INSTRUCTIONS",
+    "TeacherCoursePageComponents",
+    "build_teacher_course_page",
+    "handle_add_student",
+    "handle_course_instructions_input",
+    "handle_delete_material",
+    "handle_import_students_csv",
+    "handle_refresh_ingestion",
+    "handle_save_course_instructions",
+    "handle_start_ingestion",
+    "handle_upload_materials",
+    "handle_view_as_student",
+    "teacher_course_ingestion_status_text",
+    "teacher_course_instructions_counter_update",
+    "teacher_course_instructions_input_update",
+    "teacher_course_instructions_status_update",
+    "teacher_course_instructions_updates",
+    "teacher_course_material_choices_update",
+    "teacher_course_material_status_update",
+    "teacher_course_student_choices_update",
+    "teacher_course_student_import_file_update",
+    "teacher_course_student_import_results_update",
+    "teacher_course_student_status_update",
+    "teacher_course_students_text",
+    "teacher_course_tabs_update",
+    "teacher_course_title_text",
+]
 
 
 @dataclass(slots=True)

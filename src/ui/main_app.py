@@ -45,9 +45,7 @@ from src.ui.pages import (
     student_courses_update,
     teacher_available_courses_update,
     teacher_course_ingestion_status_text,
-    teacher_course_instructions_counter_update,
-    teacher_course_instructions_input_update,
-    teacher_course_instructions_status_update,
+    teacher_course_instructions_updates,
     teacher_course_material_choices_update,
     teacher_course_material_status_update,
     teacher_course_tabs_update,
@@ -145,6 +143,11 @@ def _render_main_app(
     token = auth_token(state)
 
     selected_course_id = str(state.get(COURSE_ID_KEY) or "").strip() or None
+    (
+        instructions_input_update,
+        instructions_counter_text,
+        instructions_status_text,
+    ) = teacher_course_instructions_updates(state)
 
     return (
         state,
@@ -166,11 +169,11 @@ def _render_main_app(
         teacher_course_student_import_results_update(state),
         teacher_course_student_choices_update(state),
         teacher_course_ingestion_status_text(state),
-        teacher_course_instructions_input_update(state),
-        teacher_course_instructions_counter_update(state),
+        instructions_input_update,
+        instructions_counter_text,
         teacher_course_student_status_update(state),
         teacher_course_material_status_update(state),
-        teacher_course_instructions_status_update(state),
+        instructions_status_text,
         student_course_title_text(state),
         chat_course_title_text(state),
         login_message,

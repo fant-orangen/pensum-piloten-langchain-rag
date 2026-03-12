@@ -1,4 +1,5 @@
 import io
+import uuid
 
 import pytest
 import pytest_asyncio
@@ -277,3 +278,16 @@ async def test_get_course_specific_instructions_rejects_teacher_not_in_course(
         await get_course_specific_instructions(outsider_teacher, course.id, db_session)
 
     assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_course_specific_instructions_rejects_missing_course(
+    db_session: AsyncSession,
+    seeded_course: dict[str, object],
+) -> None:
+    teacher = seeded_course["teacher"]
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_course_specific_instructions(teacher, uuid.uuid4(), db_session)
+
+    assert exc_info.value.status_code == 404

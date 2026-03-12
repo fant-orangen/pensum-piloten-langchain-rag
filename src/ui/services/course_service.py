@@ -147,17 +147,35 @@ def delete_course(token: str, course_id: str) -> tuple[bool, str]:
     return True, "Faget ble slettet."
 
 
+def get_course_instructions(
+    token: str,
+    course_id: str,
+) -> tuple[bool, str, dict[str, Any] | None]:
+    """Fetch the persisted course-specific tutor instructions for one course."""
+    try:
+        data = get(f"/courses/{course_id}/instructions", token=token)
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt.", None
+    except ApiError as exc:
+        if exc.status == 403:
+            return False, "Ikke tillatt.", None
+        if exc.status == 404:
+            return False, "Fant ikke faget.", None
+        return False, f"Kunne ikke hente kursinstruksjoner: {exc.detail}", None
+    except Exception as exc:
+        return False, f"Kunne ikke nå API-serveren: {exc}", None
+
+    if not isinstance(data, dict):
+        return False, "Uventet svar fra serveren.", None
+    return True, "", data
+
+
 def update_course_instructions(
     token: str,
     course_id: str,
     instructions: str | None,
 ) -> tuple[bool, str, dict[str, Any] | None]:
-    """Update course-specific tutor instructions for one course.
-
-    Note: this wrapper currently supports a write-only UI flow. The teacher
-    page can submit instructions, but does not fetch/display existing saved
-    instructions yet.
-    """
+    """Update course-specific tutor instructions for one course."""
     try:
         data = patch(
             f"/courses/{course_id}/instructions",
