@@ -350,6 +350,8 @@ class ChatPageComponents:
 
     group: gr.Group
     sidebar_container: gr.Group
+    sidebar_controls_container: gr.Group
+    sidebar_conversations_container: gr.Group
     conversation_list_container: gr.Group
     back_button: gr.Button
     token_state: gr.State
@@ -398,7 +400,10 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                     elem_classes=["chat-shell-card", "chat-sidebar-panel"],
                 ) as sidebar_container:
                     gr.Markdown("## Samtaler", elem_classes=["chat-panel-title"])
-                    with gr.Group():
+                    with gr.Group(
+                        elem_id="chat-sidebar-controls",
+                        elem_classes=["chat-sidebar-controls"],
+                    ) as sidebar_controls_container:
                         gr.Markdown("### Ny samtale", elem_classes=["chat-panel-title"])
                         mode_selector = gr.Radio(
                             choices=_MODE_CHOICES,
@@ -411,7 +416,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                     with gr.Group(
                         elem_id="chat-sidebar-list-section",
                         elem_classes=["chat-sidebar-list-section"],
-                    ):
+                    ) as sidebar_conversations_container:
                         with gr.Group(
                             elem_id="chat-sidebar-list-container",
                             elem_classes=["chat-sidebar-list-container"],
@@ -504,6 +509,8 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
     return ChatPageComponents(
         group=group,
         sidebar_container=sidebar_container,
+        sidebar_controls_container=sidebar_controls_container,
+        sidebar_conversations_container=sidebar_conversations_container,
         conversation_list_container=conversation_list_container,
         back_button=back_button,
         token_state=token_state,
