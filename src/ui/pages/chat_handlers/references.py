@@ -28,19 +28,19 @@ from src.ui.pages.chat_state import (
 from src.ui.services.conversation_service import get_message_sources
 
 
-def _reference_drawer_update(is_open: bool) -> tuple[bool, Any]:
+def _reference_layout_update(is_open: bool) -> tuple[bool, Any]:
     return is_open, gr.update(visible=is_open)
 
 
-def _open_reference_drawer_handler() -> tuple[bool, Any]:
-    return _reference_drawer_update(True)
+def _open_reference_layout_handler() -> tuple[bool, Any]:
+    return _reference_layout_update(True)
 
 
-def _close_reference_drawer_handler() -> tuple[bool, Any]:
-    return _reference_drawer_update(False)
+def _close_reference_layout_handler() -> tuple[bool, Any]:
+    return _reference_layout_update(False)
 
 
-def _reference_drawer_from_panel_handler(
+def _reference_layout_from_panel_handler(
     panel: str | None,
     status: str | None,
 ) -> tuple[bool, Any]:
@@ -51,7 +51,7 @@ def _reference_drawer_from_panel_handler(
         _REFERENCE_NO_SOURCES_STATUS,
         _REFERENCE_USER_SELECTED_STATUS,
     }
-    return _reference_drawer_update(should_open)
+    return _reference_layout_update(should_open)
 
 
 def _empty_reference_panel() -> ChatReferencePanel:
