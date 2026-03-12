@@ -101,15 +101,37 @@ CHAT_PAGE_CSS = """
 #chat-sidebar-list-container {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     box-sizing: border-box;
     padding-right: 6px;
 }
 
 #chat-sidebar-list-container > .gr-block,
 #chat-sidebar-list-container > div {
+    height: 100%;
+    min-height: 0;
     max-width: 100%;
+}
+
+#chat-conversation-selector,
+#chat-conversation-selector > .gr-block,
+#chat-conversation-selector > div {
+    height: 100%;
+    min-height: 0;
+}
+
+#chat-conversation-selector .wrap,
+#chat-conversation-selector fieldset {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+#chat-conversation-selector .wrap {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 6px;
 }
 
 .chat-conversation-summary {
@@ -307,6 +329,10 @@ CHAT_PAGE_CSS = """
     }
 
     #chat-sidebar-list-container {
+        max-height: 20rem;
+    }
+
+    #chat-conversation-selector .wrap {
         max-height: 20rem;
     }
 
