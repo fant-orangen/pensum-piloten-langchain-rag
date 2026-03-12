@@ -398,6 +398,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                                 choices=[],
                                 value=None,
                                 label=None,
+                                elem_id="chat-conversation-selector",
                             )
                         conversation_count = gr.Markdown(
                             _conversation_count_text(0),
