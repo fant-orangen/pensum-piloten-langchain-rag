@@ -110,9 +110,9 @@ def test_render_reference_panel_hides_page_badge_when_page_is_missing() -> None:
     _assert_reference_block(panel, document="doc1.pdf", page=None, excerpt="chunk")
 
 
-def test_open_and_close_reference_drawer_handlers_toggle_visibility() -> None:
-    open_state, open_update = chat_page._open_reference_drawer_handler()
-    close_state, close_update = chat_page._close_reference_drawer_handler()
+def test_open_and_close_reference_layout_handlers_toggle_visibility() -> None:
+    open_state, open_update = chat_page._open_reference_layout_handler()
+    close_state, close_update = chat_page._close_reference_layout_handler()
 
     assert open_state is True
     assert close_state is False
@@ -120,8 +120,8 @@ def test_open_and_close_reference_drawer_handlers_toggle_visibility() -> None:
     assert _update_visible(close_update) is False
 
 
-def test_reference_drawer_from_panel_handler_opens_for_populated_panel() -> None:
-    is_open, update = chat_page._reference_drawer_from_panel_handler(
+def test_reference_layout_from_panel_handler_opens_for_populated_panel() -> None:
+    is_open, update = chat_page._reference_layout_from_panel_handler(
         "<div>panel</div>",
         "Kunne ikke hente kilder: timeout Viser lagrede referanser uten tekstutdrag.",
     )
@@ -130,8 +130,8 @@ def test_reference_drawer_from_panel_handler_opens_for_populated_panel() -> None
     assert _update_visible(update) is True
 
 
-def test_reference_drawer_from_panel_handler_closes_for_empty_state() -> None:
-    is_open, update = chat_page._reference_drawer_from_panel_handler(
+def test_reference_layout_from_panel_handler_closes_for_empty_state() -> None:
+    is_open, update = chat_page._reference_layout_from_panel_handler(
         "",
         chat_page._REFERENCE_DEFAULT_STATUS,
     )
