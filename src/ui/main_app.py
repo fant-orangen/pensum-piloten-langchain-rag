@@ -69,7 +69,6 @@ from src.ui.pages.chat_handlers import (
     _new_conversation_handler,
     _open_reference_layout_handler,
     _reference_layout_from_panel_handler,
-    _refresh_handler,
     _reset_scope_handler,
 )
 from src.ui.router import (
@@ -641,29 +640,6 @@ def build_main_app() -> gr.Blocks:
             outputs=chat_outputs,
         )
         new_conversation_click.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        refresh_click = chat_page.refresh_button.click(
-            fn=_refresh_handler,
-            inputs=[
-                chat_page.conversation_state,
-                chat_page.source_history_state,
-                chat_page.token_state,
-                chat_page.course_id_state,
-            ],
-            outputs=[
-                chat_page.conversation_selector,
-                chat_page.conversation_count,
-                chat_page.status,
-                chat_page.conversation_state,
-                chat_page.source_history_state,
-                chat_page.references_panel,
-                chat_page.references_status,
-            ],
-        )
-        refresh_click.success(
             fn=_close_reference_layout_handler,
             inputs=None,
             outputs=reference_visibility_outputs,

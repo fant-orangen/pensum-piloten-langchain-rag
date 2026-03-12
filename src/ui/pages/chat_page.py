@@ -385,7 +385,6 @@ class ChatPageComponents:
     source_history_state: gr.State
     mode_selector: gr.Radio
     new_conversation_button: gr.Button
-    refresh_button: gr.Button
     conversation_selector: gr.Radio
     conversation_count: gr.Markdown
     course_title: gr.Markdown
@@ -436,7 +435,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                             info="Brukes for nye samtaler og blir standard til du endrer den.",
                         )
                         new_conversation_button = gr.Button("Start ny samtale", variant="primary")
-                    refresh_button = gr.Button("Oppdater", variant="secondary")
                     with gr.Group(
                         elem_id="chat-sidebar-list-section",
                         elem_classes=["chat-sidebar-list-section"],
@@ -545,7 +543,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         source_history_state=source_history_state,
         mode_selector=mode_selector,
         new_conversation_button=new_conversation_button,
-        refresh_button=refresh_button,
         conversation_selector=conversation_selector,
         conversation_count=conversation_count,
         course_title=course_title,
