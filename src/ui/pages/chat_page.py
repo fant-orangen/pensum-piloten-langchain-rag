@@ -105,6 +105,18 @@ CHAT_PAGE_CSS = """
     max-height: 44rem;
 }
 
+#chat-mode-selector,
+#chat-mode-selector > .gr-block,
+#chat-mode-selector > div {
+    max-width: 100%;
+    width: 100%;
+}
+
+#chat-mode-selector button,
+#chat-mode-selector input {
+    min-height: 48px;
+}
+
 #chat-conversation-selector > label,
 #chat-conversation-selector legend {
     display: none !important;
