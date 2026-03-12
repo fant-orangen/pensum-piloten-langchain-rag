@@ -25,7 +25,7 @@ from src.ui.pages.chat_handlers.references import (
     _reference_panel_from_sources,
     _visible_history_from_source_history,
 )
-from src.ui.pages.chat_handlers.sidebar import _open_conversation_text, _refresh_sidebar
+from src.ui.pages.chat_handlers.sidebar import _refresh_sidebar
 from src.ui.pages.chat_state import ChatConversationState, normalize_conversation_state
 from src.ui.services.chat_orchestration_service import create_chat_conversation, send_chat_message
 
@@ -44,7 +44,6 @@ def _new_conversation_handler(
             _default_conversation_state(),
             gr.update(),
             "",
-            _open_conversation_text(None),
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -52,7 +51,7 @@ def _new_conversation_handler(
 
     course_id = (course_id_state or "").strip()
     if not course_id:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message=_NO_COURSE_STATUS
         )
         return (
@@ -62,14 +61,13 @@ def _new_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
     if selected_mode not in {1, 2, 3}:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             course_id=course_id_state,
             status_message="Velg en gyldig veiledningsmodus for ny samtale.",
@@ -81,7 +79,6 @@ def _new_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -92,7 +89,7 @@ def _new_conversation_handler(
 
     mode_saved, mode_message = update_system_prompt_mode(token, selected_mode)
     if not mode_saved:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message=mode_message
         )
         return (
@@ -102,7 +99,6 @@ def _new_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -110,7 +106,7 @@ def _new_conversation_handler(
 
     success, message, conv_data = create_chat_conversation(token, course_id)
     if not success or conv_data is None:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id_state, status_message=message
         )
         return (
@@ -120,7 +116,6 @@ def _new_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -135,7 +130,7 @@ def _new_conversation_handler(
     }
     status_message = f"Ny samtale opprettet med {_mode_label(selected_mode)}. Denne modusen er nå standard."
 
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(
+    selector_update, count_text, status_text = _refresh_sidebar(
         token,
         conv_id,
         course_id=course_id_state,
@@ -148,7 +143,6 @@ def _new_conversation_handler(
         conv_state,
         selector_update,
         count_text,
-        open_text,
         [],
         _empty_reference_panel(),
         _REFERENCE_DEFAULT_STATUS,
@@ -183,14 +177,13 @@ def _chat_handler(
             current_state,
             gr.update(),
             "",
-            _open_conversation_text(None),
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
     if not (course_id_state or "").strip():
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             course_id=course_id_state,
             status_message=_NO_COURSE_STATUS,
@@ -202,7 +195,6 @@ def _chat_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -211,7 +203,7 @@ def _chat_handler(
     active_course_id = str(course_id_state or "").strip()
     if not text:
         conv_id = current_state.get("conversation_id")
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             conv_id,
             course_id=course_id_state,
@@ -223,7 +215,6 @@ def _chat_handler(
             current_state,
             selector_update,
             count_text,
-            open_text,
             resolved_source_history,
             reference_panel,
             reference_status,
@@ -232,7 +223,7 @@ def _chat_handler(
     conv_id = current_state.get("conversation_id")
     conv_course_id = str(current_state.get("course_id") or "").strip()
     if conv_id and conv_course_id != active_course_id:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             course_id=course_id_state,
             status_message=_OUT_OF_SCOPE_STATUS,
@@ -244,7 +235,6 @@ def _chat_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -257,7 +247,7 @@ def _chat_handler(
 
             mode_saved, mode_message = update_system_prompt_mode(token, int(selected_mode))
             if not mode_saved:
-                selector_update, count_text, status_text, open_text = _refresh_sidebar(
+                selector_update, count_text, status_text = _refresh_sidebar(
                     token,
                     course_id=course_id_state,
                     status_message=mode_message,
@@ -269,14 +259,13 @@ def _chat_handler(
                     current_state,
                     selector_update,
                     count_text,
-                    open_text,
                     resolved_source_history,
                     reference_panel,
                     reference_status,
                 )
         created, created_message, conv_data = create_chat_conversation(token, active_course_id)
         if not created or conv_data is None:
-            selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            selector_update, count_text, status_text = _refresh_sidebar(
                 token,
                 course_id=course_id_state,
                 status_message=created_message,
@@ -288,14 +277,13 @@ def _chat_handler(
                 current_state,
                 selector_update,
                 count_text,
-                open_text,
                 resolved_source_history,
                 reference_panel,
                 reference_status,
             )
         conv_id = str(conv_data.get("id", "")).strip()
         if not conv_id:
-            selector_update, count_text, status_text, open_text = _refresh_sidebar(
+            selector_update, count_text, status_text = _refresh_sidebar(
                 token,
                 course_id=course_id_state,
                 status_message="Kunne ikke opprette ny samtale.",
@@ -307,7 +295,6 @@ def _chat_handler(
                 current_state,
                 selector_update,
                 count_text,
-                open_text,
                 resolved_source_history,
                 reference_panel,
                 reference_status,
@@ -320,7 +307,7 @@ def _chat_handler(
 
     success, err, ai_msg_data = send_chat_message(token, conv_id, text)
     if not success or ai_msg_data is None:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             conv_id,
             course_id=course_id_state,
@@ -333,7 +320,6 @@ def _chat_handler(
             current_state,
             selector_update,
             count_text,
-            open_text,
             resolved_source_history,
             reference_panel,
             reference_status,
@@ -367,7 +353,7 @@ def _chat_handler(
         else:
             updated_reference_status = hydration_error
 
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(
+    selector_update, count_text, status_text = _refresh_sidebar(
         token,
         conv_id,
         course_id=course_id_state,
@@ -379,7 +365,6 @@ def _chat_handler(
         current_state,
         selector_update,
         count_text,
-        open_text,
         hydrated_source_history,
         updated_reference_panel,
         updated_reference_status,

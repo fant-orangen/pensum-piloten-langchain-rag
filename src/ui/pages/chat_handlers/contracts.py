@@ -33,7 +33,6 @@ ChatOutputs: TypeAlias = tuple[
     ChatConversationState,
     Any,
     str,
-    str,
     ChatSourceHistory,
     ChatReferencePanel,
     str,
@@ -46,7 +45,6 @@ ChatBootstrapOutputs: TypeAlias = tuple[
     ChatConversationState,
     Any,
     str,
-    str,
     ChatSourceHistory,
     ChatReferencePanel,
     str,
@@ -55,7 +53,6 @@ ChatBootstrapOutputs: TypeAlias = tuple[
 
 ChatRefreshOutputs: TypeAlias = tuple[
     Any,
-    str,
     str,
     str,
     ChatConversationState,

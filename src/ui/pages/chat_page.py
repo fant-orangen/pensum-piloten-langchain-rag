@@ -287,7 +287,6 @@ class ChatPageComponents:
     refresh_button: gr.Button
     conversation_selector: gr.Radio
     conversation_count: gr.Markdown
-    open_conversation: gr.Markdown
     course_title: gr.Markdown
     status: gr.Markdown
     chatbot: gr.Chatbot
@@ -368,7 +367,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                             "",
                             elem_classes=["chat-muted-text", "chat-status-text"],
                         )
-                        open_conversation = gr.Markdown("", visible=False)
                     with gr.Row(elem_id="chat-workspace"):
                         with gr.Column(
                             scale=5,
@@ -428,7 +426,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         refresh_button=refresh_button,
         conversation_selector=conversation_selector,
         conversation_count=conversation_count,
-        open_conversation=open_conversation,
         course_title=course_title,
         status=status,
         chatbot=chatbot,

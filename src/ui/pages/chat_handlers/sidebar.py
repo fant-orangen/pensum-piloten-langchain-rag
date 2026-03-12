@@ -31,11 +31,6 @@ from src.ui.services.chat_orchestration_service import (
 )
 
 
-def _open_conversation_text(title: str | None) -> str:
-    """Format the label shown above the chat area for the currently open conversation."""
-    return f"Åpen samtale: {title or 'Ingen'}"
-
-
 def _conversation_count_text(count: int) -> str:
     """Return a Norwegian summary string for the number of conversations found."""
     if count == 0:
@@ -66,8 +61,8 @@ def _refresh_sidebar(
     *,
     course_id: str | None = None,
     status_message: str = "",
-) -> tuple[Any, str, str, str]:
-    """Fetch sidebar data and return selector/count/status/open label updates."""
+) -> tuple[Any, str, str]:
+    """Fetch sidebar data and return selector/count/status updates."""
     model = build_sidebar_model(
         token,
         course_id=course_id,
@@ -80,7 +75,6 @@ def _refresh_sidebar(
         gr.update(choices=model["choices"], value=model["selected_id"]),
         _conversation_count_text(model["count"]),
         model["status_text"],
-        _open_conversation_text(model["open_title"]),
     )
 
 
@@ -98,7 +92,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             gr.update(),
             "",
-            _open_conversation_text(None),
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -106,7 +99,7 @@ def _load_conversation_handler(
 
     resolved_course_id = (course_id or "").strip()
     if not resolved_course_id:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             course_id=course_id,
             status_message=_NO_COURSE_STATUS,
@@ -118,14 +111,13 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
     if not conversation_id:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id, status_message="Ingen samtale valgt."
         )
         return (
@@ -135,7 +127,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -143,7 +134,7 @@ def _load_conversation_handler(
 
     conversations, err = _fetch_conversations(token, resolved_course_id)
     if err:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id, status_message=err
         )
         return (
@@ -153,7 +144,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -164,7 +154,7 @@ def _load_conversation_handler(
         None,
     )
     if selected_conv is None:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             course_id=course_id,
             status_message=_OUT_OF_SCOPE_STATUS,
@@ -176,7 +166,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -184,7 +173,7 @@ def _load_conversation_handler(
 
     source_history, err = _fetch_messages(token, conversation_id)
     if err:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id, status_message=err
         )
         return (
@@ -194,7 +183,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -207,7 +195,7 @@ def _load_conversation_handler(
         "course_id": str(selected_conv.get("course_id", "")) if selected_conv else None,
     }
 
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(
+    selector_update, count_text, status_text = _refresh_sidebar(
         token,
         conversation_id,
         course_id=course_id,
@@ -232,7 +220,6 @@ def _load_conversation_handler(
         conv_state,
         selector_update,
         count_text,
-        open_text,
         hydrated_source_history,
         reference_panel,
         reference_status,
@@ -253,7 +240,6 @@ def _refresh_handler(
             gr.update(choices=[], value=None),
             "",
             "Ikke innlogget.",
-            _open_conversation_text(None),
             _default_conversation_state(),
             [],
             _empty_reference_panel(),
@@ -265,7 +251,6 @@ def _refresh_handler(
             gr.update(choices=[], value=None),
             _conversation_count_text(0),
             _NO_COURSE_STATUS,
-            _open_conversation_text(None),
             _default_conversation_state(),
             [],
             _empty_reference_panel(),
@@ -293,7 +278,6 @@ def _refresh_handler(
         gr.update(choices=choices, value=resolved_value),
         _conversation_count_text(len(conversations)),
         status_text,
-        _open_conversation_text(next_state.get("title")),
         next_state if resolved_value else _default_conversation_state(),
         next_source_history,
         reference_panel if resolved_value else _empty_reference_panel(),

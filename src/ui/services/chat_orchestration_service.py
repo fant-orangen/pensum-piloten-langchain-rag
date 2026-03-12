@@ -11,7 +11,6 @@ class ChatSidebarModel(TypedDict):
     selected_id: str | None
     count: int
     status_text: str
-    open_title: str | None
 
 
 def resolve_course_for_chat_entry(
@@ -132,7 +131,6 @@ def build_sidebar_model(
             "selected_id": None,
             "count": 0,
             "status_text": status_text,
-            "open_title": None,
         }
 
     conversations, err = fetch_conversations(token, resolved_course_id, no_course_status=no_course_status)
@@ -152,7 +150,6 @@ def build_sidebar_model(
         "selected_id": resolved_value,
         "count": len(conversations),
         "status_text": status_message,
-        "open_title": selected_conv.get("title") if selected_conv else None,
     }
 
 
