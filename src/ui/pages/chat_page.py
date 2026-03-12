@@ -115,7 +115,8 @@ CHAT_PAGE_CSS = """
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     box-sizing: border-box;
     padding-right: 6px;
 }
@@ -147,6 +148,10 @@ CHAT_PAGE_CSS = """
 #chat-conversation-selector fieldset > label {
     max-width: 100%;
     width: 100%;
+}
+
+#chat-conversation-selector .wrap {
+    overflow: visible;
 }
 
 .chat-conversation-summary {
@@ -345,6 +350,10 @@ CHAT_PAGE_CSS = """
 
     .chat-sidebar-list-section {
         max-height: none;
+    }
+
+    #chat-sidebar-list-container {
+        max-height: 20rem;
     }
 
     #chat-references-panel {
