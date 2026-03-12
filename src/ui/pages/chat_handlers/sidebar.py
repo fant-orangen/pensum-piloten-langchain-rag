@@ -27,13 +27,9 @@ from src.ui.services.chat_orchestration_service import (
     build_sidebar_model,
     fetch_conversations,
     fetch_messages,
+    sidebar_model_from_conversations,
     selector_choices as selector_choices_service,
 )
-
-
-def _open_conversation_text(title: str | None) -> str:
-    """Format the label shown above the chat area for the currently open conversation."""
-    return f"Åpen samtale: {title or 'Ingen'}"
 
 
 def _conversation_count_text(count: int) -> str:
@@ -52,7 +48,12 @@ def _selector_choices(conversations: list[dict[str, Any]]) -> list[tuple[str, st
 
 def _fetch_conversations(token: str, course_id: str | None = None) -> tuple[list[dict[str, Any]], str]:
     """Return (conversations, error_message). Conversations are ordered newest-first."""
-    return fetch_conversations(token, course_id, no_course_status=_NO_COURSE_STATUS)
+    conversations, _total, err = fetch_conversations(
+        token,
+        course_id,
+        no_course_status=_NO_COURSE_STATUS,
+    )
+    return conversations, err
 
 
 def _fetch_messages(token: str, conversation_id: str) -> tuple[list[dict[str, Any]], str]:
@@ -66,8 +67,8 @@ def _refresh_sidebar(
     *,
     course_id: str | None = None,
     status_message: str = "",
-) -> tuple[Any, str, str, str]:
-    """Fetch sidebar data and return selector/count/status/open label updates."""
+) -> tuple[Any, str, str]:
+    """Fetch sidebar data and return selector/count/status updates."""
     model = build_sidebar_model(
         token,
         course_id=course_id,
@@ -80,7 +81,6 @@ def _refresh_sidebar(
         gr.update(choices=model["choices"], value=model["selected_id"]),
         _conversation_count_text(model["count"]),
         model["status_text"],
-        _open_conversation_text(model["open_title"]),
     )
 
 
@@ -98,7 +98,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             gr.update(),
             "",
-            _open_conversation_text(None),
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -106,7 +105,7 @@ def _load_conversation_handler(
 
     resolved_course_id = (course_id or "").strip()
     if not resolved_course_id:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             course_id=course_id,
             status_message=_NO_COURSE_STATUS,
@@ -118,14 +117,13 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
     if not conversation_id:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id, status_message="Ingen samtale valgt."
         )
         return (
@@ -135,7 +133,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -143,7 +140,7 @@ def _load_conversation_handler(
 
     conversations, err = _fetch_conversations(token, resolved_course_id)
     if err:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id, status_message=err
         )
         return (
@@ -153,7 +150,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -164,7 +160,7 @@ def _load_conversation_handler(
         None,
     )
     if selected_conv is None:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token,
             course_id=course_id,
             status_message=_OUT_OF_SCOPE_STATUS,
@@ -176,7 +172,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -184,7 +179,7 @@ def _load_conversation_handler(
 
     source_history, err = _fetch_messages(token, conversation_id)
     if err:
-        selector_update, count_text, status_text, open_text = _refresh_sidebar(
+        selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id, status_message=err
         )
         return (
@@ -194,24 +189,23 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            open_text,
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
         )
 
-    title = selected_conv.get("title") if selected_conv else "Samtale"
+    title = (selected_conv.get("title") or "Samtale") if selected_conv else "Samtale"
     conv_state: ChatConversationState = {
         "conversation_id": conversation_id,
         "title": title,
         "course_id": str(selected_conv.get("course_id", "")) if selected_conv else None,
     }
 
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(
+    selector_update, count_text, status_text = _refresh_sidebar(
         token,
         conversation_id,
         course_id=course_id,
-        status_message=f"Lastet samtale: {title}.",
+        status_message="",
     )
     hydrated_source_history, hydrated_sources, hydration_error = _hydrate_latest_assistant_sources(
         source_history,
@@ -232,7 +226,6 @@ def _load_conversation_handler(
         conv_state,
         selector_update,
         count_text,
-        open_text,
         hydrated_source_history,
         reference_panel,
         reference_status,
@@ -253,7 +246,6 @@ def _refresh_handler(
             gr.update(choices=[], value=None),
             "",
             "Ikke innlogget.",
-            _open_conversation_text(None),
             _default_conversation_state(),
             [],
             _empty_reference_panel(),
@@ -265,7 +257,6 @@ def _refresh_handler(
             gr.update(choices=[], value=None),
             _conversation_count_text(0),
             _NO_COURSE_STATUS,
-            _open_conversation_text(None),
             _default_conversation_state(),
             [],
             _empty_reference_panel(),
@@ -275,8 +266,14 @@ def _refresh_handler(
     active_course_id = str(course_id_state or "").strip()
     conv_id = str(current_state.get("conversation_id") or "").strip()
     conversations, err = _fetch_conversations(token, active_course_id)
-    choices = _selector_choices(conversations)
-    resolved_value = conv_id if conv_id and any(item[1] == conv_id for item in choices) else None
+    model = sidebar_model_from_conversations(
+        conversations,
+        total=len(conversations),
+        selected_id=conv_id or None,
+        status_message=err or "Samtalelisten er oppdatert.",
+    )
+    choices = list(model["choices"])
+    resolved_value = model["selected_id"]
     selected_conv = next(
         (item for item in conversations if str(item.get("id", "")) == resolved_value),
         None,
@@ -288,12 +285,10 @@ def _refresh_handler(
     }
     next_source_history = list(source_history or []) if resolved_value else []
     reference_panel, reference_status = _reference_panel_from_history(next_source_history)
-    status_text = err or "Samtalelisten er oppdatert."
     return (
         gr.update(choices=choices, value=resolved_value),
-        _conversation_count_text(len(conversations)),
-        status_text,
-        _open_conversation_text(next_state.get("title")),
+        _conversation_count_text(model["count"]),
+        model["status_text"],
         next_state if resolved_value else _default_conversation_state(),
         next_source_history,
         reference_panel if resolved_value else _empty_reference_panel(),

@@ -28,6 +28,32 @@ from src.ui.pages.chat_state import (
 from src.ui.services.conversation_service import get_message_sources
 
 
+def _reference_layout_update(is_open: bool) -> tuple[bool, Any, Any]:
+    return is_open, gr.update(visible=is_open), gr.update(visible=not is_open)
+
+
+def _open_reference_layout_handler() -> tuple[bool, Any, Any]:
+    return _reference_layout_update(True)
+
+
+def _close_reference_layout_handler() -> tuple[bool, Any, Any]:
+    return _reference_layout_update(False)
+
+
+def _reference_layout_from_panel_handler(
+    panel: str | None,
+    status: str | None,
+) -> tuple[bool, Any, Any]:
+    status_text = str(status or "").strip()
+    has_panel = bool(str(panel or "").strip())
+    should_open = has_panel and status_text not in {
+        _REFERENCE_DEFAULT_STATUS,
+        _REFERENCE_NO_SOURCES_STATUS,
+        _REFERENCE_USER_SELECTED_STATUS,
+    }
+    return _reference_layout_update(should_open)
+
+
 def _empty_reference_panel() -> ChatReferencePanel:
     return empty_reference_panel()
 

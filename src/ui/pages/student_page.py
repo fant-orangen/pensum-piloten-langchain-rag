@@ -108,10 +108,26 @@ def handle_open_student_course(state: dict[str, Any], course_id: str | None) -> 
             return state, ""
         return with_route(clear_selected_course(state), home_route_for_role(user_role(state))), ""
 
+    token = auth_token(state)
+    course_name: str | None = None
+    if token:
+        courses, _err = _course_api.list_courses(token)
+        selected_course = next(
+            (
+                course
+                for course in courses
+                if isinstance(course, dict) and str(course.get("id", "")).strip() == course_id.strip()
+            ),
+            None,
+        )
+        if selected_course is not None:
+            course_name = str(selected_course.get("name", "")).strip() or None
+
     return with_selected_course(
         clear_selected_course(state),
         course_id,
         route=ROUTE_CHAT,
+        course_name=course_name,
     ), ""
 
 

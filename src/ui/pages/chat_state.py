@@ -82,35 +82,38 @@ def render_reference_panel_for_sources(sources: list[dict[str, Any]] | None) -> 
         return empty_reference_panel()
 
     entries: list[str] = []
-    for index, source in enumerate(normalized_sources):
+    for source in normalized_sources:
         document = escape(source["document"] or "Ukjent dokument")
-        page = escape(source["page"] or "Ukjent")
+        page_value = str(source["page"] or "").strip()
+        page = escape(page_value)
         excerpt = escape(source["excerpt"] or "Ingen tekst tilgjengelig.").replace("\n", "<br>")
-        separator = (
-            '<hr style="border: 0; border-top: 1px solid #d1d5db; margin: 0.75rem 0 0;">'
-            if index < len(normalized_sources) - 1
+        page_summary = (
+            f'<span class="chat-reference-page">Side {page}</span>'
+            if page_value
             else ""
         )
+        page_meta = f'<div><strong>Side:</strong> {page}</div>' if page_value else ""
         entries.append(
             "".join(
                 [
-                    '<div class="chat-reference-entry" '
-                    'style="display: flex; flex-direction: column; gap: 0.35rem;">',
+                    '<details class="chat-reference-entry">',
+                    '<summary class="chat-reference-summary">',
+                    f'<span class="chat-reference-document">{document}</span>',
+                    page_summary,
+                    "</summary>",
+                    '<div class="chat-reference-body">',
+                    '<div class="chat-reference-meta">',
                     f'<div><strong>Dokument:</strong> {document}</div>',
-                    f'<div><strong>Side:</strong> {page}</div>',
-                    f'<div><strong>Tekst:</strong> {excerpt}</div>',
-                    separator,
+                    page_meta,
                     "</div>",
+                    f'<div class="chat-reference-excerpt">{excerpt}</div>',
+                    "</div>",
+                    "</details>",
                 ]
             )
         )
 
-    return (
-        '<div class="chat-reference-panel" '
-        'style="display: flex; flex-direction: column; gap: 0.75rem;">'
-        + "".join(entries)
-        + "</div>"
-    )
+    return '<div class="chat-reference-panel">' + "".join(entries) + "</div>"
 
 
 def _role_from_value(value: Any) -> ChatRole | None:

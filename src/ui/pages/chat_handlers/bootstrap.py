@@ -16,7 +16,6 @@ from src.ui.pages.chat_handlers.contracts import (
 from src.ui.pages.chat_handlers.references import _empty_reference_panel
 from src.ui.pages.chat_handlers.sidebar import (
     _conversation_count_text,
-    _open_conversation_text,
     _refresh_sidebar,
 )
 from src.ui.router import ROUTE_CHAT
@@ -72,7 +71,6 @@ def _bootstrap_chat_on_route_handler(
             _default_conversation_state(),
             gr.update(choices=[], value=None),
             _conversation_count_text(0),
-            _open_conversation_text(None),
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -91,7 +89,6 @@ def _bootstrap_chat_on_route_handler(
             _default_conversation_state(),
             gr.update(choices=[], value=None),
             _conversation_count_text(0),
-            _open_conversation_text(None),
             [],
             _empty_reference_panel(),
             _REFERENCE_DEFAULT_STATUS,
@@ -99,7 +96,7 @@ def _bootstrap_chat_on_route_handler(
         )
 
     status_seed = resolve_status or "Velg eller opprett en samtale først."
-    selector_update, count_text, status_text, open_text = _refresh_sidebar(
+    selector_update, count_text, status_text = _refresh_sidebar(
         token,
         course_id=resolved_course_id,
         status_message=status_seed,
@@ -111,7 +108,6 @@ def _bootstrap_chat_on_route_handler(
         _default_conversation_state(),
         selector_update,
         count_text,
-        open_text,
         [],
         _empty_reference_panel(),
         _REFERENCE_DEFAULT_STATUS,
@@ -137,7 +133,6 @@ def _reset_scope_handler(
         _default_conversation_state(),
         gr.update(choices=[], value=None),
         _conversation_count_text(0),
-        _open_conversation_text(None),
         [],
         _empty_reference_panel(),
         _REFERENCE_DEFAULT_STATUS,
