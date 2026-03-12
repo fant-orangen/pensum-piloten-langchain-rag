@@ -39,6 +39,8 @@ from src.ui.pages import (
     handle_upload_materials,
     handle_upgrade_user,
     handle_view_as_student,
+    chat_course_title_from_scope,
+    chat_course_title_text,
     student_course_title_text,
     student_courses_update,
     teacher_available_courses_update,
@@ -171,6 +173,7 @@ def _render_main_app(
         teacher_course_material_status_update(state),
         teacher_course_instructions_status_update(state),
         student_course_title_text(state),
+        chat_course_title_text(state),
         login_message,
         register_message,
         token,
@@ -320,6 +323,10 @@ def _handle_back_to_home(state: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _handle_chat_course_title(token: str | None, course_id: str | None) -> str:
+    return chat_course_title_from_scope(token, course_id)
+
+
 def _handle_logout() -> tuple[Any, ...]:
     state, login_message, register_message, student_message = handle_logout()
     return _render_main_app(
@@ -376,6 +383,7 @@ def build_main_app() -> gr.Blocks:
             teacher_course_page.materials_tab.status_text,
             teacher_course_page.instructions_tab.status_text,
             student_course_page.course_title,
+            chat_page.course_title,
             auth_page.login_status,
             auth_page.register_status,
             chat_page.token_state,
@@ -691,6 +699,16 @@ def build_main_app() -> gr.Blocks:
             fn=_close_reference_layout_handler,
             inputs=None,
             outputs=reference_visibility_outputs,
+        )
+        chat_page.course_id_state.change(
+            fn=_handle_chat_course_title,
+            inputs=[chat_page.token_state, chat_page.course_id_state],
+            outputs=[chat_page.course_title],
+        )
+        chat_page.token_state.change(
+            fn=_handle_chat_course_title,
+            inputs=[chat_page.token_state, chat_page.course_id_state],
+            outputs=[chat_page.course_title],
         )
         chat_page.open_references_button.click(
             fn=_open_reference_layout_handler,

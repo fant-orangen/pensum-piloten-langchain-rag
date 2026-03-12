@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import gradio as gr
 
@@ -13,6 +14,7 @@ from src.ui.pages.chat_handlers import (
     _default_conversation_state,
     _empty_reference_panel,
 )
+from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token
 
 CHAT_PAGE_CSS = """
 #chat-page {
@@ -440,3 +442,45 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         references_panel=references_panel,
         references_status=references_status,
     )
+
+
+def _chat_course_title_markdown(course_name: str | None) -> str:
+    resolved_name = str(course_name or "").strip() or "Ingen fag valgt"
+    return f"## {resolved_name}"
+
+
+def _chat_course_name_from_scope(token: str | None, course_id: str | None) -> str | None:
+    resolved_course_id = str(course_id or "").strip()
+    if not token or not resolved_course_id:
+        return None
+
+    from src.ui.services.course_service import list_courses
+
+    courses, _err = list_courses(token)
+    course = next(
+        (
+            item
+            for item in courses
+            if isinstance(item, dict) and str(item.get("id", "")).strip() == resolved_course_id
+        ),
+        None,
+    )
+    if course is None:
+        return None
+    return str(course.get("name", "")).strip() or None
+
+
+def chat_course_title_from_scope(token: str | None, course_id: str | None) -> str:
+    return _chat_course_title_markdown(_chat_course_name_from_scope(token, course_id))
+
+
+def chat_course_title_text(state: dict[str, Any]) -> str:
+    course_name = str(state.get(COURSE_NAME_KEY) or "").strip()
+    if course_name:
+        return _chat_course_title_markdown(course_name)
+
+    course_id = str(state.get(COURSE_ID_KEY) or "").strip()
+    if not course_id:
+        return _chat_course_title_markdown(None)
+
+    return _chat_course_title_markdown(_chat_course_name_from_scope(auth_token(state), course_id))
