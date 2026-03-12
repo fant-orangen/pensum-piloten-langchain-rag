@@ -383,7 +383,7 @@ class ChatPageComponents:
     route_state: gr.State
     conversation_state: gr.State
     source_history_state: gr.State
-    mode_selector: gr.Radio
+    mode_selector: gr.Dropdown
     new_conversation_button: gr.Button
     conversation_selector: gr.Radio
     conversation_count: gr.Markdown
@@ -428,11 +428,11 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                         elem_classes=["chat-sidebar-controls"],
                     ) as sidebar_controls_container:
                         gr.Markdown("### Ny samtale", elem_classes=["chat-panel-title"])
-                        mode_selector = gr.Radio(
+                        mode_selector = gr.Dropdown(
                             choices=_MODE_CHOICES,
                             value=1,
                             label="Veiledningsmodus",
-                            info="Brukes for nye samtaler og blir standard til du endrer den.",
+                            elem_id="chat-mode-selector",
                         )
                         new_conversation_button = gr.Button("Start ny samtale", variant="primary")
                     with gr.Group(
