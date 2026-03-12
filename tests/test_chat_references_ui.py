@@ -111,33 +111,37 @@ def test_render_reference_panel_hides_page_badge_when_page_is_missing() -> None:
 
 
 def test_open_and_close_reference_layout_handlers_toggle_visibility() -> None:
-    open_state, open_update = chat_page._open_reference_layout_handler()
-    close_state, close_update = chat_page._close_reference_layout_handler()
+    open_state, open_panel_update, open_button_update = chat_page._open_reference_layout_handler()
+    close_state, close_panel_update, close_button_update = chat_page._close_reference_layout_handler()
 
     assert open_state is True
     assert close_state is False
-    assert _update_visible(open_update) is True
-    assert _update_visible(close_update) is False
+    assert _update_visible(open_panel_update) is True
+    assert _update_visible(open_button_update) is False
+    assert _update_visible(close_panel_update) is False
+    assert _update_visible(close_button_update) is True
 
 
 def test_reference_layout_from_panel_handler_opens_for_populated_panel() -> None:
-    is_open, update = chat_page._reference_layout_from_panel_handler(
+    is_open, panel_update, button_update = chat_page._reference_layout_from_panel_handler(
         "<div>panel</div>",
         "Kunne ikke hente kilder: timeout Viser lagrede referanser uten tekstutdrag.",
     )
 
     assert is_open is True
-    assert _update_visible(update) is True
+    assert _update_visible(panel_update) is True
+    assert _update_visible(button_update) is False
 
 
 def test_reference_layout_from_panel_handler_closes_for_empty_state() -> None:
-    is_open, update = chat_page._reference_layout_from_panel_handler(
+    is_open, panel_update, button_update = chat_page._reference_layout_from_panel_handler(
         "",
         chat_page._REFERENCE_DEFAULT_STATUS,
     )
 
     assert is_open is False
-    assert _update_visible(update) is False
+    assert _update_visible(panel_update) is False
+    assert _update_visible(button_update) is True
 
 
 def test_chatbot_select_handler_populates_panel_for_assistant_message() -> None:

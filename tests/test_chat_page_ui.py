@@ -13,6 +13,7 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
 
     assert page.references_panel.elem_id == "chat-references-panel"
     assert page.references_container.elem_id == "chat-references-column"
+    assert page.open_references_button_container.elem_id == "chat-open-references-button-container"
     assert page.open_references_button.elem_id == "chat-open-references-button"
     assert page.close_references_button.elem_id == "chat-close-references-button"
     assert page.message.elem_id == "chat-message-composer"
