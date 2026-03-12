@@ -134,6 +134,21 @@ CHAT_PAGE_CSS = """
     width: 100%;
 }
 
+#chat-conversation-selector .wrap,
+#chat-conversation-selector fieldset {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    width: 100%;
+}
+
+#chat-conversation-selector .wrap > label,
+#chat-conversation-selector fieldset > label {
+    max-width: 100%;
+    width: 100%;
+}
+
 .chat-conversation-summary {
     padding-top: 0.25rem;
     border-top: 1px solid rgba(233, 220, 205, 0.9);
