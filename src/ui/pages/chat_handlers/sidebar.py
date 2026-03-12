@@ -188,7 +188,7 @@ def _load_conversation_handler(
             _REFERENCE_DEFAULT_STATUS,
         )
 
-    title = selected_conv.get("title") if selected_conv else "Samtale"
+    title = (selected_conv.get("title") or "Samtale") if selected_conv else "Samtale"
     conv_state: ChatConversationState = {
         "conversation_id": conversation_id,
         "title": title,
@@ -199,7 +199,7 @@ def _load_conversation_handler(
         token,
         conversation_id,
         course_id=course_id,
-        status_message=f"Lastet samtale: {title}.",
+        status_message="",
     )
     hydrated_source_history, hydrated_sources, hydration_error = _hydrate_latest_assistant_sources(
         source_history,

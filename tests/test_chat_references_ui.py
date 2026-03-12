@@ -296,6 +296,7 @@ def test_load_handler_auto_populates_latest_assistant_sources(monkeypatch) -> No
         {"role": "assistant", "content": "A1"},
     ]
     assert calls["get_sources"] == 1
+    assert _status == ""
     assert conv_state["conversation_id"] == "conv-1"
     assert source_history[-1]["sources"] == [
         {"document": "doc1.pdf", "page": "2", "excerpt": "resolved chunk 1"}
