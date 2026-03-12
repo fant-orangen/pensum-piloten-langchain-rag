@@ -74,7 +74,9 @@ CHAT_PAGE_CSS = """
 }
 
 #chat-workspace {
+    gap: 1rem;
     align-items: stretch;
+    flex-wrap: nowrap;
 }
 
 .chat-workspace-panel {
@@ -115,17 +117,23 @@ CHAT_PAGE_CSS = """
     min-height: 46px;
 }
 
-#chat-workspace {
-    gap: 1rem;
-}
-
 #chat-chat-column,
 #chat-references-column {
     min-width: 0;
 }
 
+#chat-chat-column {
+    flex: 1 1 0 !important;
+}
+
+#chat-references-column {
+    flex: 0 0 clamp(20rem, 28vw, 28rem) !important;
+    max-width: clamp(20rem, 28vw, 28rem);
+}
+
 .chat-references-surface {
     height: 100%;
+    min-height: 0;
     border: 1px solid #eadac6;
     border-radius: 24px;
     background: linear-gradient(180deg, #fffdfa 0%, #fff6ee 100%);
@@ -229,6 +237,24 @@ CHAT_PAGE_CSS = """
 @media (max-width: 1100px) {
     #chat-page-layout {
         flex-wrap: wrap;
+    }
+
+    #chat-workspace {
+        flex-wrap: wrap;
+    }
+
+    #chat-chat-column,
+    #chat-references-column {
+        flex: 1 1 100% !important;
+        max-width: 100%;
+    }
+
+    .chat-references-surface {
+        height: auto;
+    }
+
+    #chat-references-panel {
+        max-height: 24rem;
     }
 
     .chat-reference-summary {
