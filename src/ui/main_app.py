@@ -394,7 +394,7 @@ def build_main_app() -> gr.Blocks:
             chat_page.references_panel,
             chat_page.references_status,
         ]
-        reference_layout_outputs = [
+        reference_visibility_outputs = [
             chat_page.references_open_state,
             chat_page.references_container,
             chat_page.open_references_button_container,
@@ -573,7 +573,7 @@ def build_main_app() -> gr.Blocks:
         send_click.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         message_submit = chat_page.message.submit(
             fn=_chat_handler,
@@ -591,7 +591,7 @@ def build_main_app() -> gr.Blocks:
         message_submit.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         chatbot_select = chat_page.chatbot.select(
             fn=_chatbot_select_handler,
@@ -612,7 +612,7 @@ def build_main_app() -> gr.Blocks:
                 chat_page.references_panel,
                 chat_page.references_status,
             ],
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         conversation_change = chat_page.conversation_selector.change(
             fn=_load_conversation_handler,
@@ -622,7 +622,7 @@ def build_main_app() -> gr.Blocks:
         conversation_change.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         new_conversation_click = chat_page.new_conversation_button.click(
             fn=_new_conversation_handler,
@@ -636,7 +636,7 @@ def build_main_app() -> gr.Blocks:
         new_conversation_click.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         refresh_click = chat_page.refresh_button.click(
             fn=_refresh_handler,
@@ -660,7 +660,7 @@ def build_main_app() -> gr.Blocks:
         refresh_click.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         route_change = chat_page.route_state.change(
             fn=_bootstrap_chat_on_route_handler,
@@ -670,7 +670,7 @@ def build_main_app() -> gr.Blocks:
         route_change.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         token_change = chat_page.token_state.change(
             fn=_reset_scope_handler,
@@ -680,7 +680,7 @@ def build_main_app() -> gr.Blocks:
         token_change.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         course_change = chat_page.course_id_state.change(
             fn=_reset_scope_handler,
@@ -690,17 +690,17 @@ def build_main_app() -> gr.Blocks:
         course_change.success(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         chat_page.open_references_button.click(
             fn=_open_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         chat_page.close_references_button.click(
             fn=_close_reference_layout_handler,
             inputs=None,
-            outputs=reference_layout_outputs,
+            outputs=reference_visibility_outputs,
         )
         chat_page.back_button.click(
             fn=_handle_back_to_home,
