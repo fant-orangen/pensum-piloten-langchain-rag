@@ -16,6 +16,10 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
     with gr.Blocks():
         page = build_chat_page(visible=False)
 
+    assert isinstance(page.mode_selector, gr.Dropdown)
+    assert page.mode_selector.elem_id == "chat-mode-selector"
+    assert getattr(page.mode_selector, "label", None) == "Veiledningsmodus"
+    assert getattr(page.mode_selector, "info", None) is None
     assert page.course_title.elem_classes == ["chat-course-title"]
     assert page.sidebar_container.elem_id == "chat-sidebar-shell"
     assert page.sidebar_controls_container.elem_id == "chat-sidebar-controls"
@@ -34,6 +38,7 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
 def test_chat_page_css_contains_reference_card_selectors() -> None:
     assert "#chat-sidebar-shell" in CHAT_PAGE_CSS
     assert "#chat-sidebar-controls" in CHAT_PAGE_CSS
+    assert "#chat-mode-selector" in CHAT_PAGE_CSS
     assert "#chat-sidebar-list-container" in CHAT_PAGE_CSS
     assert "#chat-conversation-selector" in CHAT_PAGE_CSS
     assert "#chat-references-column" in CHAT_PAGE_CSS
@@ -48,6 +53,7 @@ def test_chat_page_css_contains_reference_card_selectors() -> None:
     assert "#chat-conversation-selector fieldset" in CHAT_PAGE_CSS
     assert ".chat-sidebar-list-section {\n    display: flex;\n    flex-direction: column;\n    gap: 0.75rem;\n    min-height: 0;\n    max-height: 44rem;" in CHAT_PAGE_CSS
     assert "#chat-sidebar-list-container {\n    display: flex;\n    flex-direction: column;\n    flex: 1;\n    min-height: 0;\n    overflow-x: hidden;\n    overflow-y: auto;" in CHAT_PAGE_CSS
+    assert "Brukes for nye samtaler og blir standard til du endrer den." not in CHAT_PAGE_CSS
     assert "#chat-conversation-selector .wrap {\n    overflow: visible;\n}" in CHAT_PAGE_CSS
     assert "height: 100%;" not in CHAT_PAGE_CSS.split("#chat-conversation-selector .wrap", 1)[1].split(".chat-conversation-summary", 1)[0]
     assert ".chat-reference-entry" in CHAT_PAGE_CSS
