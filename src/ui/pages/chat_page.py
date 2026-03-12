@@ -78,6 +78,13 @@ CHAT_PAGE_CSS = """
     padding: 0 0.25rem;
 }
 
+#chat-sidebar-controls > .gr-block,
+#chat-sidebar-controls > div,
+#chat-sidebar-list-section > .gr-block,
+#chat-sidebar-list-section > div {
+    min-height: 0;
+}
+
 #chat-sidebar-shell,
 .chat-sidebar-panel {
     height: 100%;
@@ -93,9 +100,9 @@ CHAT_PAGE_CSS = """
 .chat-sidebar-list-section {
     display: flex;
     flex-direction: column;
-    flex: 1;
     gap: 0.75rem;
     min-height: 0;
+    max-height: 44rem;
 }
 
 #chat-conversation-selector > label,
