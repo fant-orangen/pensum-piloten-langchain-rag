@@ -133,6 +133,23 @@ def fetch_messages(conversation_token: str, conversation_id: str) -> tuple[list[
     return history, ""
 
 
+def sidebar_model_from_conversations(
+    conversations: list[dict[str, Any]],
+    *,
+    total: int,
+    selected_id: str | None = None,
+    status_message: str = "",
+) -> ChatSidebarModel:
+    choices = selector_choices(conversations)
+    resolved_value = selected_id if any(v == selected_id for _, v in choices) else None
+    return {
+        "choices": choices,
+        "selected_id": resolved_value,
+        "count": total,
+        "status_text": status_message,
+    }
+
+
 def build_sidebar_model(
     token: str,
     *,
@@ -159,20 +176,12 @@ def build_sidebar_model(
     if err:
         status_message = err
 
-    choices = selector_choices(conversations)
-    resolved_value = selected_id if any(v == selected_id for _, v in choices) else None
-
-    selected_conv = next(
-        (c for c in conversations if str(c.get("id", "")) == resolved_value),
-        None,
+    return sidebar_model_from_conversations(
+        conversations,
+        total=total,
+        selected_id=selected_id,
+        status_message=status_message,
     )
-
-    return {
-        "choices": choices,
-        "selected_id": resolved_value,
-        "count": total,
-        "status_text": status_message,
-    }
 
 
 def create_chat_conversation(

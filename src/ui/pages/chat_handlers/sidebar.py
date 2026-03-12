@@ -27,6 +27,7 @@ from src.ui.services.chat_orchestration_service import (
     build_sidebar_model,
     fetch_conversations,
     fetch_messages,
+    sidebar_model_from_conversations,
     selector_choices as selector_choices_service,
 )
 
@@ -265,8 +266,14 @@ def _refresh_handler(
     active_course_id = str(course_id_state or "").strip()
     conv_id = str(current_state.get("conversation_id") or "").strip()
     conversations, err = _fetch_conversations(token, active_course_id)
-    choices = _selector_choices(conversations)
-    resolved_value = conv_id if conv_id and any(item[1] == conv_id for item in choices) else None
+    model = sidebar_model_from_conversations(
+        conversations,
+        total=len(conversations),
+        selected_id=conv_id or None,
+        status_message=err or "Samtalelisten er oppdatert.",
+    )
+    choices = list(model["choices"])
+    resolved_value = model["selected_id"]
     selected_conv = next(
         (item for item in conversations if str(item.get("id", "")) == resolved_value),
         None,
@@ -278,11 +285,10 @@ def _refresh_handler(
     }
     next_source_history = list(source_history or []) if resolved_value else []
     reference_panel, reference_status = _reference_panel_from_history(next_source_history)
-    status_text = err or "Samtalelisten er oppdatert."
     return (
         gr.update(choices=choices, value=resolved_value),
-        _conversation_count_text(len(conversations)),
-        status_text,
+        _conversation_count_text(model["count"]),
+        model["status_text"],
         next_state if resolved_value else _default_conversation_state(),
         next_source_history,
         reference_panel if resolved_value else _empty_reference_panel(),
