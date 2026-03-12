@@ -74,6 +74,25 @@ CHAT_PAGE_CSS = """
     padding: 0 0.25rem;
 }
 
+.chat-sidebar-list-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#chat-sidebar-list-container {
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    max-height: 26rem;
+    padding-right: 6px;
+}
+
+#chat-sidebar-list-container > .gr-block,
+#chat-sidebar-list-container > div {
+    max-width: 100%;
+}
+
 .chat-conversation-summary {
     padding-top: 0.25rem;
     border-top: 1px solid rgba(233, 220, 205, 0.9);
@@ -257,6 +276,10 @@ CHAT_PAGE_CSS = """
 
     .chat-references-surface {
         height: auto;
+    }
+
+    #chat-sidebar-list-container {
+        max-height: 20rem;
     }
 
     #chat-references-panel {
