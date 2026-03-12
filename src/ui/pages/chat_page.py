@@ -287,6 +287,7 @@ class ChatPageComponents:
     message: gr.Textbox
     send_button: gr.Button
     references_open_state: gr.State
+    open_references_button_container: gr.Group
     open_references_button: gr.Button
     close_references_button: gr.Button
     references_container: gr.Column
@@ -353,11 +354,14 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                                 elem_classes=["chat-muted-text", "chat-status-text"],
                             )
                         with gr.Column(scale=1, min_width=180):
-                            open_references_button = gr.Button(
-                                "Kildereferanser",
-                                variant="secondary",
-                                elem_id="chat-open-references-button",
-                            )
+                            with gr.Group(
+                                elem_id="chat-open-references-button-container",
+                            ) as open_references_button_container:
+                                open_references_button = gr.Button(
+                                    "Kildereferanser",
+                                    variant="secondary",
+                                    elem_id="chat-open-references-button",
+                                )
                     with gr.Row(elem_id="chat-workspace"):
                         with gr.Column(
                             scale=5,
@@ -423,6 +427,7 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         message=message,
         send_button=send_button,
         references_open_state=references_open_state,
+        open_references_button_container=open_references_button_container,
         open_references_button=open_references_button,
         close_references_button=close_references_button,
         references_container=references_container,
