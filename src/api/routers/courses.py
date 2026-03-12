@@ -64,7 +64,7 @@ async def list_available_courses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseRead]:
-    """Return all courses the authenticated user is enrolled in (any role)."""
+    """Return all courses where the authenticated user is enrolled as a student."""
     courses = await get_available_courses(current_user.id, db)
     return [CourseRead.model_validate(c) for c in courses]
 
@@ -263,7 +263,6 @@ async def add_enrollment(
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
 
-# TODO: add ability to enroll by id from selecting from drop down list of users
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_enrollment(

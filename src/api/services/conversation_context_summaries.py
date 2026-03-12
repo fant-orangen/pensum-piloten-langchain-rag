@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.models.conversation import Conversation
 from src.api.models.conversation_context_summary import ConversationContextSummary
 from src.api.models.message import Message
-from src.api.utils.logging import get_service_logger, log_conversation_compression
+from src.api.utils.logging_util import get_service_logger, log_conversation_compression
 from src.config import get_settings
 from src.models import get_llm
 from src.prompts.templates import (

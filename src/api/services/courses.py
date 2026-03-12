@@ -5,13 +5,10 @@ import uuid
 from dataclasses import dataclass
 
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import delete as sa_delete, func, select
 from sqlalchemy.exc import IntegrityError
-
-from fastapi import HTTPException, status
-from sqlalchemy import delete as sa_delete, func, select
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,6 +36,12 @@ from src.api.schemas.course import (
 )
 
 from src.api.schemas.pagination import PaginationParams
+from src.api.utils.exception_util import (
+    bad_request_error,
+    conflict_error,
+    forbidden_error,
+    not_found_error,
+)
 from src.api.utils import (
     require_course_owner_or_admin,
     require_course_teacher_or_admin,
@@ -71,8 +74,16 @@ async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Cou
 
 
 async def get_available_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
-    """Return all courses the given user is enrolled in (any role)."""
-    return await get_enrolled_courses(user_id, db)
+    """Return all courses the given user is enrolled in as a student."""
+    result = await db.execute(
+        select(Course)
+        .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
+        .where(
+            CourseEnrollment.user_id == user_id,
+            CourseEnrollment.role == "student",
+        )
+    )
+    return list(result.scalars().all())
 
 
 async def get_responsible_courses(current_user: User, db: AsyncSession) -> list[Course]:
@@ -99,7 +110,7 @@ async def get_course_students(
     """Return a page of users enrolled in the course as students."""
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     if course_result.scalars().first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
 
     await require_course_teacher_or_admin(current_user, course_id, db)
 
@@ -135,10 +146,7 @@ async def create_course(current_user: User, body: CourseCreate, db: AsyncSession
 
     existing = await db.execute(select(Course).where(Course.code == body.code))
     if existing.scalars().first() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A course with code '{body.code}' already exists.",
-        )
+        raise conflict_error(f"A course with code '{body.code}' already exists.")
 
     course_documents_dir = build_course_documents_dir(body.code)
     course_documents_dir.mkdir(parents=True, exist_ok=True)
@@ -176,15 +184,12 @@ async def delete_course(current_user: User, course_id: uuid.UUID, db: AsyncSessi
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalars().first()
     if course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
 
     require_teacher_or_admin(current_user)
     require_course_owner_or_admin(current_user, course.created_by_id)
     if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot delete a course while its materials are rebuilding.",
-        )
+        raise conflict_error("Cannot delete a course while its materials are rebuilding.")
 
     conversation_ids = (
         select(Conversation.id)
@@ -211,7 +216,7 @@ async def update_course_specific_instructions(
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     course = course_result.scalars().first()
     if course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
 
     await require_course_teacher_or_admin(current_user, course_id, db)
 
@@ -282,12 +287,9 @@ def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
         total_rows += 1
 
         if len(cells) != 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "CSV must contain exactly one email column. "
-                    f"Row {row_number} contained {len(cells)} values."
-                ),
+            raise bad_request_error(
+                "CSV must contain exactly one email column. "
+                f"Row {row_number} contained {len(cells)} values."
             )
 
         raw_email = cells[0]
@@ -319,7 +321,7 @@ async def _get_course_or_404(course_id: uuid.UUID, db: AsyncSession) -> Course:
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalars().first()
     if course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
     return course
 
 
@@ -388,16 +390,10 @@ async def _get_import_preview_for_actor(
     )
     preview = preview_result.scalars().first()
     if preview is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Enrollment import preview not found.",
-        )
+        raise not_found_error("Enrollment import preview not found.")
 
     if current_user.global_role != "admin" and preview.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the teacher who created this import preview can confirm or cancel it.",
-        )
+        raise forbidden_error("Only the teacher who created this import preview can confirm or cancel it.")
 
     return preview
 
@@ -419,17 +415,11 @@ async def preview_enrollment_import(
     try:
         content = (await upload.read()).decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSV file must be UTF-8 encoded.",
-        ) from exc
+        raise bad_request_error("CSV file must be UTF-8 encoded.") from exc
 
     parsed = _parse_enrollment_import_csv(content)
     if not parsed.accepted_emails:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSV did not contain any valid student email addresses.",
-        )
+        raise bad_request_error("CSV did not contain any valid student email addresses.")
 
     enrollable_emails, missing_emails, already_enrolled_emails = await _classify_import_candidates(
         course_id,
@@ -516,10 +506,7 @@ async def confirm_enrollment_import(
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Enrollment import changed before confirmation. Preview again and retry.",
-        ) from exc
+        raise conflict_error("Enrollment import changed before confirmation. Preview again and retry.") from exc
 
     return EnrollmentImportConfirmRead(
         course_id=course_id,
@@ -562,10 +549,7 @@ async def enroll_user(
     user_result = await db.execute(select(User).where(func.lower(User.email) == cleaned_user_email))
     target_user = user_result.scalars().first()
     if target_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No user with email '{cleaned_user_email}' found.",
-        )
+        raise not_found_error(f"No user with email '{cleaned_user_email}' found.")
 
     dup_result = await db.execute(
         select(CourseEnrollment).where(
@@ -574,10 +558,7 @@ async def enroll_user(
         )
     )
     if dup_result.scalars().first() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User is already enrolled in this course.",
-        )
+        raise conflict_error("User is already enrolled in this course.")
 
     enrollment = CourseEnrollment(
         user_id=target_user.id,
@@ -604,7 +585,7 @@ async def unenroll_user(
     course_result = await db.execute(select(Course).where(Course.id == course_id))
     course = course_result.scalars().first()
     if course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
 
     enrollment_result = await db.execute(
         select(CourseEnrollment).where(
@@ -614,10 +595,7 @@ async def unenroll_user(
     )
     enrollment = enrollment_result.scalars().first()
     if enrollment is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User is not enrolled in this course.",
-        )
+        raise not_found_error("User is not enrolled in this course.")
 
     await require_unenroll_permission(current_user, enrollment, course, db)
 

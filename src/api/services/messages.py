@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.conversation import Conversation
@@ -17,6 +18,7 @@ from src.api.services.conversation_context_summaries import (
 )
 from src.api.services.source_metadata import extract_source_page
 from src.api.schemas.pagination import PaginationParams
+from src.api.utils.exception_util import bad_request_error, not_found_error, stage_error
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
 from src.chain import build_kg_rag_chain
 from src.kg.retriever import get_kg_retriever
@@ -99,48 +101,99 @@ async def create_message(
         conversation.updated_at = datetime.utcnow()
         db.add(message)
         db.add(conversation)
-        await db.commit()
-        await db.refresh(message)
+        try:
+            await db.commit()
+            await db.refresh(message)
+        except SQLAlchemyError as exc:
+            await db.rollback()
+            logger.exception("message_persistence_failed", conversation_id=conversation.id)
+            raise stage_error(
+                "message_persistence_failed",
+                "Failed to save the message to the database.",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ) from exc
         return message, False
 
     # Load the course to get the ChromaDB collection name.
     course_result = await db.execute(select(Course).where(Course.id == conversation.course_id))
     course = course_result.scalars().first()
     if course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+        raise not_found_error("Course not found.")
 
     if not course.chroma_collection:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This course does not currently have ingested materials.",
-        )
+        raise bad_request_error("This course does not currently have ingested materials.")
 
     # Build or retrieve the cached chain, validating the collection exists.
     try:
         chain = _get_chain(course.chroma_collection)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-        
-    retriever = get_kg_retriever(
-        collection_name=course.chroma_collection,
-        graph_scope=course.chroma_collection,
-    )
+        raise stage_error(
+            "message_chain_configuration_invalid",
+            str(exc),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        ) from exc
+    except Exception as exc:
+        logger.exception(
+            "message_chain_initialization_failed",
+            conversation_id=conversation.id,
+            collection=course.chroma_collection,
+        )
+        raise stage_error(
+            "message_chain_initialization_failed",
+            "Failed to initialize the tutor agent for this course.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ) from exc
 
-    (
-        conversation_summary,
-        summary_created_at,
-        compression_triggered,
-    ) = await maybe_compress_conversation_history(
-        conversation,
-        content,
-        db,
-    )
+    try:
+        retriever = get_kg_retriever(
+            collection_name=course.chroma_collection,
+            graph_scope=course.chroma_collection,
+        )
+    except Exception as exc:
+        logger.exception(
+            "message_retriever_initialization_failed",
+            conversation_id=conversation.id,
+            collection=course.chroma_collection,
+        )
+        raise stage_error(
+            "message_retriever_initialization_failed",
+            "Failed to initialize the course retriever.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ) from exc
+
+    try:
+        (
+            conversation_summary,
+            summary_created_at,
+            compression_triggered,
+        ) = await maybe_compress_conversation_history(
+            conversation,
+            content,
+            db,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("message_history_compression_failed", conversation_id=conversation.id)
+        raise stage_error(
+            "message_history_compression_failed",
+            "Failed to prepare the conversation history for this message.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ) from exc
 
     # Load conversation history in chronological order for the chain.
     history_query = select(Message).where(Message.conversation_id == conversation.id)
     if summary_created_at is not None:
-        history_query = history_query.where(Message.created_at > summary_created_at) # Only include messages after the summary was created
-    history_result = await db.execute(history_query.order_by(Message.created_at.asc()))
+        history_query = history_query.where(Message.created_at > summary_created_at)  # Only include messages after the summary was created
+    try:
+        history_result = await db.execute(history_query.order_by(Message.created_at.asc()))
+    except SQLAlchemyError as exc:
+        logger.exception("message_history_load_failed", conversation_id=conversation.id)
+        raise stage_error(
+            "message_history_load_failed",
+            "Failed to load the conversation history for this message.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ) from exc
     lc_history = [
         HumanMessage(content=m.content) if m.role == "human" else AIMessage(content=m.content)
         for m in history_result.scalars().all()
@@ -154,17 +207,46 @@ async def create_message(
         )
     )
     # Get serialised sources for the AI message
-    source_docs = await retriever.ainvoke(content)
-    serialized_sources = _serialize_source_documents(source_docs)
-    answer: str = await chain.ainvoke(
-        {
-            "question": content,
-            "chat_history": lc_history,
-            "system_prompt_mode": conversation.system_prompt_mode,
-            "course_specific_instructions": course.course_specific_instructions,
-            "conversation_summary": conversation_summary,
-        }
-    )
+    try:
+        source_docs = await retriever.ainvoke(content)
+        serialized_sources = _serialize_source_documents(source_docs)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "message_context_retrieval_failed",
+            conversation_id=conversation.id,
+            collection=course.chroma_collection,
+        )
+        raise stage_error(
+            "message_context_retrieval_failed",
+            "Failed to retrieve supporting course context for this message.",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+        ) from exc
+
+    try:
+        answer: str = await chain.ainvoke(
+            {
+                "question": content,
+                "chat_history": lc_history,
+                "system_prompt_mode": conversation.system_prompt_mode,
+                "course_specific_instructions": course.course_specific_instructions,
+                "conversation_summary": conversation_summary,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "message_agent_response_failed",
+            conversation_id=conversation.id,
+            collection=course.chroma_collection,
+        )
+        raise stage_error(
+            "message_agent_response_failed",
+            "Failed to obtain a response from the tutor agent.",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+        ) from exc
 
     # Save both messages and bump the conversation timestamp in one commit.
     human_msg = Message(conversation_id=conversation.id, role="human", content=content)
@@ -176,10 +258,18 @@ async def create_message(
     )
     conversation.updated_at = datetime.utcnow()
 
-    # TODO: we need better error handling for this function
-    db.add(human_msg)
-    db.add(ai_msg)
-    db.add(conversation)
-    await db.commit()
-    await db.refresh(ai_msg)
+    try:
+        db.add(human_msg)
+        db.add(ai_msg)
+        db.add(conversation)
+        await db.commit()
+        await db.refresh(ai_msg)
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        logger.exception("message_persistence_failed", conversation_id=conversation.id)
+        raise stage_error(
+            "message_persistence_failed",
+            "Failed to save the generated conversation messages.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ) from exc
     return ai_msg, compression_triggered

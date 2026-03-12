@@ -2,12 +2,12 @@
 
 import uuid
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.user import User
 from src.api.services.auth import hash_password
+from src.api.utils.exception_util import bad_request_error, conflict_error, forbidden_error, not_found_error
 from src.api.utils import require_admin
 from src.config import get_settings
 
@@ -75,18 +75,12 @@ async def promote_user_to_teacher(
     result = await db.execute(select(User).where(User.id == target_user_id))
     target_user = result.scalars().first()
     if target_user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        raise not_found_error("User not found.")
 
     if target_user.global_role == "admin":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot modify an admin user.",
-        )
+        raise bad_request_error("Cannot modify an admin user.")
     if target_user.global_role == "teacher":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User is already a teacher.",
-        )
+        raise conflict_error("User is already a teacher.")
 
     target_user.global_role = "teacher"
     db.add(target_user)
@@ -99,7 +93,4 @@ def _require_primary_admin(current_user: User) -> None:
     """If ADMIN_EMAIL is configured, only that admin can manage users."""
     configured_admin_email = get_settings().admin_email.strip().lower()
     if configured_admin_email and current_user.email.lower() != configured_admin_email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the configured admin account can perform this action.",
-        )
+        raise forbidden_error("Only the configured admin account can perform this action.")
