@@ -17,18 +17,25 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
         page = build_chat_page(visible=False)
 
     assert page.course_title.elem_classes == ["chat-course-title"]
+    assert page.sidebar_container.elem_id == "chat-sidebar-shell"
+    assert page.conversation_list_container.elem_id == "chat-sidebar-list-container"
     assert page.references_panel.elem_id == "chat-references-panel"
     assert page.references_container.elem_id == "chat-references-column"
     assert page.open_references_button_container.elem_id == "chat-open-references-button-container"
     assert page.open_references_button.elem_id == "chat-open-references-button"
     assert page.close_references_button.elem_id == "chat-close-references-button"
+    assert page.conversation_count.elem_id == "chat-conversation-count"
     assert page.message.elem_id == "chat-message-composer"
 
 
 def test_chat_page_css_contains_reference_card_selectors() -> None:
+    assert "#chat-sidebar-shell" in CHAT_PAGE_CSS
+    assert "#chat-sidebar-list-container" in CHAT_PAGE_CSS
     assert "#chat-references-column" in CHAT_PAGE_CSS
     assert "#chat-chat-column" in CHAT_PAGE_CSS
     assert ".chat-course-title" in CHAT_PAGE_CSS
+    assert "overflow-y: auto;" in CHAT_PAGE_CSS
+    assert "max-height: 20rem;" in CHAT_PAGE_CSS
     assert ".chat-reference-entry" in CHAT_PAGE_CSS
 
 
