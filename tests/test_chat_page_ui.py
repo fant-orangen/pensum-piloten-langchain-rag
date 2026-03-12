@@ -45,8 +45,11 @@ def test_chat_page_css_contains_reference_card_selectors() -> None:
     assert "#chat-conversation-selector > label" in CHAT_PAGE_CSS
     assert "#chat-conversation-selector legend" in CHAT_PAGE_CSS
     assert "#chat-conversation-selector .wrap" in CHAT_PAGE_CSS
+    assert "#chat-conversation-selector fieldset" in CHAT_PAGE_CSS
     assert ".chat-sidebar-list-section {\n    display: flex;\n    flex-direction: column;\n    gap: 0.75rem;\n    min-height: 0;\n    max-height: 44rem;" in CHAT_PAGE_CSS
-    assert "#chat-sidebar-list-container {\n    flex: 1;\n    min-height: 0;\n    overflow: hidden;" in CHAT_PAGE_CSS
+    assert "#chat-sidebar-list-container {\n    display: flex;\n    flex-direction: column;\n    flex: 1;\n    min-height: 0;\n    overflow-x: hidden;\n    overflow-y: auto;" in CHAT_PAGE_CSS
+    assert "#chat-conversation-selector .wrap {\n    overflow: visible;\n}" in CHAT_PAGE_CSS
+    assert "height: 100%;" not in CHAT_PAGE_CSS.split("#chat-conversation-selector .wrap", 1)[1].split(".chat-conversation-summary", 1)[0]
     assert ".chat-reference-entry" in CHAT_PAGE_CSS
 
 
