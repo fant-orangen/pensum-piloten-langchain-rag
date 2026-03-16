@@ -1,9 +1,9 @@
 """UI pages."""
 
-from src.ui.pages.ab_page import AB_PAGE_CSS, build_ab_app, build_ab_page
+from src.ui.pages.ab_page import build_ab_app, build_ab_page
 from src.ui.pages.admin_page import build_admin_page, handle_admin_refresh, handle_upgrade_user
 from src.ui.pages.auth_page import build_auth_page, handle_login, handle_register
-from src.ui.pages.chat_page import CHAT_PAGE_CSS, build_chat_page
+from src.ui.pages.chat_page import build_chat_page
 from src.ui.pages.chat_page import chat_course_title_from_scope, chat_course_title_text
 from src.ui.pages.student_page import (
     build_student_page,
@@ -19,7 +19,6 @@ from src.ui.pages.student_course_page import (
     student_course_title_text,
 )
 from src.ui.pages.teacher_page import (
-    TEACHER_PAGE_CSS,
     build_teacher_page,
     handle_add_course,
     handle_open_responsible_course,
@@ -56,7 +55,6 @@ from src.ui.pages.teacher_course_page import (
 )
 
 __all__ = [
-    "AB_PAGE_CSS",
     "build_ab_app",
     "build_ab_page",
     "build_admin_page",
@@ -64,7 +62,6 @@ __all__ = [
     "build_chat_page",
     "chat_course_title_from_scope",
     "chat_course_title_text",
-    "CHAT_PAGE_CSS",
     "build_student_page",
     "build_student_course_page",
     "build_teacher_page",
@@ -104,7 +101,6 @@ __all__ = [
     "teacher_course_student_choices_update",
     "student_course_title_text",
     "student_courses_update",
-    "TEACHER_PAGE_CSS",
     "teacher_course_students_text",
     "teacher_course_title_text",
     "teacher_available_courses_update",

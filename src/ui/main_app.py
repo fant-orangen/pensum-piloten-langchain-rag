@@ -7,9 +7,6 @@ from typing import Any, cast
 import gradio as gr
 
 from src.ui.pages import (
-    AB_PAGE_CSS,
-    CHAT_PAGE_CSS,
-    TEACHER_PAGE_CSS,
     build_ab_page,
     build_admin_page,
     build_auth_page,
@@ -88,6 +85,7 @@ from src.ui.state import (
     user_role,
     with_route,
 )
+from src.ui.styles import APP_CSS
 
 
 def _render_main_app(
@@ -340,7 +338,7 @@ def _handle_logout() -> tuple[Any, ...]:
 
 
 def build_main_app() -> gr.Blocks:
-    with gr.Blocks(css=AB_PAGE_CSS + TEACHER_PAGE_CSS + CHAT_PAGE_CSS, title="Pensum Piloten") as demo:
+    with gr.Blocks(css=APP_CSS, title="Pensum Piloten", fill_width=True) as demo:
         app_state = gr.State(default_app_state())
 
         auth_page = build_auth_page(visible=True)
