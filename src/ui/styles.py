@@ -1,5 +1,37 @@
 """Shared UI styling for the Gradio frontend."""
 
+BASE_UI_CSS = """
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    overflow-x: hidden;
+}
+
+gradio-app,
+.gradio-container {
+    width: 100%;
+    min-height: 100vh;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.gradio-container {
+    max-width: none !important;
+}
+
+.gradio-container .main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+"""
+
 AB_PAGE_CSS = """
 .answer-box {
     min-height: 340px;
@@ -26,7 +58,7 @@ AB_PAGE_CSS = """
 
 CHAT_PAGE_CSS = """
 #chat-page {
-    padding: 0.5rem 0 1rem;
+    padding: 0 0 1rem;
 }
 
 #chat-page-layout {
@@ -453,4 +485,4 @@ TEACHER_PAGE_CSS = """
 }
 """
 
-APP_CSS = "\n".join((AB_PAGE_CSS, CHAT_PAGE_CSS, TEACHER_PAGE_CSS))
+APP_CSS = "\n".join((BASE_UI_CSS, AB_PAGE_CSS, CHAT_PAGE_CSS, TEACHER_PAGE_CSS))

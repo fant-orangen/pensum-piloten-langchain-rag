@@ -23,7 +23,7 @@ from urllib import error, request
 import gradio as gr
 
 from src.config import get_settings
-from src.ui.styles import AB_PAGE_CSS
+from src.ui.styles import AB_PAGE_CSS, BASE_UI_CSS
 
 QUESTIONS_PATH = Path("data/questions.json")
 AB_RUNS_DIR = Path("data/ab_runs")
@@ -509,7 +509,11 @@ def build_ab_page(
 
 def build_ab_app() -> gr.Blocks:
     """Build and return a standalone Gradio Blocks application containing only the A/B evaluation page."""
-    with gr.Blocks(css=AB_PAGE_CSS, title="A/B-evaluering") as demo:
+    with gr.Blocks(
+        css="\n".join((BASE_UI_CSS, AB_PAGE_CSS)),
+        title="A/B-evaluering",
+        fill_width=True,
+    ) as demo:
         build_ab_page(demo, visible=True, include_back_button=False)
 
     return cast(gr.Blocks, demo)

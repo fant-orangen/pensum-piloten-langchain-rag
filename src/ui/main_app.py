@@ -338,7 +338,7 @@ def _handle_logout() -> tuple[Any, ...]:
 
 
 def build_main_app() -> gr.Blocks:
-    with gr.Blocks(css=APP_CSS, title="Pensum Piloten") as demo:
+    with gr.Blocks(css=APP_CSS, title="Pensum Piloten", fill_width=True) as demo:
         app_state = gr.State(default_app_state())
 
         auth_page = build_auth_page(visible=True)
