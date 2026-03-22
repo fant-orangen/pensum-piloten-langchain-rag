@@ -118,6 +118,12 @@ async def create_tables() -> None:
                 "DROP CONSTRAINT IF EXISTS course_chroma_collection_key"
             )
         )
+        await conn.execute(
+            text(
+                "ALTER TABLE enrollment_import_preview "
+                "ADD COLUMN IF NOT EXISTS candidates_name_map JSONB NOT NULL DEFAULT '{}'"
+            )
+        )
     logger.info("database_tables_created")
 
 

@@ -156,7 +156,8 @@ async def test_preview_enrollment_import_returns_classification_and_stores_previ
     )
 
     assert preview.enrollable_emails == ["existing.student@test.com"]
-    assert preview.missing_emails == ["missing@student.com"]
+    assert len(preview.missing_candidates) == 1
+    assert preview.missing_candidates[0].email == "missing@student.com"
     assert preview.already_enrolled_emails == ["already@student.com"]
     assert preview.duplicate_emails == ["existing.student@test.com"]
     assert preview.invalid_emails == ["not-an-email"]
@@ -204,8 +205,9 @@ async def test_confirm_enrollment_import_enrolls_students_and_deletes_preview(
         db_session,
     )
 
-    assert confirmation.enrolled_emails == ["existing.student@test.com"]
-    assert confirmation.missing_emails == ["missing@student.com"]
+    assert "existing.student@test.com" in confirmation.enrolled_emails
+    assert "missing@student.com" in confirmation.enrolled_emails
+    assert confirmation.created_emails == ["missing@student.com"]
     assert confirmation.already_enrolled_emails == ["already@student.com"]
 
     enrollment = (
@@ -218,6 +220,22 @@ async def test_confirm_enrollment_import_enrolls_students_and_deletes_preview(
     ).scalars().first()
     assert enrollment is not None
     assert enrollment.role == "student"
+
+    # Verify the new account was created and enrolled.
+    created_user = (
+        await db_session.execute(select(User).where(User.email == "missing@student.com"))
+    ).scalars().first()
+    assert created_user is not None
+    new_enrollment = (
+        await db_session.execute(
+            select(CourseEnrollment).where(
+                CourseEnrollment.course_id == course.id,
+                CourseEnrollment.user_id == created_user.id,
+            )
+        )
+    ).scalars().first()
+    assert new_enrollment is not None
+    assert new_enrollment.role == "student"
 
     stored_preview = (
         await db_session.execute(
@@ -250,6 +268,42 @@ async def test_cancel_enrollment_import_deletes_preview(
         )
     ).scalars().first()
     assert stored_preview is None
+
+
+@pytest.mark.asyncio
+async def test_confirm_creates_account_with_name_from_csv(
+    db_session: AsyncSession,
+    seeded_course: dict[str, object],
+) -> None:
+    teacher = seeded_course["teacher"]
+    course = seeded_course["course"]
+
+    preview = await preview_enrollment_import(
+        teacher,
+        course.id,
+        _build_upload("email,first name,last name\nnew@student.com,Alice,Smith"),
+        db_session,
+    )
+
+    assert len(preview.missing_candidates) == 1
+    assert preview.missing_candidates[0].first_name == "Alice"
+    assert preview.missing_candidates[0].last_name == "Smith"
+
+    confirmation = await confirm_enrollment_import(
+        teacher,
+        course.id,
+        preview.preview_id,
+        db_session,
+    )
+
+    assert confirmation.created_emails == ["new@student.com"]
+
+    created_user = (
+        await db_session.execute(select(User).where(User.email == "new@student.com"))
+    ).scalars().first()
+    assert created_user is not None
+    assert created_user.first_name == "Alice"
+    assert created_user.last_name == "Smith"
 
 
 @pytest.mark.asyncio
