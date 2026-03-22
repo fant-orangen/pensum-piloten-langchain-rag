@@ -42,6 +42,7 @@ from src.api.services.courses import (
     get_enrolled_courses,
     preview_enrollment_import,
     get_responsible_courses,
+    unenroll_all_students,
     unenroll_user,
     update_course_specific_instructions,
 )
@@ -262,6 +263,17 @@ async def add_enrollment(
     """Enroll a user in a course by email."""
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
+
+
+@router.delete("/{course_id}/enrollments", status_code=status.HTTP_200_OK)
+async def remove_all_student_enrollments(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Remove all student enrollments from a course. Teacher or admin only."""
+    removed = await unenroll_all_students(current_user, course_id, db)
+    return {"removed": removed}
 
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
