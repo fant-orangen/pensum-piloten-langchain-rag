@@ -30,6 +30,7 @@ from src.ui.pages.teacher_page import (
 from src.ui.pages.teacher_course_page import (
     build_teacher_course_page,
     handle_add_student,
+    handle_confirm_enrollment,
     handle_import_students_csv,
     handle_course_instructions_input,
     handle_delete_material,
@@ -69,6 +70,7 @@ __all__ = [
     "handle_admin_refresh",
     "handle_add_course",
     "handle_add_student",
+    "handle_confirm_enrollment",
     "handle_import_students_csv",
     "handle_course_instructions_input",
     "handle_delete_material",

@@ -19,4 +19,9 @@ class EnrollmentImportPreview(SQLModel, table=True):
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )
+    # Maps normalised email → {"first_name": str, "last_name": str} as parsed from the CSV.
+    candidates_name_map: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)

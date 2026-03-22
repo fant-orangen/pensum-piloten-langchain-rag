@@ -16,6 +16,7 @@ ROLE_KEY = "role"
 COURSE_ID_KEY = "course_id"
 COURSE_NAME_KEY = "course_name"
 TOKEN_KEY = "token"
+ENROLLMENT_PREVIEW_ID_KEY = "enrollment_preview_id"
 
 
 def normalise_role(role: str | None) -> str:

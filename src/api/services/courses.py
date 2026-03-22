@@ -1,8 +1,9 @@
 """Course business logic and database queries."""
 
 import csv
+import secrets
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 from fastapi import UploadFile
@@ -33,6 +34,7 @@ from src.api.schemas.course import (
     EnrollmentCreate,
     EnrollmentImportConfirmRead,
     EnrollmentImportPreviewRead,
+    MissingCandidateRead,
 )
 
 from src.api.schemas.pagination import PaginationParams
@@ -50,7 +52,7 @@ from src.api.utils import (
 )
 
 _EMAIL_ADAPTER = TypeAdapter(EmailStr)
-_CSV_HEADER_VALUES = {"email", "emails", "student_email", "student_emails"}
+_CSV_HEADER_VALUES = {"email", "emails", "student_email", "student_emails", "e-mail", "epost"}
 
 
 @dataclass(slots=True)
@@ -61,6 +63,7 @@ class ParsedEnrollmentImport:
     accepted_emails: list[str]
     duplicate_emails: list[str]
     invalid_emails: list[str]
+    candidate_names: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 
 async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:
@@ -251,6 +254,12 @@ def _normalise_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _hash_random_password() -> str:
+    """Return a bcrypt hash of a random password for teacher-created student accounts."""
+    import bcrypt
+    return bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
+
+
 def _validate_email(email: str) -> str:
     """Normalise and validate an email address. Raises ValueError if invalid."""
     cleaned_email = _normalise_email(email)
@@ -263,36 +272,36 @@ def _validate_email(email: str) -> str:
 def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
     """Parse raw CSV text into accepted, duplicate, and invalid email buckets.
 
-    Accepts an optional single-column header row matching known header names.
-    Raises HTTP 400 if any data row contains more than one column value.
+    Expects rows with 1–3 columns: email, optional first name, optional last name.
+    An optional header row is detected when the first cell matches a known header value.
+    Rows with fewer than 3 columns are accepted; missing name fields default to empty string.
     """
     accepted_emails: list[str] = []
     duplicate_emails: list[str] = []
     invalid_emails: list[str] = []
+    candidate_names: dict[str, tuple[str, str]] = {}
     seen_emails: set[str] = set()
     seen_duplicates: set[str] = set()
     total_rows = 0
     saw_data_row = False
 
-    for row_number, row in enumerate(csv.reader(content.splitlines()), start=1):
-        cells = [cell.strip() for cell in row if cell.strip()]
-        if not cells:
+    for _row_number, row in enumerate(csv.reader(content.splitlines()), start=1):
+        cells = [cell.strip() for cell in row]
+        if not any(cells):
             continue
 
-        if not saw_data_row and len(cells) == 1 and cells[0].strip().lower() in _CSV_HEADER_VALUES:
+        # Detect optional header row (first non-empty row whose first cell is a known header).
+        if not saw_data_row and cells[0].lower() in _CSV_HEADER_VALUES:
             saw_data_row = True
             continue
 
         saw_data_row = True
         total_rows += 1
 
-        if len(cells) != 1:
-            raise bad_request_error(
-                "CSV must contain exactly one email column. "
-                f"Row {row_number} contained {len(cells)} values."
-            )
+        raw_email = cells[0] if cells else ""
+        first_name = cells[1] if len(cells) > 1 else ""
+        last_name = cells[2] if len(cells) > 2 else ""
 
-        raw_email = cells[0]
         try:
             cleaned_email = _validate_email(raw_email)
         except ValueError:
@@ -307,12 +316,14 @@ def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
 
         seen_emails.add(cleaned_email)
         accepted_emails.append(cleaned_email)
+        candidate_names[cleaned_email] = (first_name, last_name)
 
     return ParsedEnrollmentImport(
         total_rows=total_rows,
         accepted_emails=accepted_emails,
         duplicate_emails=duplicate_emails,
         invalid_emails=invalid_emails,
+        candidate_names=candidate_names,
     )
 
 
@@ -434,16 +445,31 @@ async def preview_enrollment_import(
         )
     )
 
+    candidates_name_map = {
+        email: {"first_name": names[0], "last_name": names[1]}
+        for email, names in parsed.candidate_names.items()
+    }
+
     preview = EnrollmentImportPreview(
         course_id=course_id,
         created_by_id=current_user.id,
         uploaded_filename=upload.filename,
         requested_role="student",
         candidate_emails=parsed.accepted_emails,
+        candidates_name_map=candidates_name_map,
     )
     db.add(preview)
     await db.commit()
     await db.refresh(preview)
+
+    missing_candidates = [
+        MissingCandidateRead(
+            email=email,
+            first_name=(parsed.candidate_names.get(email, ("", ""))[0]),
+            last_name=(parsed.candidate_names.get(email, ("", ""))[1]),
+        )
+        for email in missing_emails
+    ]
 
     return EnrollmentImportPreviewRead(
         preview_id=preview.id,
@@ -453,7 +479,7 @@ async def preview_enrollment_import(
         total_rows=parsed.total_rows,
         accepted_email_count=len(parsed.accepted_emails),
         enrollable_emails=enrollable_emails,
-        missing_emails=missing_emails,
+        missing_candidates=missing_candidates,
         already_enrolled_emails=already_enrolled_emails,
         duplicate_emails=parsed.duplicate_emails,
         invalid_emails=parsed.invalid_emails,
@@ -475,7 +501,8 @@ async def confirm_enrollment_import(
     """Execute the enrollment import from a confirmed preview, then delete the preview row.
 
     Re-classifies candidates at confirm time to catch any changes since the preview was generated.
-    Raises 409 if a concurrent enrollment change causes an integrity conflict.
+    Creates new student accounts for any emails without an existing user, using the name data
+    stored in the preview. Raises 409 if a concurrent enrollment change causes an integrity conflict.
     """
     preview = await _get_import_preview_for_actor(current_user, course_id, preview_id, db)
 
@@ -485,6 +512,25 @@ async def confirm_enrollment_import(
         db,
     )
 
+    name_map: dict[str, dict[str, str]] = preview.candidates_name_map or {}
+    created_emails: list[str] = []
+
+    # Create accounts for students who don't have one yet, then enroll them.
+    for email in missing_emails:
+        names = name_map.get(email, {})
+        new_user = User(
+            email=email,
+            hashed_password=_hash_random_password(),
+            first_name=names.get("first_name", ""),
+            last_name=names.get("last_name", ""),
+        )
+        db.add(new_user)
+        created_emails.append(email)
+        enrollable_emails.append(email)
+
+    # Flush so newly created users get IDs before we build enrollments.
+    await db.flush()
+
     if enrollable_emails:
         user_result = await db.execute(
             select(User.id, User.email).where(func.lower(User.email).in_(enrollable_emails))
@@ -493,13 +539,14 @@ async def confirm_enrollment_import(
             _normalise_email(email): user_id for user_id, email in user_result.all()
         }
         for email in enrollable_emails:
-            db.add(
-                CourseEnrollment(
-                    user_id=user_ids_by_email[email],
-                    course_id=course_id,
-                    role=preview.requested_role,
+            if email in user_ids_by_email:
+                db.add(
+                    CourseEnrollment(
+                        user_id=user_ids_by_email[email],
+                        course_id=course_id,
+                        role=preview.requested_role,
+                    )
                 )
-            )
 
     await db.delete(preview)
     try:
@@ -512,7 +559,7 @@ async def confirm_enrollment_import(
         course_id=course_id,
         requested_role=preview.requested_role,
         enrolled_emails=enrollable_emails,
-        missing_emails=missing_emails,
+        created_emails=created_emails,
         already_enrolled_emails=already_enrolled_emails,
     )
 

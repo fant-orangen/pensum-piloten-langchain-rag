@@ -17,6 +17,7 @@ from src.ui.pages import (
     build_teacher_page,
     handle_add_course,
     handle_add_student,
+    handle_confirm_enrollment,
     handle_import_students_csv,
     handle_course_instructions_input,
     handle_delete_material,
@@ -197,8 +198,12 @@ def _handle_add_student(state: dict[str, Any], student_username: str | None) -> 
 def _handle_import_students_csv(
     state: dict[str, Any],
     csv_path: str | None,
-) -> tuple[Any, str, str, str]:
+) -> tuple[Any, Any, str, str]:
     return handle_import_students_csv(state, csv_path)
+
+
+def _handle_confirm_enrollment(state: dict[str, Any]) -> tuple[Any, Any, str, str, str]:
+    return handle_confirm_enrollment(state)
 
 
 def _handle_upload_materials(
@@ -482,7 +487,18 @@ def build_main_app() -> gr.Blocks:
             fn=_handle_import_students_csv,
             inputs=[app_state, teacher_course_page.students_tab.import_students_file],
             outputs=[
-                teacher_course_page.students_tab.import_students_file,
+                app_state,
+                teacher_course_page.students_tab.confirm_import_button,
+                teacher_course_page.students_tab.import_results,
+                teacher_course_page.students_tab.status_text,
+            ],
+        )
+        teacher_course_page.students_tab.confirm_import_button.click(
+            fn=_handle_confirm_enrollment,
+            inputs=[app_state],
+            outputs=[
+                app_state,
+                teacher_course_page.students_tab.confirm_import_button,
                 teacher_course_page.students_tab.students_list,
                 teacher_course_page.students_tab.import_results,
                 teacher_course_page.students_tab.status_text,

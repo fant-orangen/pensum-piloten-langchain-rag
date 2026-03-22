@@ -256,6 +256,79 @@ def unenroll_user(token: str, course_id: str, user_id: str) -> tuple[bool, str]:
     return True, "Bruker fjernet fra faget."
 
 
+def preview_enrollment_import(
+    token: str,
+    course_id: str,
+    csv_path: str,
+) -> tuple[bool, str, dict[str, Any] | None]:
+    """Upload a CSV to stage an enrollment import preview.
+
+    Returns:
+        (success, error_message, preview_data)
+    """
+    path = Path(csv_path)
+    try:
+        content = path.read_bytes()
+    except OSError as exc:
+        return False, f"Kunne ikke lese filen: {exc}", None
+
+    try:
+        data = post_multipart(
+            f"/courses/{course_id}/enrollment-imports/preview",
+            files=[("file", path.name, content, "text/csv")],
+            token=token,
+        )
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt.", None
+    except ApiError as exc:
+        if exc.status == 400:
+            return False, exc.detail, None
+        if exc.status == 403:
+            return False, "Ikke tillatt.", None
+        if exc.status == 404:
+            return False, "Fant ikke faget.", None
+        return False, f"Feil ved forhåndsvisning: {exc.detail}", None
+    except Exception as exc:
+        return False, f"Kunne ikke nå API-serveren: {exc}", None
+
+    if not isinstance(data, dict):
+        return False, "Uventet svar fra serveren.", None
+    return True, "", data
+
+
+def confirm_enrollment_import(
+    token: str,
+    course_id: str,
+    preview_id: str,
+) -> tuple[bool, str, dict[str, Any] | None]:
+    """Confirm a staged enrollment import, creating missing accounts and enrolling all.
+
+    Returns:
+        (success, error_message, confirmation_data)
+    """
+    try:
+        data = post(
+            f"/courses/{course_id}/enrollment-imports/{preview_id}/confirm",
+            token=token,
+        )
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt.", None
+    except ApiError as exc:
+        if exc.status == 404:
+            return False, "Forhåndsvisningen er utløpt. Last opp CSV-en på nytt.", None
+        if exc.status == 409:
+            return False, "Konflikten oppstod under bekreftelse. Last opp CSV-en på nytt.", None
+        if exc.status == 403:
+            return False, "Ikke tillatt.", None
+        return False, f"Feil ved bekreftelse: {exc.detail}", None
+    except Exception as exc:
+        return False, f"Kunne ikke nå API-serveren: {exc}", None
+
+    if not isinstance(data, dict):
+        return False, "Uventet svar fra serveren.", None
+    return True, "", data
+
+
 def list_course_students(
     token: str,
     course_id: str,
