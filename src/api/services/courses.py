@@ -1,7 +1,6 @@
 """Course business logic and database queries."""
 
 import csv
-import secrets
 import uuid
 from dataclasses import dataclass, field
 
@@ -255,9 +254,9 @@ def _normalise_email(email: str) -> str:
 
 
 def _hash_random_password() -> str:
-    """Return a bcrypt hash of a random password for teacher-created student accounts."""
+    """Return a bcrypt hash of the default password for teacher-created student accounts."""
     import bcrypt
-    return bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
 
 
 def _validate_email(email: str) -> str:
