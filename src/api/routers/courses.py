@@ -20,6 +20,7 @@ from src.api.schemas.course import (
     CourseStudentRead,
     EnrollmentCreate,
     EnrollmentRead,
+    ZipImportResultRead,
 )
 from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.course_documents import (
@@ -29,6 +30,7 @@ from src.api.services.course_documents import (
     run_course_material_rebuild,
     stage_course_document_removal,
     stage_course_documents,
+    stage_course_documents_from_zip,
 )
 from src.api.services.courses import (
     cancel_enrollment_import,
@@ -134,6 +136,27 @@ async def add_documents(
     """Stage new source materials for a course."""
     documents = await stage_course_documents(current_user, course_id, files, db)
     return [CourseDocumentRead.model_validate(document) for document in documents]
+
+
+@router.post(
+    "/{course_id}/documents/zip",
+    response_model=ZipImportResultRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_documents_from_zip(
+    course_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ZipImportResultRead:
+    """Extract a zip archive and stage all supported files as pending-add source materials."""
+    staged, skipped_names = await stage_course_documents_from_zip(current_user, course_id, file, db)
+    return ZipImportResultRead(
+        staged=[CourseDocumentRead.model_validate(doc) for doc in staged],
+        staged_count=len(staged),
+        skipped_count=len(skipped_names),
+        skipped_names=skipped_names,
+    )
 
 
 @router.delete("/{course_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
