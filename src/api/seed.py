@@ -51,6 +51,7 @@ logger = structlog.get_logger(__name__)
 # Constants for canonical test data
 # -----------------------------
 _TEACHER_EMAIL = "teacher@test.com"
+_TEACHER2_EMAIL = "teacher2@test.com"
 _STUDENT_EMAIL = "student@test.com"
 _ADMIN_EMAIL = "admin@test.com"
 _COURSE_CODE = "TEST101"
@@ -136,6 +137,16 @@ async def seed(db: AsyncSession) -> None:
         global_role="teacher",
     )
 
+    # --- Teacher 2 ---
+    teacher2 = await _get_or_create_user(
+        db,
+        email=_TEACHER2_EMAIL,
+        password="password123",
+        first_name="Test",
+        last_name="Teacher2",
+        global_role="teacher",
+    )
+
     # --- Student ---
     student = await _get_or_create_user(
         db,
@@ -214,6 +225,28 @@ async def seed(db: AsyncSession) -> None:
     if teacher_enrollment_result.scalars().first() is None:
         db.add(CourseEnrollment(user_id=teacher.id, course_id=course.id, role="teacher"))
         logger.info("seed_enrolled_teacher", email=_TEACHER_EMAIL, course=_COURSE_CODE)
+
+    # Teacher2 enrolled in TEST101 as teacher
+    teacher2_enrollment_result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.user_id == teacher2.id,
+            CourseEnrollment.course_id == course.id,
+        )
+    )
+    if teacher2_enrollment_result.scalars().first() is None:
+        db.add(CourseEnrollment(user_id=teacher2.id, course_id=course.id, role="teacher"))
+        logger.info("seed_enrolled_teacher2", email=_TEACHER2_EMAIL, course=_COURSE_CODE)
+
+    # Teacher2 enrolled in TEST102 as teacher
+    teacher2_second_enrollment_result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.user_id == teacher2.id,
+            CourseEnrollment.course_id == second_course.id,
+        )
+    )
+    if teacher2_second_enrollment_result.scalars().first() is None:
+        db.add(CourseEnrollment(user_id=teacher2.id, course_id=second_course.id, role="teacher"))
+        logger.info("seed_enrolled_teacher2", email=_TEACHER2_EMAIL, course=_SECOND_COURSE_CODE)
 
     # Teacher enrolled in TEST102 as student (for UI/role switching flows)
     second_course_teacher_enrollment_result = await db.execute(
