@@ -183,16 +183,28 @@ def handle_upload_materials(
 
     uploaded = 0
     errors: list[str] = []
+    zip_messages: list[str] = []
     for path in files:
-        success, message, _data = _course_api.upload_material(token, course_id, path)
-        if success:
-            uploaded += 1
+        if path.lower().endswith(".zip"):
+            success, message, _data = _course_api.upload_zip_material(token, course_id, path)
+            if success:
+                zip_messages.append(message)
+            else:
+                errors.append(message)
         else:
-            errors.append(message)
+            success, message, _data = _course_api.upload_material(token, course_id, path)
+            if success:
+                uploaded += 1
+            else:
+                errors.append(message)
 
-    status_message = f"Lastet opp {uploaded} fil(er)."
+    parts: list[str] = []
+    if uploaded:
+        parts.append(f"Lastet opp {uploaded} fil(er).")
+    parts.extend(zip_messages)
+    status_message = " ".join(parts) if parts else ""
     if errors:
-        status_message += f" Feil: {' | '.join(errors)}"
+        status_message += (" " if status_message else "") + f"Feil: {' | '.join(errors)}"
     return (
         gr.update(value=None),
         teacher_course_material_choices_update(state),
