@@ -43,7 +43,6 @@ from src.api.services.course_documents import (
     build_course_scope_name,
     sync_course_documents_from_directory,
 )
-from src.config import get_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -110,10 +109,10 @@ async def seed(db: AsyncSession) -> None:
     - Invokes sync from doc directory for seeded course.
     - Idempotent: skips/updates, does not duplicate.
     """
-    settings = get_settings()
     test_course_dir = build_course_documents_dir(_COURSE_CODE)
     second_course_dir = build_course_documents_dir(_SECOND_COURSE_CODE)
     test_course_scope, test_course_version = _load_seed_scope_from_manifest(_COURSE_CODE)
+    second_course_scope, second_course_version = _load_seed_scope_from_manifest(_SECOND_COURSE_CODE)
     test_course_dir.mkdir(parents=True, exist_ok=True)
     second_course_dir.mkdir(parents=True, exist_ok=True)
 
@@ -189,9 +188,10 @@ async def seed(db: AsyncSession) -> None:
         second_course = Course(
             name="Second Test Course",
             code=_SECOND_COURSE_CODE,
-            chroma_collection=settings.chroma_collection_name,
+            chroma_collection=second_course_scope,
             documents_dir=str(second_course_dir),
             rag_mode="kg_rag",
+            index_version=second_course_version,
             created_by_id=admin.id,
         )
         db.add(second_course)
@@ -199,7 +199,8 @@ async def seed(db: AsyncSession) -> None:
         logger.info("seed_created_course", code=_SECOND_COURSE_CODE)
     else:
         second_course.documents_dir = str(second_course_dir)
-        second_course.chroma_collection = settings.chroma_collection_name
+        second_course.chroma_collection = second_course_scope
+        second_course.index_version = max(second_course.index_version, second_course_version)
         db.add(second_course)
         logger.info("seed_course_exists", code=_SECOND_COURSE_CODE)
 
