@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_reload: bool = True
+    # Comma-separated list of allowed CORS origins (e.g. "http://localhost:5173,https://myapp.example.com")
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:4173"]
 
     # --- Document source directory ---
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
