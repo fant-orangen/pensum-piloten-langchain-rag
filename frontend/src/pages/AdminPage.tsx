@@ -34,6 +34,7 @@ export function AdminPage() {
 
   return (
     <Layout>
+      <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -119,6 +120,7 @@ export function AdminPage() {
         {users.length === 0 && !usersQuery.isLoading && !usersQuery.isError && (
           <p className="text-sm text-gray-500">Ingen brukere funnet.</p>
         )}
+      </div>
       </div>
     </Layout>
   )

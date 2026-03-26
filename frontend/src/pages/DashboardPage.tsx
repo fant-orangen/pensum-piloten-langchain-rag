@@ -254,6 +254,7 @@ export function DashboardPage() {
 
   return (
     <Layout>
+      <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -371,7 +372,7 @@ export function DashboardPage() {
           </section>
         )}
       </div>
-
+      </div>
       {showCreateModal && (
         <CreateCourseModal
           onClose={() => setShowCreateModal(false)}

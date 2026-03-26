@@ -817,6 +817,7 @@ export function TeacherCoursePage() {
 
   return (
     <Layout>
+      <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
         {/* Header */}
         <div className="mb-6">
@@ -892,6 +893,7 @@ export function TeacherCoursePage() {
         >
           {activeTab === 'instructions' && <InstructionsTab courseId={courseId} />}
         </div>
+      </div>
       </div>
     </Layout>
   )

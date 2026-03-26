@@ -17,8 +17,8 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <header className="border-b border-gray-200 bg-white shadow-sm">
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+      <header className="shrink-0 border-b border-gray-200 bg-white shadow-sm">
         <nav
           aria-label="Hovednavigasjon"
           className="mx-auto flex max-w-screen-2xl items-center justify-between px-4 py-3 sm:px-6"
@@ -63,7 +63,7 @@ export function Layout({ children }: LayoutProps) {
         </nav>
       </header>
 
-      <main className="flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col min-h-0">
         {children}
       </main>
     </div>
