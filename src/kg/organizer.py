@@ -63,7 +63,8 @@ def build_mst_subgraphs(edges: list[WeightedEdge]) -> list[list[WeightedEdge]]:
             key = (min(u, v), max(u, v))
             component_edges.append(best[key])
 
-        components.append(component_edges)
+        if component_edges:
+            components.append(component_edges)
 
     # Sort components by mean edge weight descending — most relevant first.
     components.sort(

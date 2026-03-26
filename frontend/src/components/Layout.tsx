@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { BookOpen, LogOut, Settings, Shield } from 'lucide-react'
+import { BookOpen, LogOut, Moon, Settings, Shield, Sun } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../hooks/useTheme'
 import { RoleBadge } from './Badge'
 
 interface LayoutProps {
@@ -10,6 +11,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
 
   function handleLogout() {
     logout()
@@ -50,6 +52,15 @@ export function Layout({ children }: LayoutProps) {
                 </span>
                 <RoleBadge role={user.global_role} />
               </div>
+              <button
+                onClick={toggleTheme}
+                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 transition-colors"
+                aria-label={theme === 'dark' ? 'Bytt til lyst tema' : 'Bytt til mørkt tema'}
+              >
+                {theme === 'dark'
+                  ? <Sun className="h-4 w-4" aria-hidden="true" />
+                  : <Moon className="h-4 w-4" aria-hidden="true" />}
+              </button>
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 transition-colors"
