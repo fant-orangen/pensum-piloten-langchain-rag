@@ -439,25 +439,22 @@ def upload_zip_material(
     if not path.exists():
         return False, f"Fant ikke filen: {file_path}", None
 
-    content = path.read_bytes()
     try:
+        content = path.read_bytes()
+        print(f"[DEBUG zip] read {len(content)} bytes, posting to /courses/{course_id}/documents/zip")
         data = post_multipart(
             f"/courses/{course_id}/documents/zip",
             files=[("file", path.name, content, "application/zip")],
             token=token,
         )
+        print(f"[DEBUG zip] post_multipart returned: {data!r}")
     except ApiUnauthorizedError:
         return False, "Sessionen er utløpt — logg inn på nytt.", None
     except ApiError as exc:
-        if exc.status == 400:
-            return False, f"Kunne ikke laste opp zip-filen: {exc.detail}", None
-        if exc.status == 403:
-            return False, "Ikke tillatt.", None
-        if exc.status == 404:
-            return False, "Fant ikke faget.", None
         return False, f"Kunne ikke laste opp zip-filen: {exc.detail}", None
     except Exception as exc:
-        return False, f"Kunne ikke nå API-serveren: {exc}", None
+        print(f"[DEBUG zip] unexpected exception: {type(exc).__name__}: {exc}")
+        return False, f"Feil ved zip-opplasting: {type(exc).__name__}: {exc}", None
 
     if not isinstance(data, dict):
         return False, "Uventet svar fra serveren.", None

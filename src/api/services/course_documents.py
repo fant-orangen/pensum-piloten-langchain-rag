@@ -304,6 +304,9 @@ def _extract_zip_files(
                 if info.is_dir():
                     continue
                 member_path = Path(info.filename)
+                # Skip macOS metadata entries (.__MACOSX dir, ._* resource forks, .DS_Store)
+                if "__MACOSX" in member_path.parts or member_path.name.startswith("._") or member_path.name == ".DS_Store":
+                    continue
                 if member_path.suffix.lower() == ".zip":
                     _extract_zip_files(
                         zf.read(info),
@@ -312,6 +315,8 @@ def _extract_zip_files(
                         _skipped=_skipped,
                         _depth=_depth + 1,
                     )
+                elif info.file_size == 0:
+                    _skipped.append(info.filename)
                 elif is_supported_document_path(member_path):
                     if len(_collected) >= max_files:
                         _skipped.append(info.filename)
@@ -319,8 +324,9 @@ def _extract_zip_files(
                         _collected.append((info.filename, zf.read(info)))
                 else:
                     _skipped.append(info.filename)
-    except zipfile.BadZipFile:
-        _skipped.append("<invalid zip file>")
+    except (zipfile.BadZipFile, RuntimeError):
+        # BadZipFile: corrupted archive. RuntimeError: password-protected archive.
+        _skipped.append("<invalid or encrypted zip file>")
 
 
 async def _stage_raw_files(
