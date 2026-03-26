@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import re
 import shutil
 import uuid
+import zipfile
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -49,6 +51,7 @@ DOC_STATUS_ACTIVE = "active"
 DOC_STATUS_PENDING_ADD = "pending_add"
 DOC_STATUS_PENDING_REMOVE = "pending_remove"
 COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
+_MAX_ZIP_NESTING_DEPTH = 3
 
 
 def build_course_documents_dir(course_code: str) -> Path:
@@ -278,6 +281,97 @@ def _write_course_artifacts(
     )
 
 
+def _extract_zip_files(
+    zip_bytes: bytes,
+    max_files: int,
+    *,
+    _collected: list[tuple[str, bytes]],
+    _skipped: list[str],
+    _depth: int = 0,
+) -> None:
+    """Recursively extract supported files from a zip archive.
+
+    Populates *_collected* with (display_name, file_bytes) pairs and *_skipped*
+    with names of unsupported or over-limit files. Nested zips are expanded up
+    to _MAX_ZIP_NESTING_DEPTH levels deep.
+    """
+    if _depth > _MAX_ZIP_NESTING_DEPTH:
+        _skipped.append("<zip nested too deeply, skipped>")
+        return
+    try:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            for info in zf.infolist():
+                if info.is_dir():
+                    continue
+                member_path = Path(info.filename)
+                # Skip macOS metadata entries (.__MACOSX dir, ._* resource forks, .DS_Store)
+                if "__MACOSX" in member_path.parts or member_path.name.startswith("._") or member_path.name == ".DS_Store":
+                    continue
+                if member_path.suffix.lower() == ".zip":
+                    _extract_zip_files(
+                        zf.read(info),
+                        max_files,
+                        _collected=_collected,
+                        _skipped=_skipped,
+                        _depth=_depth + 1,
+                    )
+                elif info.file_size == 0:
+                    _skipped.append(info.filename)
+                elif is_supported_document_path(member_path):
+                    if len(_collected) >= max_files:
+                        _skipped.append(info.filename)
+                    else:
+                        _collected.append((info.filename, zf.read(info)))
+                else:
+                    _skipped.append(info.filename)
+    except (zipfile.BadZipFile, RuntimeError):
+        # BadZipFile: corrupted archive. RuntimeError: password-protected archive.
+        _skipped.append("<invalid or encrypted zip file>")
+
+
+async def _stage_raw_files(
+    course: Course,
+    storage_root: Path,
+    file_payloads: list[tuple[str, bytes, str | None]],
+    db: AsyncSession,
+) -> list[CourseDocument]:
+    """Write files to disk and register them as pending-add documents.
+
+    Each payload is (display_name, data, content_type). *display_name* is stored
+    as original_filename; the on-disk name is derived from its sanitised basename.
+    Does not commit — callers must commit or rollback. Cleans up any written files
+    if an exception occurs mid-loop.
+    """
+    written_paths: list[Path] = []
+    created_docs: list[CourseDocument] = []
+    now = datetime.utcnow()
+    try:
+        for display_name, data, content_type in file_payloads:
+            safe_name = _sanitize_filename(display_name)
+            doc_id = uuid.uuid4()
+            stored_name = f"{doc_id.hex}_{safe_name}"
+            target_path = storage_root / stored_name
+            target_path.write_bytes(data)
+            written_paths.append(target_path)
+            document = CourseDocument(
+                id=doc_id,
+                course_id=course.id,
+                original_filename=display_name,
+                storage_path=str(target_path),
+                content_type=content_type,
+                status=DOC_STATUS_PENDING_ADD,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(document)
+            created_docs.append(document)
+        return created_docs
+    except Exception:
+        for written_path in written_paths:
+            written_path.unlink(missing_ok=True)
+        raise
+
+
 async def stage_course_documents(
     current_user: User,
     course_id: uuid.UUID,
@@ -287,7 +381,6 @@ async def stage_course_documents(
     """Save uploaded files to disk and register them as pending-add documents.
 
     File names are sanitised and prefixed with a UUID to avoid collisions.
-    If any write fails the transaction is rolled back and all written files are removed.
     Raises 400 for unsupported file types or an empty upload list, 409 if a rebuild is in progress.
     """
     course = await _get_course_for_teacher(current_user, course_id, db)
@@ -296,47 +389,68 @@ async def stage_course_documents(
     if not files:
         raise bad_request_error("No files uploaded.")
 
+    payloads: list[tuple[str, bytes, str | None]] = []
+    for upload in files:
+        safe_name = _sanitize_filename(upload.filename)
+        if not is_supported_document_path(Path(safe_name)):
+            raise bad_request_error(f"Unsupported file type for '{safe_name}'.")
+        payloads.append((safe_name, await upload.read(), upload.content_type))
+
     storage_root = _resolve_documents_root(course)
     storage_root.mkdir(parents=True, exist_ok=True)
 
-    written_paths: list[Path] = []
-    created_docs: list[CourseDocument] = []
-    now = datetime.utcnow()
-
     try:
-        for upload in files:
-            safe_name = _sanitize_filename(upload.filename)
-            if not is_supported_document_path(Path(safe_name)):
-                raise bad_request_error(f"Unsupported file type for '{safe_name}'.")
-
-            doc_id = uuid.uuid4()
-            stored_name = f"{doc_id.hex}_{safe_name}"
-            target_path = storage_root / stored_name
-            target_path.write_bytes(await upload.read())
-            written_paths.append(target_path)
-
-            document = CourseDocument(
-                id=doc_id,
-                course_id=course.id,
-                original_filename=safe_name,
-                storage_path=str(target_path),
-                content_type=upload.content_type,
-                status=DOC_STATUS_PENDING_ADD,
-                created_at=now,
-                updated_at=now,
-            )
-            db.add(document)
-            created_docs.append(document)
-
+        created_docs = await _stage_raw_files(course, storage_root, payloads, db)
         await db.commit()
         for document in created_docs:
             await db.refresh(document)
         return created_docs
     except Exception:
         await db.rollback()
-        for written_path in written_paths:
-            if written_path.exists():
-                written_path.unlink(missing_ok=True)
+        raise
+
+
+async def stage_course_documents_from_zip(
+    current_user: User,
+    course_id: uuid.UUID,
+    zip_file: UploadFile,
+    db: AsyncSession,
+) -> tuple[list[CourseDocument], list[str]]:
+    """Extract a zip archive and stage all supported files as pending-add documents.
+
+    Returns (staged_documents, skipped_names). Unsupported files and files beyond
+    the zip_max_files limit are silently skipped. Nested zips are expanded
+    recursively up to _MAX_ZIP_NESTING_DEPTH levels.
+    Raises 400 if the archive contains no supported files, 409 if rebuilding.
+    """
+    course = await _get_course_for_teacher(current_user, course_id, db)
+    _ensure_not_rebuilding(course)
+
+    zip_bytes = await zip_file.read()
+    max_files = get_settings().zip_max_files
+
+    collected: list[tuple[str, bytes]] = []
+    skipped: list[str] = []
+    _extract_zip_files(zip_bytes, max_files, _collected=collected, _skipped=skipped)
+
+    if not collected:
+        raise bad_request_error("The zip archive contains no supported document files.")
+
+    payloads: list[tuple[str, bytes, str | None]] = [
+        (display_name, data, None) for display_name, data in collected
+    ]
+
+    storage_root = _resolve_documents_root(course)
+    storage_root.mkdir(parents=True, exist_ok=True)
+
+    try:
+        created_docs = await _stage_raw_files(course, storage_root, payloads, db)
+        await db.commit()
+        for document in created_docs:
+            await db.refresh(document)
+        return created_docs, skipped
+    except Exception:
+        await db.rollback()
         raise
 
 
@@ -666,6 +780,47 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             finally:
                 kg_store.close()
         await _set_rebuild_failure(course_id, str(exc))
+
+
+async def stage_all_course_documents_removal(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> int:
+    """Stage all documents in a course for removal.
+
+    Documents in *pending_add* state are deleted immediately (file and DB row).
+    Documents in *active* state are transitioned to *pending_remove*; the files
+    are removed only when the next rebuild completes.
+    Documents already in *pending_remove* state are left unchanged.
+
+    Returns the total number of documents affected.
+    Raises 409 if a rebuild is currently queued or running.
+    """
+    course = await _get_course_for_teacher(current_user, course_id, db)
+    _ensure_not_rebuilding(course)
+
+    result = await db.execute(
+        select(CourseDocument).where(CourseDocument.course_id == course_id)
+    )
+    documents = list(result.scalars().all())
+
+    affected = 0
+    now = datetime.utcnow()
+    for document in documents:
+        if document.status == DOC_STATUS_PENDING_ADD:
+            path = Path(document.storage_path)
+            path.unlink(missing_ok=True)
+            await db.delete(document)
+            affected += 1
+        elif document.status == DOC_STATUS_ACTIVE:
+            document.status = DOC_STATUS_PENDING_REMOVE
+            document.updated_at = now
+            db.add(document)
+            affected += 1
+
+    await db.commit()
+    return affected
 
 
 async def purge_course_materials(course: Course, db: AsyncSession) -> None:

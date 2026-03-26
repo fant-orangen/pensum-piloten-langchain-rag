@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # --- LLM test generation ---
     test_chat_max_messages_per_agent: int = 12
 
+    # --- Zip import ---
+    zip_max_files: int = 500  # Maximum number of files extracted from a single zip upload.
+
     # --- Seeding ---
     # Set to true to insert a test course, teacher, and student on startup.
     # Safe to leave on — seed is skipped if data already exists.

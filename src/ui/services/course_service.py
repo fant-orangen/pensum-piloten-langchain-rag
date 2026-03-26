@@ -429,6 +429,44 @@ def upload_material(
     return True, "Materiale lastet opp.", uploaded_documents[0]
 
 
+def upload_zip_material(
+    token: str,
+    course_id: str,
+    file_path: str,
+) -> tuple[bool, str, dict[str, Any] | None]:
+    """Upload a zip archive and stage all supported files inside it as course material."""
+    path = Path(file_path)
+    if not path.exists():
+        return False, f"Fant ikke filen: {file_path}", None
+
+    try:
+        content = path.read_bytes()
+        print(f"[DEBUG zip] read {len(content)} bytes, posting to /courses/{course_id}/documents/zip")
+        data = post_multipart(
+            f"/courses/{course_id}/documents/zip",
+            files=[("file", path.name, content, "application/zip")],
+            token=token,
+        )
+        print(f"[DEBUG zip] post_multipart returned: {data!r}")
+    except ApiUnauthorizedError:
+        return False, "Sessionen er utløpt — logg inn på nytt.", None
+    except ApiError as exc:
+        return False, f"Kunne ikke laste opp zip-filen: {exc.detail}", None
+    except Exception as exc:
+        print(f"[DEBUG zip] unexpected exception: {type(exc).__name__}: {exc}")
+        return False, f"Feil ved zip-opplasting: {type(exc).__name__}: {exc}", None
+
+    if not isinstance(data, dict):
+        return False, "Uventet svar fra serveren.", None
+
+    staged_count = int(data.get("staged_count") or 0)
+    skipped_count = int(data.get("skipped_count") or 0)
+    msg = f"{path.name}: {staged_count} fil(er) stageet fra zip"
+    if skipped_count:
+        msg += f", {skipped_count} hoppet over"
+    return True, msg, data
+
+
 def delete_material(token: str, course_id: str, material_id: str) -> tuple[bool, str]:
     """Delete one uploaded course material."""
     try:

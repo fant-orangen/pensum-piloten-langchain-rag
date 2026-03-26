@@ -617,6 +617,36 @@ async def enroll_user(
     return enrollment
 
 
+async def unenroll_all_students(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> int:
+    """Remove all student enrollments from a course.
+
+    Raises 404 if the course does not exist.
+    Raises 403 if the current user is not a teacher of the course or an admin.
+    Returns the number of enrollments removed.
+    """
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    if course_result.scalars().first() is None:
+        raise not_found_error("Course not found.")
+
+    await require_course_teacher_or_admin(current_user, course_id, db)
+
+    result = await db.execute(
+        sa_delete(CourseEnrollment)
+        .where(
+            CourseEnrollment.course_id == course_id,
+            CourseEnrollment.role == "student",
+        )
+        .returning(CourseEnrollment.id)
+    )
+    removed = len(result.fetchall())
+    await db.commit()
+    return removed
+
+
 async def unenroll_user(
     current_user: User,
     course_id: uuid.UUID,

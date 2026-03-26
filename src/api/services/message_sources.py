@@ -13,8 +13,11 @@ Main responsibilities:
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
+
+_STORED_NAME_PREFIX_RE = re.compile(r"^[0-9a-f]{32}_", re.IGNORECASE)
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +44,11 @@ def _extract_chunk_id(source: Any) -> str | None:
     return candidate or None
 
 
+def _strip_stored_name_prefix(name: str) -> str:
+    """Remove the leading hex-UUID prefix added when documents are stored on disk (e.g. 'a1b2...c3d4_filename.pdf' → 'filename.pdf')."""
+    return _STORED_NAME_PREFIX_RE.sub("", name)
+
+
 def _source_document(source: dict[str, Any], fallback: dict[str, Any]) -> str:
     """
     Extracts the displayable document name or file name from a source dict, using a fallback.
@@ -50,10 +58,10 @@ def _source_document(source: dict[str, Any], fallback: dict[str, Any]) -> str:
     for key in ("document", "source_file", "filename", "file", "source", "name"):
         value = source.get(key)
         if isinstance(value, str) and value.strip():
-            return value.strip()
+            return _strip_stored_name_prefix(value.strip())
     meta_value = fallback.get("source_file")
     if isinstance(meta_value, str) and meta_value.strip():
-        return meta_value.strip()
+        return _strip_stored_name_prefix(meta_value.strip())
     return "Ukjent dokument"
 
 

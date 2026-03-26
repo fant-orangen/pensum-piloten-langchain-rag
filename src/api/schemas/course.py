@@ -112,3 +112,10 @@ class CourseMaterialsStatusRead(BaseModel):
     active_scope: Optional[str] = None
     pending_additions: int
     pending_removals: int
+
+
+class ZipImportResultRead(BaseModel):
+    staged: list[CourseDocumentRead]
+    staged_count: int
+    skipped_count: int
+    skipped_names: list[str]

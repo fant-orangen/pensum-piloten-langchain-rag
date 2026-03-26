@@ -20,6 +20,7 @@ from src.api.schemas.course import (
     CourseStudentRead,
     EnrollmentCreate,
     EnrollmentRead,
+    ZipImportResultRead,
 )
 from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.course_documents import (
@@ -27,8 +28,10 @@ from src.api.services.course_documents import (
     list_course_documents,
     queue_course_material_rebuild,
     run_course_material_rebuild,
+    stage_all_course_documents_removal,
     stage_course_document_removal,
     stage_course_documents,
+    stage_course_documents_from_zip,
 )
 from src.api.services.courses import (
     cancel_enrollment_import,
@@ -42,6 +45,7 @@ from src.api.services.courses import (
     get_enrolled_courses,
     preview_enrollment_import,
     get_responsible_courses,
+    unenroll_all_students,
     unenroll_user,
     update_course_specific_instructions,
 )
@@ -133,6 +137,43 @@ async def add_documents(
     """Stage new source materials for a course."""
     documents = await stage_course_documents(current_user, course_id, files, db)
     return [CourseDocumentRead.model_validate(document) for document in documents]
+
+
+@router.post(
+    "/{course_id}/documents/zip",
+    response_model=ZipImportResultRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_documents_from_zip(
+    course_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ZipImportResultRead:
+    """Extract a zip archive and stage all supported files as pending-add source materials."""
+    staged, skipped_names = await stage_course_documents_from_zip(current_user, course_id, file, db)
+    return ZipImportResultRead(
+        staged=[CourseDocumentRead.model_validate(doc) for doc in staged],
+        staged_count=len(staged),
+        skipped_count=len(skipped_names),
+        skipped_names=skipped_names,
+    )
+
+
+@router.delete("/{course_id}/documents", status_code=status.HTTP_200_OK)
+async def remove_all_documents(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Stage all documents in a course for removal.
+
+    Pending-add documents are deleted immediately. Active documents are
+    transitioned to pending_remove and will be purged on the next rebuild.
+    Returns the count of affected documents.
+    """
+    affected = await stage_all_course_documents_removal(current_user, course_id, db)
+    return {"removed": affected}
 
 
 @router.delete("/{course_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -262,6 +303,17 @@ async def add_enrollment(
     """Enroll a user in a course by email."""
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
+
+
+@router.delete("/{course_id}/enrollments", status_code=status.HTTP_200_OK)
+async def remove_all_student_enrollments(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Remove all student enrollments from a course. Teacher or admin only."""
+    removed = await unenroll_all_students(current_user, course_id, db)
+    return {"removed": removed}
 
 
 @router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
