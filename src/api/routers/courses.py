@@ -28,6 +28,7 @@ from src.api.services.course_documents import (
     list_course_documents,
     queue_course_material_rebuild,
     run_course_material_rebuild,
+    stage_all_course_documents_removal,
     stage_course_document_removal,
     stage_course_documents,
     stage_course_documents_from_zip,
@@ -157,6 +158,22 @@ async def add_documents_from_zip(
         skipped_count=len(skipped_names),
         skipped_names=skipped_names,
     )
+
+
+@router.delete("/{course_id}/documents", status_code=status.HTTP_200_OK)
+async def remove_all_documents(
+    course_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Stage all documents in a course for removal.
+
+    Pending-add documents are deleted immediately. Active documents are
+    transitioned to pending_remove and will be purged on the next rebuild.
+    Returns the count of affected documents.
+    """
+    affected = await stage_all_course_documents_removal(current_user, course_id, db)
+    return {"removed": affected}
 
 
 @router.delete("/{course_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)

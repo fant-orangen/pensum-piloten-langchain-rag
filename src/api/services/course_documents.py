@@ -782,6 +782,47 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
         await _set_rebuild_failure(course_id, str(exc))
 
 
+async def stage_all_course_documents_removal(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> int:
+    """Stage all documents in a course for removal.
+
+    Documents in *pending_add* state are deleted immediately (file and DB row).
+    Documents in *active* state are transitioned to *pending_remove*; the files
+    are removed only when the next rebuild completes.
+    Documents already in *pending_remove* state are left unchanged.
+
+    Returns the total number of documents affected.
+    Raises 409 if a rebuild is currently queued or running.
+    """
+    course = await _get_course_for_teacher(current_user, course_id, db)
+    _ensure_not_rebuilding(course)
+
+    result = await db.execute(
+        select(CourseDocument).where(CourseDocument.course_id == course_id)
+    )
+    documents = list(result.scalars().all())
+
+    affected = 0
+    now = datetime.utcnow()
+    for document in documents:
+        if document.status == DOC_STATUS_PENDING_ADD:
+            path = Path(document.storage_path)
+            path.unlink(missing_ok=True)
+            await db.delete(document)
+            affected += 1
+        elif document.status == DOC_STATUS_ACTIVE:
+            document.status = DOC_STATUS_PENDING_REMOVE
+            document.updated_at = now
+            db.add(document)
+            affected += 1
+
+    await db.commit()
+    return affected
+
+
 async def purge_course_materials(course: Course, db: AsyncSession) -> None:
     """Delete all document rows/files and active course-scoped vector/KG data."""
     result = await db.execute(select(CourseDocument).where(CourseDocument.course_id == course.id))
