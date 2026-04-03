@@ -253,12 +253,6 @@ def _normalise_email(email: str) -> str:
     return email.strip().lower()
 
 
-def _hash_random_password() -> str:
-    """Return a bcrypt hash of the default password for teacher-created student accounts."""
-    import bcrypt
-    return bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
-
-
 def _validate_email(email: str) -> str:
     """Normalise and validate an email address. Raises ValueError if invalid."""
     cleaned_email = _normalise_email(email)
@@ -519,9 +513,10 @@ async def confirm_enrollment_import(
         names = name_map.get(email, {})
         new_user = User(
             email=email,
-            hashed_password=_hash_random_password(),
+            hashed_password="",
             first_name=names.get("first_name", ""),
             last_name=names.get("last_name", ""),
+            must_change_password=True,
         )
         db.add(new_user)
         created_emails.append(email)

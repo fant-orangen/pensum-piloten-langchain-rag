@@ -39,28 +39,43 @@ async def register_user(request: RegisterRequest, db: AsyncSession) -> User:
 
 async def change_password(
     current_user: User,
-    old_password: str,
+    old_password: str | None,
     new_password: str,
     db: AsyncSession,
 ) -> None:
     """Update the user's password after verifying the current one.
 
-    Raises HTTP 400 if the old password is incorrect.
+    For accounts flagged with must_change_password (auto-created, no real
+    password), old_password is not verified. Clears the flag on success.
+    Raises HTTP 400 if old_password is wrong for normal accounts.
     """
-    if not verify_password(old_password, current_user.hashed_password):
-        raise bad_request_error("Feil nåværende passord.")
+    if not current_user.must_change_password:
+        if not old_password or not verify_password(old_password, current_user.hashed_password):
+            raise bad_request_error("Feil nåværende passord.")
 
     current_user.hashed_password = hash_password(new_password)
+    current_user.must_change_password = False
     db.add(current_user)
     await db.commit()
 
 
 async def authenticate_user(email: str, password: str, db: AsyncSession) -> User:
-    """Verify credentials. Raises HTTP 401 if email or password is wrong."""
+    """Verify credentials. Raises HTTP 401 if email or password is wrong.
+
+    Accounts flagged with must_change_password have no real password set and are
+    allowed through regardless of the submitted password, so the user can reach
+    the forced password-change flow.
+    """
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalars().first()
 
-    if user is None or not verify_password(password, user.hashed_password):
+    if user is None:
+        raise unauthorized_error(
+            "Incorrect email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.must_change_password and not verify_password(password, user.hashed_password):
         raise unauthorized_error(
             "Incorrect email or password.",
             headers={"WWW-Authenticate": "Bearer"},

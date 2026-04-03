@@ -49,7 +49,6 @@ export function AuthPage() {
     e.preventDefault()
     setLoginError('')
     if (!loginEmail) { setLoginError('E-post er påkrevd.'); return }
-    if (!loginPassword) { setLoginError('Passord er påkrevd.'); return }
     setLoginLoading(true)
     try {
       await login(loginEmail, loginPassword)

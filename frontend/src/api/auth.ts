@@ -22,7 +22,7 @@ export async function getMe(): Promise<UserResponse> {
 }
 
 export async function changePassword(
-  oldPassword: string,
+  oldPassword: string | null,
   newPassword: string,
 ): Promise<void> {
   await apiClient.post('/auth/change-password', {

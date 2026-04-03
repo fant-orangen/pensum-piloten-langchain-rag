@@ -23,7 +23,7 @@ class TokenResponse(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    old_password: str
+    old_password: str | None = None
     new_password: str = Field(..., min_length=8)
 
 
@@ -36,5 +36,6 @@ class UserResponse(BaseModel):
     last_name: str
     global_role: str
     system_prompt_mode: int
+    must_change_password: bool
 
     model_config = {"from_attributes": True}

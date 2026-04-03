@@ -12,6 +12,7 @@ export interface UserResponse {
   last_name: string
   global_role: GlobalRole
   system_prompt_mode: SystemPromptMode
+  must_change_password: boolean
 }
 
 export interface TokenResponse {

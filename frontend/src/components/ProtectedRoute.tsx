@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Spinner } from './Spinner'
 import type { GlobalRole } from '../types'
@@ -10,6 +10,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth()
+  const location = useLocation()
 
   if (isLoading) {
     return (
@@ -21,6 +22,10 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   if (!user) {
     return <Navigate to="/auth" replace />
+  }
+
+  if (user.must_change_password && location.pathname !== '/settings') {
+    return <Navigate to="/settings" replace />
   }
 
   if (requiredRole) {
