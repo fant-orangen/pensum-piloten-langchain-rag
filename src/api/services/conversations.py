@@ -95,6 +95,21 @@ async def create_conversation(
     return conversation
 
 
+async def rename_conversation_for_user(
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    title: str,
+    db: AsyncSession,
+) -> Conversation:
+    """Set a new title on a conversation owned by the given user."""
+    conversation = await get_conversation_for_user(conversation_id, user_id, db)
+    conversation.title = title.strip()
+    db.add(conversation)
+    await db.commit()
+    await db.refresh(conversation)
+    return conversation
+
+
 async def delete_conversation_for_user(
     conversation_id: uuid.UUID,
     user_id: uuid.UUID,

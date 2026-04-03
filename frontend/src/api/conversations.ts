@@ -32,6 +32,11 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   await apiClient.delete(`/conversations/${conversationId}`)
 }
 
+export async function renameConversation(conversationId: string, title: string): Promise<ConversationRead> {
+  const { data } = await apiClient.patch<ConversationRead>(`/conversations/${conversationId}`, { title })
+  return data
+}
+
 export async function getMessages(
   conversationId: string,
   page = 1,
