@@ -12,6 +12,7 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const { user, refreshUser } = useAuth()
 
+  // Note that there is a security risk here. Technically you can change this value to false in the page source and bypass the need for any password
   const mustChange = user?.must_change_password ?? false
 
   const [oldPassword, setOldPassword] = useState('')
