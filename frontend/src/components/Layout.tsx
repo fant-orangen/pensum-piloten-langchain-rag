@@ -61,6 +61,13 @@ export function Layout({ children }: LayoutProps) {
                   ? <Sun className="h-4 w-4" aria-hidden="true" />
                   : <Moon className="h-4 w-4" aria-hidden="true" />}
               </button>
+              <Link
+                to="/settings"
+                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 transition-colors"
+                aria-label="Innstillinger"
+              >
+                <Settings className="h-4 w-4" aria-hidden="true" />
+              </Link>
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 transition-colors"
@@ -78,17 +85,5 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </main>
     </div>
-  )
-}
-
-export function SettingsLink() {
-  return (
-    <Link
-      to="/settings"
-      className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-indigo-600"
-    >
-      <Settings className="h-4 w-4" aria-hidden="true" />
-      <span>Innstillinger</span>
-    </Link>
   )
 }
