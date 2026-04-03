@@ -13,7 +13,7 @@ import {
   getResponsibleCourses,
   createCourse,
 } from '../api/courses'
-import type { CourseRead, RagMode } from '../types'
+import type { CourseRead } from '../types'
 
 function CourseCard({
   course,
@@ -45,12 +45,6 @@ function CourseCard({
   )
 }
 
-const RAG_MODE_OPTIONS: { value: RagMode; label: string }[] = [
-  { value: 'kg_rag', label: 'KG-RAG' },
-  { value: 'rag', label: 'Standard RAG' },
-  { value: 'no_rag', label: 'Ingen RAG' },
-]
-
 function deriveCode(name: string): string {
   return name.toUpperCase().replace(/\s+/g, '_').slice(0, 20)
 }
@@ -67,7 +61,6 @@ function CreateCourseModal({ onClose, onCreated }: CreateCourseModalProps) {
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false)
   const [description, setDescription] = useState('')
   const [documentsDir, setDocumentsDir] = useState('')
-  const [ragMode, setRagMode] = useState<RagMode>('kg_rag')
   const [formError, setFormError] = useState('')
 
   const mutation = useMutation({
@@ -103,7 +96,7 @@ function CreateCourseModal({ onClose, onCreated }: CreateCourseModalProps) {
     if (!name.trim()) { setFormError('Emnenavn er påkrevd.'); return }
     if (!code.trim()) { setFormError('Emnekode er påkrevd.'); return }
     if (!documentsDir.trim()) { setFormError('Dokumentmappe er påkrevd.'); return }
-    mutation.mutate({ name: name.trim(), code: code.trim(), description: description.trim() || undefined, documents_dir: documentsDir.trim(), rag_mode: ragMode })
+    mutation.mutate({ name: name.trim(), code: code.trim(), description: description.trim() || undefined, documents_dir: documentsDir.trim() })
   }
 
   return (
@@ -186,24 +179,6 @@ function CreateCourseModal({ onClose, onCreated }: CreateCourseModalProps) {
               onChange={(e) => setDocumentsDir(e.target.value)}
               className="input-field mt-1 font-mono text-xs"
             />
-          </div>
-
-          <div>
-            <label htmlFor="course-rag-mode" className="label">
-              RAG-modus
-            </label>
-            <select
-              id="course-rag-mode"
-              value={ragMode}
-              onChange={(e) => setRagMode(e.target.value as RagMode)}
-              className="input-field mt-1"
-            >
-              {RAG_MODE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
           </div>
 
           {formError && (

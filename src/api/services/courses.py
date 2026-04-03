@@ -159,7 +159,7 @@ async def create_course(current_user: User, body: CourseCreate, db: AsyncSession
         chroma_collection=None,
         documents_dir=str(course_documents_dir),
         description=body.description,
-        rag_mode=body.rag_mode,
+        rag_mode="kg_rag",
         course_specific_instructions=body.course_specific_instructions,
         created_by_id=current_user.id,
     )
@@ -318,6 +318,11 @@ def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
         invalid_emails=invalid_emails,
         candidate_names=candidate_names,
     )
+
+
+async def get_course(course_id: uuid.UUID, db: AsyncSession) -> Course:
+    """Return a course by ID or raise HTTP 404."""
+    return await _get_course_or_404(course_id, db)
 
 
 async def _get_course_or_404(course_id: uuid.UUID, db: AsyncSession) -> Course:

@@ -38,7 +38,6 @@ export interface CourseCreate {
   chroma_collection?: string
   documents_dir: string
   description?: string
-  rag_mode: RagMode
   course_specific_instructions?: string
 }
 

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.user import User
-from src.api.schemas.conversation import ConversationCreate, ConversationRead
+from src.api.schemas.conversation import ConversationCreate, ConversationRead, ConversationTitleUpdate
 from src.api.schemas.message import MessageCreate, MessageRead, MessageSourceRead
 from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.conversations import (
@@ -16,6 +16,7 @@ from src.api.services.conversations import (
     delete_conversation_for_user,
     get_conversation_for_user,
     get_user_conversations,
+    rename_conversation_for_user,
 )
 from src.api.services.message_sources import get_message_sources_for_user
 from src.api.services.messages import create_message, get_conversation_messages
@@ -133,6 +134,18 @@ async def new_message(
     return MessageRead.model_validate(message).model_copy(
         update={"conversation_compression_triggered": compression_triggered}
     )
+
+
+@router.patch("/{conversation_id}", response_model=ConversationRead)
+async def rename_conversation(
+    conversation_id: uuid.UUID,
+    body: ConversationTitleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ConversationRead:
+    """Rename a conversation owned by the authenticated user."""
+    conversation = await rename_conversation_for_user(conversation_id, current_user.id, body.title, db)
+    return ConversationRead.model_validate(conversation)
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

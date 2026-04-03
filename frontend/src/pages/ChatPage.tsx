@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
+  Pencil,
   Plus,
   Send,
   Trash2,
@@ -25,9 +26,11 @@ import {
   createConversation,
   deleteConversation,
   getMessages,
+  renameConversation,
   sendMessage,
   getMessageSources,
 } from '../api/conversations'
+import { getCourse } from '../api/courses'
 import { updateSystemPromptMode } from '../api/preferences'
 import type { ConversationRead, MessageRead, MessageSourceRead, SystemPromptMode } from '../types'
 
@@ -167,10 +170,29 @@ interface ConversationItemProps {
   isActive: boolean
   onSelect: () => void
   onDelete: () => void
+  onRename: (title: string) => void
 }
 
-function ConversationItem({ conversation, isActive, onSelect, onDelete }: ConversationItemProps) {
+function ConversationItem({ conversation, isActive, onSelect, onDelete, onRename }: ConversationItemProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState('')
+
+  function startEditing() {
+    setEditValue(conversation.title ?? `Samtale ${formatConversationDate(conversation.created_at)}`)
+    setIsEditing(true)
+  }
+
+  function commitRename() {
+    const trimmed = editValue.trim()
+    if (trimmed) onRename(trimmed)
+    setIsEditing(false)
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') commitRename()
+    if (e.key === 'Escape') setIsEditing(false)
+  }
 
   return (
     <>
@@ -180,28 +202,51 @@ function ConversationItem({ conversation, isActive, onSelect, onDelete }: Conver
           isActive ? 'bg-indigo-50 text-indigo-900' : 'hover:bg-gray-100 text-gray-700'
         )}
       >
-        <button
-          onClick={onSelect}
-          className="flex flex-1 items-start gap-2 text-left focus-visible:outline-none"
-          aria-current={isActive ? 'page' : undefined}
-        >
-          <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">
-              {conversation.title ?? `Samtale ${formatConversationDate(conversation.created_at)}`}
-            </p>
-            <p className="text-xs text-gray-400">
-              {formatConversationDate(conversation.updated_at)}
-            </p>
+        {isEditing ? (
+          <input
+            autoFocus
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleEditKeyDown}
+            onBlur={commitRename}
+            className="flex-1 rounded border border-indigo-300 bg-white px-2 py-0.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          />
+        ) : (
+          <button
+            onClick={onSelect}
+            className="flex flex-1 items-start gap-2 text-left focus-visible:outline-none"
+            aria-current={isActive ? 'page' : undefined}
+          >
+            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {conversation.title ?? `Samtale ${formatConversationDate(conversation.created_at)}`}
+              </p>
+              <p className="text-xs text-gray-400">
+                {formatConversationDate(conversation.updated_at)}
+              </p>
+            </div>
+          </button>
+        )}
+
+        {!isEditing && (
+          <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); startEditing() }}
+              className="rounded p-1 text-gray-300 hover:text-indigo-500 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
+              aria-label="Gi nytt navn"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="rounded p-1 text-gray-300 hover:text-red-500 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+              aria-label="Slett samtale"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
-        </button>
-        <button
-          onClick={() => setConfirmDelete(true)}
-          className="ml-2 rounded p-1 text-gray-300 opacity-0 group-hover:opacity-100 hover:text-red-500 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 transition-opacity"
-          aria-label={`Slett samtale`}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        )}
       </div>
 
       <ConfirmDialog
@@ -231,6 +276,12 @@ export function ChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const courseQuery = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => getCourse(courseId!),
+    enabled: !!courseId,
+  })
 
   const conversationsQuery = useQuery({
     queryKey: ['conversations', courseId],
@@ -263,6 +314,12 @@ export function ChatPage() {
       }
     },
     onError: () => toast.error('Klarte ikke slette samtale.'),
+  })
+
+  const renameConversationMutation = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => renameConversation(id, title),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['conversations', courseId] }),
+    onError: () => toast.error('Klarte ikke endre navn.'),
   })
 
   const sendMessageMutation = useMutation({
@@ -337,7 +394,9 @@ export function ChatPage() {
           ) : (
             <>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                <h2 className="text-sm font-semibold text-gray-700">Samtaler</h2>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  {courseQuery.data?.code ?? 'Samtaler'}
+                </h2>
                 <button
                   onClick={() => setSidebarCollapsed(true)}
                   className="rounded-md p-1 text-gray-400 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"
@@ -421,6 +480,7 @@ export function ChatPage() {
                           setActiveSourceMessageId(null)
                         }}
                         onDelete={() => deleteConversationMutation.mutate(conv.id)}
+                        onRename={(title) => renameConversationMutation.mutate({ id: conv.id, title })}
                       />
                     </li>
                   ))}
