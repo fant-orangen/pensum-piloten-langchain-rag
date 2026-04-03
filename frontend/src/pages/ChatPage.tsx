@@ -28,6 +28,7 @@ import {
   sendMessage,
   getMessageSources,
 } from '../api/conversations'
+import { getCourse } from '../api/courses'
 import { updateSystemPromptMode } from '../api/preferences'
 import type { ConversationRead, MessageRead, MessageSourceRead, SystemPromptMode } from '../types'
 
@@ -232,6 +233,12 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const courseQuery = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: () => getCourse(courseId!),
+    enabled: !!courseId,
+  })
+
   const conversationsQuery = useQuery({
     queryKey: ['conversations', courseId],
     queryFn: () => getConversations(1, 50, courseId),
@@ -337,7 +344,9 @@ export function ChatPage() {
           ) : (
             <>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                <h2 className="text-sm font-semibold text-gray-700">Samtaler</h2>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  {courseQuery.data?.code ?? 'Samtaler'}
+                </h2>
                 <button
                   onClick={() => setSidebarCollapsed(true)}
                   className="rounded-md p-1 text-gray-400 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"

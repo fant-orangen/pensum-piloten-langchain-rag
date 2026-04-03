@@ -13,6 +13,11 @@ import type {
 } from '../types'
 import { apiClient } from './client'
 
+export async function getCourse(courseId: string): Promise<CourseRead> {
+  const { data } = await apiClient.get<CourseRead>(`/courses/${courseId}`)
+  return data
+}
+
 export async function getCourses(): Promise<CourseRead[]> {
   const { data } = await apiClient.get<CourseRead[]>('/courses')
   return data

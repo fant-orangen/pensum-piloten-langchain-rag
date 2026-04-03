@@ -320,6 +320,11 @@ def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
     )
 
 
+async def get_course(course_id: uuid.UUID, db: AsyncSession) -> Course:
+    """Return a course by ID or raise HTTP 404."""
+    return await _get_course_or_404(course_id, db)
+
+
 async def _get_course_or_404(course_id: uuid.UUID, db: AsyncSession) -> Course:
     """Fetch a course by ID or raise HTTP 404."""
     result = await db.execute(select(Course).where(Course.id == course_id))

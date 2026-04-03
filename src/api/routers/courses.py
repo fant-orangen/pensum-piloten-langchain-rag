@@ -39,6 +39,7 @@ from src.api.services.courses import (
     create_course,
     delete_course,
     enroll_user,
+    get_course,
     get_course_specific_instructions,
     get_available_courses,
     get_course_students,
@@ -81,6 +82,17 @@ async def list_responsible_courses(
     """Return all courses where the authenticated user is enrolled as a teacher."""
     courses = await get_responsible_courses(current_user, db)
     return [CourseRead.model_validate(c) for c in courses]
+
+
+@router.get("/{course_id}", response_model=CourseRead)
+async def get_course_by_id(
+    course_id: uuid.UUID,
+    _: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseRead:
+    """Return a single course by ID."""
+    course = await get_course(course_id, db)
+    return CourseRead.model_validate(course)
 
 
 @router.get("/{course_id}/students", response_model=Page[CourseStudentRead])
