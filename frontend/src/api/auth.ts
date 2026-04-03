@@ -20,3 +20,13 @@ export async function getMe(): Promise<UserResponse> {
   const { data } = await apiClient.get<UserResponse>('/auth/me')
   return data
 }
+
+export async function changePassword(
+  oldPassword: string,
+  newPassword: string,
+): Promise<void> {
+  await apiClient.post('/auth/change-password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  })
+}

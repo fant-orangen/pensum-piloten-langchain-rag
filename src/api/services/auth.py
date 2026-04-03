@@ -6,7 +6,7 @@ from sqlmodel import select
 
 from src.api.models.user import User
 from src.api.schemas.auth import RegisterRequest
-from src.api.utils.exception_util import conflict_error, unauthorized_error
+from src.api.utils.exception_util import bad_request_error, conflict_error, unauthorized_error
 
 
 def hash_password(password: str) -> str:
@@ -35,6 +35,24 @@ async def register_user(request: RegisterRequest, db: AsyncSession) -> User:
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def change_password(
+    current_user: User,
+    old_password: str,
+    new_password: str,
+    db: AsyncSession,
+) -> None:
+    """Update the user's password after verifying the current one.
+
+    Raises HTTP 400 if the old password is incorrect.
+    """
+    if not verify_password(old_password, current_user.hashed_password):
+        raise bad_request_error("Feil nåværende passord.")
+
+    current_user.hashed_password = hash_password(new_password)
+    db.add(current_user)
+    await db.commit()
 
 
 async def authenticate_user(email: str, password: str, db: AsyncSession) -> User:

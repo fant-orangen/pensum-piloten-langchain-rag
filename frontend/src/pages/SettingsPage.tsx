@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, KeyRound } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Layout } from '../components/Layout'
+import { Spinner } from '../components/Spinner'
+import { changePassword } from '../api/auth'
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -9,10 +13,38 @@ export function SettingsPage() {
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [confirmError, setConfirmError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => changePassword(oldPassword, newPassword),
+    onSuccess: () => {
+      toast.success('Passordet er oppdatert.')
+      setOldPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setConfirmError('')
+    },
+    onError: (err: { response?: { data?: { detail?: string } } }) => {
+      const detail = err.response?.data?.detail ?? 'Noe gikk galt. Prøv igjen.'
+      toast.error(detail)
+    },
+  })
+
+  function handleConfirmChange(value: string) {
+    setConfirmPassword(value)
+    if (confirmError && value === newPassword) {
+      setConfirmError('')
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // No logic yet — handler intentionally left empty
+    if (newPassword !== confirmPassword) {
+      setConfirmError('Passordene stemmer ikke overens.')
+      return
+    }
+    setConfirmError('')
+    mutation.mutate()
   }
 
   return (
@@ -58,6 +90,7 @@ export function SettingsPage() {
                     onChange={(e) => setOldPassword(e.target.value)}
                     className="input-field mt-1"
                     placeholder="Skriv inn nåværende passord"
+                    required
                   />
                 </div>
 
@@ -72,7 +105,9 @@ export function SettingsPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="input-field mt-1"
-                    placeholder="Skriv inn nytt passord"
+                    placeholder="Minst 8 tegn"
+                    minLength={8}
+                    required
                   />
                 </div>
 
@@ -85,14 +120,25 @@ export function SettingsPage() {
                     type="password"
                     autoComplete="new-password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="input-field mt-1"
+                    onChange={(e) => handleConfirmChange(e.target.value)}
+                    className={`input-field mt-1 ${confirmError ? 'border-red-400 focus:ring-red-400' : ''}`}
                     placeholder="Gjenta det nye passordet"
+                    required
                   />
+                  {confirmError && (
+                    <p role="alert" className="mt-1 text-sm text-red-600">
+                      {confirmError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="pt-2">
-                  <button type="submit" className="btn-primary">
+                  <button
+                    type="submit"
+                    disabled={mutation.isPending}
+                    className="btn-primary"
+                  >
+                    {mutation.isPending && <Spinner size="sm" />}
                     Lagre endringer
                   </button>
                 </div>
