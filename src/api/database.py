@@ -124,6 +124,12 @@ async def create_tables() -> None:
                 "ADD COLUMN IF NOT EXISTS candidates_name_map JSONB NOT NULL DEFAULT '{}'"
             )
         )
+        await conn.execute(
+            text(
+                "ALTER TABLE app_user "
+                "ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
     logger.info("database_tables_created")
 
 

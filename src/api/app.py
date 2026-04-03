@@ -6,6 +6,7 @@ from typing import Any
 import uvicorn
 import structlog
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage, AIMessage
 
 from src.config import get_settings
@@ -43,6 +44,15 @@ app = FastAPI(
     description="Socratic RAG tutor that guides students toward independent learning.",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+settings_for_cors = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings_for_cors.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth.router)

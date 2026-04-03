@@ -22,6 +22,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str | None = None
+    new_password: str = Field(..., min_length=8)
+
+
 class UserResponse(BaseModel):
     """Safe user representation — never includes the hashed password."""
 
@@ -31,5 +36,6 @@ class UserResponse(BaseModel):
     last_name: str
     global_role: str
     system_prompt_mode: int
+    must_change_password: bool
 
     model_config = {"from_attributes": True}
