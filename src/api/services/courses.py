@@ -159,7 +159,7 @@ async def create_course(current_user: User, body: CourseCreate, db: AsyncSession
         chroma_collection=None,
         documents_dir=str(course_documents_dir),
         description=body.description,
-        rag_mode=body.rag_mode,
+        rag_mode="kg_rag",
         course_specific_instructions=body.course_specific_instructions,
         created_by_id=current_user.id,
     )

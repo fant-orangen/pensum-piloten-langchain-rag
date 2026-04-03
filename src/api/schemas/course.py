@@ -27,7 +27,6 @@ class CourseCreate(BaseModel):
     chroma_collection: Optional[str] = None
     documents_dir: str
     description: Optional[str] = None
-    rag_mode: str = "kg_rag"
     course_specific_instructions: Optional[str] = None
 
 
