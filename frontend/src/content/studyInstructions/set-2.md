@@ -1,7 +1,9 @@
-# Virtual memory
+# Memory management
 
-Study the topic **Virtual memory** using the chat.
+**Task description:** At a high level, learn about the following topics:
 
-- Try to understand the key ideas in your own words.
-- Use follow-up questions if something is unclear.
-- Complete the survey after you finish this round.
+- **Address translation and virtual memory:** what is it, what is its purpose, and how does it work?
+- **Paging:** what is paging, what is its purpose, and what does it have to do with address translation?
+- **Page faults:** what are they, how do they happen, why do they matter, and what do they have to do with address translation and paging?
+
+After the time is up, click the link below and complete the quiz. When the instructors tell you to do so, click "Finish test" and then "Next" to move to the next stage.

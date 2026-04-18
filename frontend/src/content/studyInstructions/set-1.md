@@ -1,7 +1,9 @@
-# Processes and scheduling
+# Synchronization
 
-Study the topic **Processes and scheduling** using the chat.
+**Task description:** At a high level, learn about the following topics:
 
-- Ask short questions and build up your understanding step by step.
-- Stay focused on this topic during this round.
-- Open the survey when you are done with the task.
+- **Synchronisation:** what is it, what is its purpose, and how does it work?
+- **Locks:** what is a lock, what is its purpose, and what does it have to do with synchronisation?
+- **Race conditions:** what are they, how do they happen, why do they matter, and what do they have to do with synchronisation and locks?
+
+After the time is up, click the link below and complete the quiz. When the instructors tell you to do so, click "Finish test" and then "Next" to move to the next stage.
