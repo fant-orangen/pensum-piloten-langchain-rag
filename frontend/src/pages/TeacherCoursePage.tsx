@@ -267,6 +267,31 @@ function StudentsTab({ courseId }: StudentsTabProps) {
           Importer fra CSV
         </h2>
         <div className="space-y-3">
+          <div className="rounded-lg border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900">Slik fungerer CSV-import</h3>
+            <div className="mt-2 space-y-3 text-sm text-gray-600">
+              <p>
+                Last opp en CSV-fil hvis du vil melde opp flere studenter samtidig.
+                Systemet viser alltid en forhåndsvisning før noe lagres, slik at du kan
+                kontrollere resultatet før du trykker <span className="font-medium text-gray-900">Bekreft import</span>.
+              </p>
+              <p>
+                Hver rad må ha e-postadresse i første kolonne. Du kan i tillegg legge til
+                fornavn i kolonne 2 og etternavn i kolonne 3. Overskriftsrad er valgfri,
+                tomme rader ignoreres, og duplikater eller ugyldige e-poster vises i
+                forhåndsvisningen i stedet for å bli importert.
+              </p>
+              <div className="rounded-md bg-gray-50 px-3 py-3 font-mono text-xs text-gray-700">
+                <p>email,fornavn,etternavn</p>
+                <p>ola@example.com,Ola,Nordmann</p>
+                <p>kari@example.com,Kari,Nordmann</p>
+              </div>
+              <p className="text-xs text-gray-500">
+                Tips: Lagre filen som CSV med UTF-8-koding for best resultat.
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3">
             <label htmlFor="csv-file" className="btn-secondary cursor-pointer">
               <Upload className="h-4 w-4" aria-hidden="true" />
