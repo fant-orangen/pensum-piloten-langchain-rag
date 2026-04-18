@@ -359,6 +359,13 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
 
+  async function refreshMaterialsQueries() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] }),
+      queryClient.invalidateQueries({ queryKey: ['course-documents-status', courseId] }),
+    ])
+  }
+
   const documentsQuery = useQuery({
     queryKey: ['course-documents', courseId],
     queryFn: () => getCourseDocuments(courseId),
@@ -375,8 +382,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const uploadMutation = useMutation({
     mutationFn: (files: File[]) => uploadDocuments(courseId, files),
-    onSuccess: (docs) => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async (docs) => {
+      await refreshMaterialsQueries()
       toast.success(`${docs.length} fil(er) lastet opp.`)
     },
     onError: () => toast.error('Filopplasting feilet.'),
@@ -384,8 +391,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const uploadZipMutation = useMutation({
     mutationFn: (file: File) => uploadZip(courseId, file),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async (result) => {
+      await refreshMaterialsQueries()
       toast.success(
         `ZIP-import: ${result.staged_count} klargjort${result.skipped_count > 0 ? `, ${result.skipped_count} hoppet over` : ''}.`
       )
@@ -395,8 +402,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const deleteDocMutation = useMutation({
     mutationFn: (docId: string) => deleteDocument(courseId, docId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async () => {
+      await refreshMaterialsQueries()
       toast.success('Dokument fjernet.')
     },
     onError: () => toast.error('Klarte ikke fjerne dokument.'),
@@ -404,8 +411,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const deleteAllMutation = useMutation({
     mutationFn: () => deleteAllDocuments(courseId),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async (result) => {
+      await refreshMaterialsQueries()
       setSelectedDocIds(new Set())
       toast.success(`${result.removed} dokument(er) fjernet.`)
     },
@@ -468,7 +475,7 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
     for (const id of selectedDocIds) {
       await deleteDocument(courseId, id)
     }
-    queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    await refreshMaterialsQueries()
     setSelectedDocIds(new Set())
     toast.success('Valgte dokumenter fjernet.')
   }
@@ -529,7 +536,12 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
         <div className="mt-4">
           <button
             onClick={() => confirmMutation.mutate()}
-            disabled={confirmMutation.isPending || !status || (status.pending_additions === 0 && status.pending_removals === 0)}
+            disabled={
+              isUploading ||
+              confirmMutation.isPending ||
+              !status ||
+              (status.pending_additions === 0 && status.pending_removals === 0)
+            }
             className="btn-primary"
           >
             {confirmMutation.isPending && <Spinner size="sm" />}
