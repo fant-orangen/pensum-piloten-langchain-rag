@@ -146,6 +146,13 @@ function StudentsTab({ courseId }: StudentsTabProps) {
     enrollMutation.mutate(enrollEmail.trim())
   }
 
+  function handleCsvFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null
+    setCsvFile(file)
+    setPreview(null)
+    e.target.value = ''
+  }
+
   const students: CourseStudentRead[] = studentsQuery.data?.items ?? []
   const total = studentsQuery.data?.total ?? 0
   const totalPages = Math.ceil(total / pageSize)
@@ -302,11 +309,7 @@ function StudentsTab({ courseId }: StudentsTabProps) {
               type="file"
               accept=".csv"
               className="sr-only"
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null
-                setCsvFile(file)
-                setPreview(null)
-              }}
+              onChange={handleCsvFileInput}
             />
             {csvFile && <span className="text-sm text-gray-600">{csvFile.name}</span>}
           </div>
