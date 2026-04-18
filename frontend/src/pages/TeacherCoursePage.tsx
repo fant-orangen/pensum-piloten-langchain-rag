@@ -54,6 +54,18 @@ function formatDate(dateStr: string): string {
   }
 }
 
+function truncateFilename(name: string, maxLength = 60): string {
+  if (name.length <= maxLength) {
+    return name
+  }
+
+  const visibleChars = maxLength - 1
+  const startLength = Math.ceil(visibleChars * 0.6)
+  const endLength = Math.floor(visibleChars * 0.4)
+
+  return `${name.slice(0, startLength)}…${name.slice(-endLength)}`
+}
+
 // ─── Students Tab ────────────────────────────────────────────────────────────
 
 interface StudentsTabProps {
@@ -669,7 +681,7 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
         {documents.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-gray-200">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="w-10 px-4 py-3">
@@ -682,9 +694,9 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
                     />
                   </th>
                   <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Filnavn</th>
-                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Dato</th>
-                  <th scope="col" className="px-4 py-3 text-right font-medium text-gray-600">Handling</th>
+                  <th scope="col" className="w-36 px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                  <th scope="col" className="w-24 px-4 py-3 text-left font-medium text-gray-600">Dato</th>
+                  <th scope="col" className="w-24 px-4 py-3 text-right font-medium text-gray-600">Handling</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
@@ -699,7 +711,14 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
                         className="rounded accent-indigo-600"
                       />
                     </td>
-                    <td className="px-4 py-3 text-gray-900 font-mono text-xs">{doc.original_filename}</td>
+                    <td className="px-4 py-3">
+                      <div
+                        className="block min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-gray-900"
+                        title={doc.original_filename}
+                      >
+                        {truncateFilename(doc.original_filename)}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <DocumentStatusBadge status={doc.status} />
                     </td>
