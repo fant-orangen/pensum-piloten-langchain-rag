@@ -550,6 +550,23 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
         </div>
       </section>
 
+      <section aria-labelledby="upload-file-types-heading" className="rounded-lg border border-gray-200 p-4">
+        <h2 id="upload-file-types-heading" className="text-sm font-semibold text-gray-900">
+          Hva kan du laste opp?
+        </h2>
+        <div className="mt-2 space-y-2 text-sm text-gray-600">
+          <p>
+            Systemet fungerer best med vanlige dokumenter og tekstbaserte filer, som
+            PDF, Word-dokumenter (.docx), tekstfiler, Markdown og enkle tabellfiler
+            som CSV.
+          </p>
+          <p>
+            Du kan også laste opp en ZIP-fil hvis du vil sende inn flere støttede filer
+            samtidig. Bilder, video og lyd støttes ikke i innlesingen.
+          </p>
+        </div>
+      </section>
+
       {/* Upload area */}
       <section aria-labelledby="upload-heading">
         <h2 id="upload-heading" className="mb-3 text-sm font-semibold text-gray-900">
