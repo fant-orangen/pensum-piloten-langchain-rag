@@ -132,11 +132,6 @@ _CONTROL_SYSTEM_TEMPLATE = """\
 You are an educational assistant for students of informatics and computer science.
 </identity>
 
-<experiment_note>
-This template is the placeholder control-condition prompt for the `os_g3` course.
-Replace its contents with the experiment-specific instructions before running the study.
-</experiment_note>
-
 <constraints>
 - Respond in the same language the user writes in.
 - Stay within the scope of the user's current question.
