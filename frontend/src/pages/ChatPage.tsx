@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
   MessageSquare,
   Pencil,
   Plus,
@@ -16,6 +18,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { nb } from 'date-fns/locale'
 import clsx from 'clsx'
+import { useAuth } from '../contexts/AuthContext'
 import { Layout } from '../components/Layout'
 import { Spinner } from '../components/Spinner'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -29,6 +32,100 @@ import {
 } from '../api/conversations'
 import { getCourse } from '../api/courses'
 import type { ConversationRead, MessageRead } from '../types'
+
+type InstructionSetId = 'set-1' | 'set-2' | 'set-3'
+
+interface InstructionSet {
+  id: InstructionSetId
+  topic: string
+  instructions: string
+  surveyLabel: string
+  surveyUrl: string
+}
+
+interface InstructionProgress {
+  currentIndex: number
+  completedIds: InstructionSetId[]
+}
+
+const DEFAULT_INSTRUCTION_ORDER: InstructionSetId[] = ['set-1', 'set-2', 'set-3']
+
+const INSTRUCTION_SETS: Record<InstructionSetId, InstructionSet> = {
+  'set-1': {
+    id: 'set-1',
+    topic: 'Processes and scheduling',
+    instructions:
+      'Use the chat to learn the basics of process scheduling. Ask short questions, explore the topic, and complete the survey when you are done.',
+    surveyLabel: 'Open survey',
+    surveyUrl: 'https://example.com/survey/round-1',
+  },
+  'set-2': {
+    id: 'set-2',
+    topic: 'Virtual memory',
+    instructions:
+      'Use the chat to study core ideas in virtual memory. Focus on understanding the concepts well enough to explain them in your own words before taking the survey.',
+    surveyLabel: 'Open survey',
+    surveyUrl: 'https://example.com/survey/round-2',
+  },
+  'set-3': {
+    id: 'set-3',
+    topic: 'Synchronization',≈ç
+    instructions:
+      'Use the chat to learn about synchronization and related challenges. When you feel finished with this round, complete the survey and then continue.',
+    surveyLabel: 'Open survey',
+    surveyUrl: 'https://example.com/survey/round-3',
+  },
+}
+
+function instructionOrderForEmail(email: string | undefined): InstructionSetId[] {
+  const match = email?.match(/student(\d{2})@/i)
+  const userNumber = match ? Number.parseInt(match[1], 10) : Number.NaN
+
+  if (userNumber >= 1 && userNumber <= 4) {
+    return ['set-1', 'set-2', 'set-3']
+  }
+  if (userNumber >= 5 && userNumber <= 8) {
+    return ['set-2', 'set-3', 'set-1']
+  }
+  if (userNumber >= 9 && userNumber <= 12) {
+    return ['set-3', 'set-1', 'set-2']
+  }
+  return DEFAULT_INSTRUCTION_ORDER
+}
+
+function instructionProgressStorageKey(email: string | undefined): string | null {
+  const normalizedEmail = email?.trim().toLowerCase()
+  return normalizedEmail ? `study-instructions:${normalizedEmail}` : null
+}
+
+function loadInstructionProgress(email: string | undefined): InstructionProgress {
+  const storageKey = instructionProgressStorageKey(email)
+  if (!storageKey) {
+    return { currentIndex: 0, completedIds: [] }
+  }
+
+  try {
+    const raw = localStorage.getItem(storageKey)
+    if (!raw) {
+      return { currentIndex: 0, completedIds: [] }
+    }
+
+    const parsed = JSON.parse(raw) as Partial<InstructionProgress>
+    const currentIndex = Number.isInteger(parsed.currentIndex) ? Number(parsed.currentIndex) : 0
+    const completedIds = Array.isArray(parsed.completedIds)
+      ? parsed.completedIds.filter(
+          (value): value is InstructionSetId => value === 'set-1' || value === 'set-2' || value === 'set-3'
+        )
+      : []
+
+    return {
+      currentIndex: Math.max(0, Math.min(currentIndex, DEFAULT_INSTRUCTION_ORDER.length - 1)),
+      completedIds,
+    }
+  } catch {
+    return { currentIndex: 0, completedIds: [] }
+  }
+}
 
 function formatConversationDate(dateStr: string): string {
   try {
@@ -178,14 +275,25 @@ function ConversationItem({ conversation, isActive, onSelect, onDelete, onRename
 export function ChatPage() {
   const { courseId } = useParams<{ courseId?: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const queryClient = useQueryClient()
 
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [instructionIndex, setInstructionIndex] = useState(0)
+  const [completedInstructionIds, setCompletedInstructionIds] = useState<InstructionSetId[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const instructionOrder = useMemo(
+    () => instructionOrderForEmail(user?.email),
+    [user?.email]
+  )
+  const currentInstructionId = instructionOrder[instructionIndex] ?? instructionOrder[0] ?? 'set-1'
+  const currentInstruction = INSTRUCTION_SETS[currentInstructionId]
+  const currentInstructionFinished = completedInstructionIds.includes(currentInstructionId)
+  const isLastInstruction = instructionIndex >= instructionOrder.length - 1
 
   const courseQuery = useQuery({
     queryKey: ['course', courseId],
@@ -247,6 +355,23 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [displayMessages.length])
 
+  useEffect(() => {
+    const progress = loadInstructionProgress(user?.email)
+    setInstructionIndex(progress.currentIndex)
+    setCompletedInstructionIds(progress.completedIds)
+  }, [user?.email])
+
+  useEffect(() => {
+    const storageKey = instructionProgressStorageKey(user?.email)
+    if (!storageKey) return
+
+    const payload: InstructionProgress = {
+      currentIndex: instructionIndex,
+      completedIds: completedInstructionIds,
+    }
+    localStorage.setItem(storageKey, JSON.stringify(payload))
+  }, [completedInstructionIds, instructionIndex, user?.email])
+
   const handleSend = useCallback(() => {
     const content = inputValue.trim()
     if (!content || !selectedConversationId || sendMessageMutation.isPending) return
@@ -259,6 +384,17 @@ export function ChatPage() {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  function handleFinishTest() {
+    setCompletedInstructionIds((current) =>
+      current.includes(currentInstructionId) ? current : [...current, currentInstructionId]
+    )
+  }
+
+  function handleNextInstruction() {
+    if (!currentInstructionFinished || isLastInstruction) return
+    setInstructionIndex((current) => Math.min(current + 1, instructionOrder.length - 1))
   }
 
   const conversations = conversationsQuery.data?.items ?? []
@@ -458,6 +594,67 @@ export function ChatPage() {
             </div>
           )}
         </div>
+
+        <aside className="flex w-96 shrink-0 flex-col border-l border-gray-200 bg-white">
+          <div className="border-b border-gray-200 px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+              Round {instructionIndex + 1} of {instructionOrder.length}
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-gray-900">Instructions</h2>
+          </div>
+
+          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+            <section className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Topic</p>
+              <p className="mt-2 text-sm font-semibold text-gray-900">{currentInstruction.topic}</p>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">
+                {currentInstruction.instructions}
+              </p>
+            </section>
+
+            <a
+              href={currentInstruction.surveyUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              {currentInstruction.surveyLabel}
+            </a>
+          </div>
+
+          <div className="space-y-3 border-t border-gray-200 px-5 py-4">
+            <button
+              onClick={handleFinishTest}
+              disabled={currentInstructionFinished}
+              className={clsx(
+                'w-full rounded-lg px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600',
+                currentInstructionFinished
+                  ? 'cursor-default bg-emerald-100 text-emerald-700'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              )}
+            >
+              {currentInstructionFinished ? 'Test finished' : 'Finish test'}
+            </button>
+
+            <button
+              onClick={handleNextInstruction}
+              disabled={!currentInstructionFinished || isLastInstruction}
+              className={clsx(
+                'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600',
+                !currentInstructionFinished || isLastInstruction
+                  ? 'cursor-not-allowed bg-gray-200 text-gray-500'
+                  : 'bg-gray-900 text-white hover:bg-gray-800'
+              )}
+            >
+              {isLastInstruction ? 'No next round' : 'Next'}
+              {!isLastInstruction && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+            </button>
+          </div>
+        </aside>
       </div>
     </Layout>
   )
