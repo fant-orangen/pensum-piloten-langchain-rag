@@ -55,9 +55,9 @@ _EXPERIMENT_COURSES = (
 )
 
 _EXPERIMENT_USER_GROUPS = (
-    (_RAG_COURSE_CODE, "os_g1_student", 12),
-    (_SYS_COURSE_CODE, "os_g2_student", 12),
-    (_CONTROL_COURSE_CODE, "os_g3_student", 12),
+    (_RAG_COURSE_CODE, "g1u", 12),
+    (_SYS_COURSE_CODE, "g2u", 12),
+    (_CONTROL_COURSE_CODE, "g3u", 12),
 )
 
 
@@ -140,7 +140,7 @@ async def seed(db: AsyncSession) -> None:
         for index in range(1, count + 1):
             student = await _get_or_create_user(
                 db,
-                email=f"{prefix}{index:02d}@test.com",
+                email=f"{prefix}{index}@test.com",
                 password=_EXPERIMENT_PASSWORD,
                 first_name="Test",
                 last_name=f"{course_code.upper()} {index:02d}",

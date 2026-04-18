@@ -13,7 +13,7 @@ import urllib.request
 
 BASE = "http://localhost:8000"
 
-STUDENT_EMAIL = "os_g1_student01@test.com"
+STUDENT_EMAIL = "g1u1@test.com"
 STUDENT_PASSWORD = "password123"
 
 FIRST_MESSAGE = "What is a process in operating systems?"

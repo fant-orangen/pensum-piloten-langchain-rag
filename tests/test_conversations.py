@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from tests.http_client import RUN_ID, check, delete, get, login, post, section, summarise
 
-STUDENT_EMAIL = "os_g1_student01@test.com"
+STUDENT_EMAIL = "g1u1@test.com"
 STUDENT_PASSWORD = "password123"
 
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -41,6 +41,23 @@ interface InstructionProgress {
 }
 
 const DEFAULT_INSTRUCTION_ORDER: InstructionSetId[] = ['set-1', 'set-2', 'set-3']
+
+function instructionOrderForEmail(email: string | undefined): InstructionSetId[] {
+  const match = email?.match(/g[123]u(\d{1,2})@/i)
+  const userNumber = match ? Number.parseInt(match[1], 10) : Number.NaN
+
+  if (userNumber >= 1 && userNumber <= 4) {
+    return ['set-1', 'set-2', 'set-3']
+  }
+  if (userNumber >= 5 && userNumber <= 8) {
+    return ['set-2', 'set-3', 'set-1']
+  }
+  if (userNumber >= 9 && userNumber <= 12) {
+    return ['set-3', 'set-1', 'set-2']
+  }
+
+  return DEFAULT_INSTRUCTION_ORDER
+}
 
 function instructionProgressStorageKey(email: string | undefined): string | null {
   const normalizedEmail = email?.trim().toLowerCase()
@@ -235,7 +252,10 @@ export function ChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const instructionOrder = DEFAULT_INSTRUCTION_ORDER
+  const instructionOrder = useMemo(
+    () => instructionOrderForEmail(user?.email),
+    [user?.email]
+  )
   const currentInstructionId = instructionOrder[instructionIndex] ?? instructionOrder[0] ?? 'set-1'
   const currentInstruction = INSTRUCTION_SETS[currentInstructionId]
   const currentInstructionFinished = completedInstructionIds.includes(currentInstructionId)

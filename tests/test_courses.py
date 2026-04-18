@@ -15,7 +15,7 @@ from tests.http_client import RUN_ID, check, delete, get, login, post, post_mult
 
 TEACHER_EMAIL = "teacher@test.com"
 TEACHER_PASSWORD = "password123"
-STUDENT_EMAIL = "os_g1_student01@test.com"
+STUDENT_EMAIL = "g1u1@test.com"
 STUDENT_PASSWORD = "password123"
 ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "password123"
