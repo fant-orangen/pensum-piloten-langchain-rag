@@ -10,17 +10,8 @@ from src.ui.pages.chat_handlers.common import _default_conversation_state
 from src.ui.pages.chat_handlers.contracts import (
     _NO_COURSE_STATUS,
     _OUT_OF_SCOPE_STATUS,
-    _REFERENCE_DEFAULT_STATUS,
     ChatOutputs,
     ChatRefreshOutputs,
-)
-from src.ui.pages.chat_handlers.references import (
-    _empty_reference_panel,
-    _hydrate_latest_assistant_sources,
-    _reference_fallback_status,
-    _reference_panel_from_history,
-    _reference_panel_from_sources,
-    _visible_history_from_source_history,
 )
 from src.ui.pages.chat_state import ChatConversationState, normalize_conversation_state
 from src.ui.services.chat_orchestration_service import (
@@ -98,9 +89,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             gr.update(),
             "",
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
     resolved_course_id = (course_id or "").strip()
@@ -117,9 +105,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
     if not conversation_id:
@@ -133,9 +118,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
     conversations, err = _fetch_conversations(token, resolved_course_id)
@@ -150,9 +132,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
     selected_conv = next(
@@ -172,12 +151,9 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
-    source_history, err = _fetch_messages(token, conversation_id)
+    message_history, err = _fetch_messages(token, conversation_id)
     if err:
         selector_update, count_text, status_text = _refresh_sidebar(
             token, course_id=course_id, status_message=err
@@ -189,9 +165,6 @@ def _load_conversation_handler(
             _default_conversation_state(),
             selector_update,
             count_text,
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
     title = (selected_conv.get("title") or "Samtale") if selected_conv else "Samtale"
@@ -207,34 +180,19 @@ def _load_conversation_handler(
         course_id=course_id,
         status_message="",
     )
-    hydrated_source_history, hydrated_sources, hydration_error = _hydrate_latest_assistant_sources(
-        source_history,
-        token,
-        conversation_id,
-    )
-    reference_panel, reference_status = _reference_panel_from_history(hydrated_source_history)
-    if hydration_error:
-        if hydrated_sources:
-            reference_panel, _ignored_status = _reference_panel_from_sources(hydrated_sources)
-            reference_status = _reference_fallback_status(hydration_error)
-        else:
-            reference_status = hydration_error
     return (
         "",
-        _visible_history_from_source_history(hydrated_source_history),
+        message_history,
         status_text,
         conv_state,
         selector_update,
         count_text,
-        hydrated_source_history,
-        reference_panel,
-        reference_status,
     )
 
 
 def _refresh_handler(
     conversation_state: ChatConversationState | dict[str, Any] | None,
-    source_history: list[dict[str, Any]] | None,
+    history: list[dict[str, Any]] | None,
     token: str | None,
     course_id_state: str | None,
 ) -> ChatRefreshOutputs:
@@ -247,9 +205,6 @@ def _refresh_handler(
             "",
             "Ikke innlogget.",
             _default_conversation_state(),
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
     if not (course_id_state or "").strip():
@@ -258,9 +213,6 @@ def _refresh_handler(
             _conversation_count_text(0),
             _NO_COURSE_STATUS,
             _default_conversation_state(),
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
         )
 
     active_course_id = str(course_id_state or "").strip()
@@ -283,14 +235,11 @@ def _refresh_handler(
         "title": selected_conv.get("title") if selected_conv else None,
         "course_id": active_course_id if selected_conv else None,
     }
-    next_source_history = list(source_history or []) if resolved_value else []
-    reference_panel, reference_status = _reference_panel_from_history(next_source_history)
+    next_history = list(history or []) if resolved_value else []
     return (
         gr.update(choices=choices, value=resolved_value),
         _conversation_count_text(model["count"]),
         model["status_text"],
         next_state if resolved_value else _default_conversation_state(),
-        next_source_history,
-        reference_panel if resolved_value else _empty_reference_panel(),
-        reference_status if resolved_value else _REFERENCE_DEFAULT_STATUS,
+        next_history,
     )

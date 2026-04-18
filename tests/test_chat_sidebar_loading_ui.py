@@ -136,8 +136,8 @@ def test_load_handler_accepts_conversation_from_later_page(monkeypatch) -> None:
         calls["get_messages"] += 1
         assert conversation_id == "conv-1"
         return [
-            {"id": "msg-1", "role": "ai", "content": "Svar", "sources": []},
-            {"id": "msg-0", "role": "human", "content": "Spm", "sources": []},
+            {"id": "msg-1", "role": "ai", "content": "Svar"},
+            {"id": "msg-0", "role": "human", "content": "Spm"},
         ], 2, ""
 
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
@@ -150,9 +150,6 @@ def test_load_handler_accepts_conversation_from_later_page(monkeypatch) -> None:
         conv_state,
         selector_update,
         count_text,
-        _source_history,
-        ref_panel,
-        ref_status,
     ) = chat_page._load_conversation_handler(
         conversation_id="conv-1",
         token="token-1",
@@ -166,5 +163,3 @@ def test_load_handler_accepts_conversation_from_later_page(monkeypatch) -> None:
     assert _selector_value(selector_update) == "conv-1"
     assert [value for _label, value in _selector_choices(selector_update)] == ["conv-3", "conv-2", "conv-1"]
     assert count_text == "3 samtaler funnet."
-    assert ref_panel == ""
-    assert ref_status == "Ingen kilder registrert for dette svaret."

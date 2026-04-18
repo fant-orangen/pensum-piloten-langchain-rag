@@ -40,9 +40,6 @@ def test_bootstrap_chat_with_existing_course_loads_sidebar(monkeypatch) -> None:
         conv_state,
         selector_update,
         count_text,
-        source_history,
-        ref_panel,
-        ref_status,
         resolved_course_id,
     ) = chat_page._bootstrap_chat_on_route_handler(
         route=ROUTE_CHAT,
@@ -55,9 +52,6 @@ def test_bootstrap_chat_with_existing_course_loads_sidebar(monkeypatch) -> None:
     assert conv_state == chat_page._default_conversation_state()
     assert len(_selector_choices(selector_update)) == 1
     assert count_text == "1 samtale funnet."
-    assert source_history == []
-    assert ref_panel == ""
-    assert ref_status == "Velg et tutorsvar for å se kilder."
     assert resolved_course_id == "course-1"
 
 
@@ -86,9 +80,6 @@ def test_bootstrap_chat_auto_selects_first_enrolled_course(monkeypatch) -> None:
         _conv_state,
         selector_update,
         count_text,
-        _source_history,
-        _ref_panel,
-        _ref_status,
         resolved_course_id,
     ) = chat_page._bootstrap_chat_on_route_handler(
         route=ROUTE_CHAT,
@@ -116,9 +107,6 @@ def test_bootstrap_chat_without_courses_shows_no_course_status(monkeypatch) -> N
         conv_state,
         selector_update,
         count_text,
-        source_history,
-        ref_panel,
-        ref_status,
         resolved_course_id,
     ) = chat_page._bootstrap_chat_on_route_handler(
         route=ROUTE_CHAT,
@@ -131,7 +119,4 @@ def test_bootstrap_chat_without_courses_shows_no_course_status(monkeypatch) -> N
     assert conv_state == chat_page._default_conversation_state()
     assert _selector_choices(selector_update) == []
     assert count_text == "Ingen tidligere samtaler funnet."
-    assert source_history == []
-    assert ref_panel == ""
-    assert ref_status == "Velg et tutorsvar for å se kilder."
     assert resolved_course_id is None

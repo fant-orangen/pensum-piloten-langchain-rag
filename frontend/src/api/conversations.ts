@@ -1,7 +1,6 @@
 import type {
   ConversationRead,
   MessageRead,
-  MessageSourceRead,
   PaginatedResponse,
 } from '../types'
 import { apiClient } from './client'
@@ -53,16 +52,6 @@ export async function sendMessage(conversationId: string, content: string): Prom
   const { data } = await apiClient.post<MessageRead>(
     `/conversations/${conversationId}/messages`,
     { content }
-  )
-  return data
-}
-
-export async function getMessageSources(
-  conversationId: string,
-  messageId: string
-): Promise<MessageSourceRead[]> {
-  const { data } = await apiClient.get<MessageSourceRead[]>(
-    `/conversations/${conversationId}/messages/${messageId}/sources`
   )
   return data
 }

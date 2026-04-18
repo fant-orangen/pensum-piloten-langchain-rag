@@ -7,13 +7,7 @@ from typing import Any
 
 import gradio as gr
 
-from src.ui.pages.chat_handlers import (
-    _MODE_CHOICES,
-    _REFERENCE_DEFAULT_STATUS,
-    _conversation_count_text,
-    _default_conversation_state,
-    _empty_reference_panel,
-)
+from src.ui.pages.chat_handlers import _conversation_count_text, _default_conversation_state
 from src.ui.state import COURSE_ID_KEY, COURSE_NAME_KEY, auth_token
 
 
@@ -31,8 +25,6 @@ class ChatPageComponents:
     course_id_state: gr.State
     route_state: gr.State
     conversation_state: gr.State
-    source_history_state: gr.State
-    mode_selector: gr.Dropdown
     new_conversation_button: gr.Button
     conversation_selector: gr.Radio
     conversation_count: gr.Markdown
@@ -41,13 +33,6 @@ class ChatPageComponents:
     chatbot: gr.Chatbot
     message: gr.Textbox
     send_button: gr.Button
-    references_open_state: gr.State
-    open_references_button_container: gr.Group
-    open_references_button: gr.Button
-    close_references_button: gr.Button
-    references_container: gr.Column
-    references_panel: gr.HTML
-    references_status: gr.Markdown
 
 
 def build_chat_page(*, visible: bool) -> ChatPageComponents:
@@ -57,8 +42,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         course_id_state = gr.State(None)
         route_state = gr.State(None)
         conversation_state = gr.State(_default_conversation_state())
-        source_history_state = gr.State([])
-        references_open_state = gr.State(False)
 
         with gr.Row(elem_id="chat-page-layout"):
             with gr.Column(
@@ -71,22 +54,16 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                     elem_id="chat-sidebar-shell",
                     elem_classes=["chat-shell-card", "chat-sidebar-panel"],
                 ) as sidebar_container:
-                    gr.Markdown("## Samtaler", elem_classes=["chat-panel-title"])
                     with gr.Group(
                         elem_id="chat-sidebar-controls",
                         elem_classes=["chat-sidebar-controls"],
                     ) as sidebar_controls_container:
                         gr.Markdown("### Ny samtale", elem_classes=["chat-panel-title"])
-                        mode_selector = gr.Dropdown(
-                            choices=_MODE_CHOICES,
-                            value=1,
-                            label="Veiledningsmodus",
-                            elem_id="chat-mode-selector",
-                        )
                         new_conversation_button = gr.Button("Start ny samtale", variant="primary")
                     with gr.Group(
                         elem_id="chat-sidebar-list-section",
                         elem_classes=["chat-sidebar-list-section"],
+                        visible=False,
                     ) as sidebar_conversations_container:
                         with gr.Group(
                             elem_id="chat-sidebar-list-container",
@@ -98,11 +75,13 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
                                 label=None,
                                 show_label=False,
                                 elem_id="chat-conversation-selector",
+                                visible=False,
                             )
                         conversation_count = gr.Markdown(
                             _conversation_count_text(0),
                             elem_id="chat-conversation-count",
                             elem_classes=["chat-muted-text", "chat-conversation-summary"],
+                            visible=False,
                         )
 
             with gr.Column(
@@ -113,70 +92,29 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
             ):
                 with gr.Group(elem_classes=["chat-shell-card", "chat-main-panel"]):
                     with gr.Row(elem_classes=["chat-page-toolbar"]):
-                        with gr.Column(scale=4, min_width=320):
-                            course_title = gr.Markdown(
-                                "## Ingen fag valgt",
-                                elem_classes=["chat-course-title"],
-                            )
-                        with gr.Column(scale=1, min_width=180):
-                            with gr.Group(
-                                elem_id="chat-open-references-button-container",
-                            ) as open_references_button_container:
-                                open_references_button = gr.Button(
-                                    "Kildereferanser",
-                                    variant="secondary",
-                                    elem_id="chat-open-references-button",
-                                )
+                        course_title = gr.Markdown(
+                            "## Ingen fag valgt",
+                            elem_classes=["chat-course-title"],
+                        )
                     with gr.Group(elem_classes=["chat-main-status"]):
                         status = gr.Markdown(
                             "",
                             elem_classes=["chat-muted-text", "chat-status-text"],
                         )
-                    with gr.Row(elem_id="chat-workspace"):
-                        with gr.Column(
-                            scale=5,
-                            min_width=420,
-                            elem_id="chat-chat-column",
-                        ):
-                            with gr.Group(
-                                elem_classes=["chat-shell-card", "chat-workspace-panel"],
-                            ):
-                                chatbot = gr.Chatbot(type="messages", height=700, label="Chat")
-                                message = gr.Textbox(
-                                    label="Melding",
-                                    placeholder="Spør om pensum ...",
-                                    lines=2,
-                                    elem_id="chat-message-composer",
-                                )
+                    with gr.Group(
+                        elem_classes=["chat-shell-card", "chat-workspace-panel"],
+                    ):
+                        chatbot = gr.Chatbot(type="messages", height=700, label="Chat")
+                        message = gr.Textbox(
+                            label="Melding",
+                            placeholder="Spør om pensum ...",
+                            lines=2,
+                            elem_id="chat-message-composer",
+                        )
 
-                                with gr.Row(elem_id="chat-main-actions"):
-                                    send_button = gr.Button("Send", variant="primary")
-                                    back_button = gr.Button("Tilbake")
-                        with gr.Column(
-                            scale=2,
-                            min_width=320,
-                            visible=False,
-                            elem_id="chat-references-column",
-                        ) as references_container:
-                            with gr.Group(elem_classes=["chat-references-surface"]):
-                                with gr.Row(elem_classes=["chat-references-header"]):
-                                    gr.Markdown(
-                                        "### Kildereferanser",
-                                        elem_classes=["chat-references-title"],
-                                    )
-                                    close_references_button = gr.Button(
-                                        "Lukk",
-                                        variant="secondary",
-                                        elem_id="chat-close-references-button",
-                                    )
-                                references_status = gr.Markdown(
-                                    _REFERENCE_DEFAULT_STATUS,
-                                    elem_classes=["chat-muted-text", "chat-status-text"],
-                                )
-                                references_panel = gr.HTML(
-                                    value=_empty_reference_panel(),
-                                    elem_id="chat-references-panel",
-                                )
+                        with gr.Row(elem_id="chat-main-actions"):
+                            send_button = gr.Button("Send", variant="primary")
+                            back_button = gr.Button("Tilbake")
 
     return ChatPageComponents(
         group=group,
@@ -189,8 +127,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         course_id_state=course_id_state,
         route_state=route_state,
         conversation_state=conversation_state,
-        source_history_state=source_history_state,
-        mode_selector=mode_selector,
         new_conversation_button=new_conversation_button,
         conversation_selector=conversation_selector,
         conversation_count=conversation_count,
@@ -199,13 +135,6 @@ def build_chat_page(*, visible: bool) -> ChatPageComponents:
         chatbot=chatbot,
         message=message,
         send_button=send_button,
-        references_open_state=references_open_state,
-        open_references_button_container=open_references_button_container,
-        open_references_button=open_references_button,
-        close_references_button=close_references_button,
-        references_container=references_container,
-        references_panel=references_panel,
-        references_status=references_status,
     )
 
 

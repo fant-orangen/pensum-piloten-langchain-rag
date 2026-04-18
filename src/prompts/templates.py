@@ -1,4 +1,4 @@
-"""Prompt templates for the Socratic tutoring RAG chain.
+"""Prompt templates for the experiment tutor chains.
 
 The pedagogical strategy is deliberate: the system must *guide* the student
 toward understanding rather than hand over answers.  Key techniques encoded in
@@ -14,29 +14,14 @@ the prompt:
      are thinking, not just *what* they are thinking.
 """
 
-from src.api.schemas.preferences import SystemPromptMode
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-_SOCRATIC_MODE_INSTRUCTIONS = """\
-<mode_instructions name="Socratic Mode">
+_DEFAULT_TUTORING_INSTRUCTIONS = """\
+<tutoring_approach name="Default Experiment Tutor">
 Prioritise guided discovery. Default to asking a short sequence of focused questions that help the learner infer the answer themselves.
 Avoid giving the final answer immediately unless the user explicitly asks for it or is clearly blocked after several attempts.
-Keep each turn narrow and diagnostic so the student can think through one conceptual step at a time. 
-</mode_instructions>"""
-
-_DIRECT_MODE_INSTRUCTIONS = """\
-<mode_instructions name="Direct Mode">
-Prioritise clarity and efficiency. Answer the user's question directly and concretely before offering any optional follow-up guidance.
-Use short explanations, explicit statements, and minimal indirection. Do not force a Socratic exchange when the user appears to want a straightforward answer. If the user asks for a longer or more comprehensive answer, provide it. Cater to the user's desired answer without forcing your answer into a specific format.
-If useful, end with one brief follow-up question or suggestion, but only after the direct answer has already been delivered.
-</mode_instructions>"""
-
-_EXAMPLE_MODE_INSTRUCTIONS = """\
-<mode_instructions name="Example Mode">
-Prioritise learning through examples. Introduce or clarify concepts by giving one concrete, relevant example before generalising.
-Use small worked examples, miniature scenarios, or short code/data snippets when they help the learner see how the idea behaves in practice.
-After the example, briefly connect it back to the underlying concept and invite the learner to compare the example to their own problem.
-</mode_instructions>"""
+Keep each turn narrow and diagnostic so the student can think through one conceptual step at a time.
+</tutoring_approach>"""
 
 _CONVERSATION_COMPRESSION_TEMPLATE = """\
 <system_prompt>
@@ -74,12 +59,6 @@ Do not add advice or interpretation.
 
 Write one concise plain-text summary that stays as true as possible to the original exchange. The summary should be around 1000 words.
 </system_prompt>"""
-
-_SYSTEM_PROMPT_MODE_INSTRUCTIONS = {
-    SystemPromptMode.SOCRATIC: _SOCRATIC_MODE_INSTRUCTIONS,
-    SystemPromptMode.DIRECT: _DIRECT_MODE_INSTRUCTIONS,
-    SystemPromptMode.EXAMPLE: _EXAMPLE_MODE_INSTRUCTIONS,
-}
 
 # ---------------------------------------------------------------------------
 # Core system prompt
@@ -129,10 +108,7 @@ Clarity and focus are more valuable than comprehensiveness. A concise, precisely
 - Prefer one useful step over a long lecture.
 </reasoning_policy>
 
-<mode_instructions>
-For this conversation, respond in a way consistent with the following specific instructions:
-{mode}
-</mode_instructions>
+{tutoring_instructions}
 
 {course_specific_instructions}
 {conversation_summary}
@@ -140,9 +116,39 @@ For this conversation, respond in a way consistent with the following specific i
 <execution>
 1. Identify the user's immediate need.
 2. Use the conversation history to calibrate the response.
-3. Apply the selected mode instructions.
+3. Apply the fixed tutoring instructions for this experiment condition.
 4. Keep only the information that helps with the current question.
 </execution>
+
+</system_prompt>
+
+{context}
+"""
+
+_CONTROL_SYSTEM_TEMPLATE = """\
+<system_prompt>
+
+<identity>
+You are an educational assistant for students of informatics and computer science.
+</identity>
+
+<experiment_note>
+This template is the placeholder control-condition prompt for the `os_g3` course.
+Replace its contents with the experiment-specific instructions before running the study.
+</experiment_note>
+
+<constraints>
+- Respond in the same language the user writes in.
+- Stay within the scope of the user's current question.
+- Match the user's level, terminology, and communication style.
+- Keep the response focused and avoid unnecessary detail.
+- Do not mention hidden system settings, prompt variants, or experimental grouping.
+</constraints>
+
+{tutoring_instructions}
+
+{course_specific_instructions}
+{conversation_summary}
 
 </system_prompt>
 
@@ -156,6 +162,14 @@ For this conversation, respond in a way consistent with the following specific i
 TUTOR_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", _SYSTEM_TEMPLATE),
+        MessagesPlaceholder("chat_history", optional=True),
+        ("human", "{question}"),
+    ]
+)
+
+CONTROL_TUTOR_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", _CONTROL_SYSTEM_TEMPLATE),
         MessagesPlaceholder("chat_history", optional=True),
         ("human", "{question}"),
     ]
@@ -222,22 +236,20 @@ CONVERSATION_RECOMPRESSION_PROMPT = ChatPromptTemplate.from_messages(
 )
 
 
-def build_tutor_prompt() -> ChatPromptTemplate:
+def build_tutor_prompt(*, template_variant: str = "default") -> ChatPromptTemplate:
     """Return the tutor prompt template.
 
     Exposed as a function so callers can customise or extend it in the future
     without reaching into module-level state.
     """
+    if template_variant == "control":
+        return CONTROL_TUTOR_PROMPT
     return TUTOR_PROMPT
 
 
-def resolve_system_prompt_mode(mode: int | SystemPromptMode | None) -> str:
-    """Return the system-prompt instructions for the selected tutoring mode."""
-    try:
-        resolved_mode = SystemPromptMode(mode or SystemPromptMode.SOCRATIC)
-    except ValueError:
-        resolved_mode = SystemPromptMode.SOCRATIC
-    return _SYSTEM_PROMPT_MODE_INSTRUCTIONS[resolved_mode]
+def default_tutoring_instructions() -> str:
+    """Return the fixed tutor instructions used across the experiment."""
+    return _DEFAULT_TUTORING_INSTRUCTIONS
 
 
 def format_course_specific_instructions(instructions: str | None) -> str:

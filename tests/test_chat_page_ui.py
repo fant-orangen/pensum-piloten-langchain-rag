@@ -5,32 +5,24 @@ from __future__ import annotations
 import gradio as gr
 
 from src.ui.pages.chat_page import (
-    CHAT_PAGE_CSS,
     build_chat_page,
     chat_course_title_from_scope,
     chat_course_title_text,
 )
+from src.ui.styles import CHAT_PAGE_CSS
 
 
-def test_build_chat_page_assigns_reference_hooks() -> None:
+def test_build_chat_page_assigns_chat_components() -> None:
     with gr.Blocks():
         page = build_chat_page(visible=False)
 
-    assert isinstance(page.mode_selector, gr.Dropdown)
-    assert page.mode_selector.elem_id == "chat-mode-selector"
-    assert getattr(page.mode_selector, "label", None) == "Veiledningsmodus"
-    assert getattr(page.mode_selector, "info", None) is None
     assert page.course_title.elem_classes == ["chat-course-title"]
     assert page.sidebar_container.elem_id == "chat-sidebar-shell"
     assert page.sidebar_controls_container.elem_id == "chat-sidebar-controls"
     assert page.sidebar_conversations_container.elem_id == "chat-sidebar-list-section"
     assert page.conversation_list_container.elem_id == "chat-sidebar-list-container"
     assert page.conversation_selector.elem_id == "chat-conversation-selector"
-    assert page.references_panel.elem_id == "chat-references-panel"
-    assert page.references_container.elem_id == "chat-references-column"
-    assert page.open_references_button_container.elem_id == "chat-open-references-button-container"
-    assert page.open_references_button.elem_id == "chat-open-references-button"
-    assert page.close_references_button.elem_id == "chat-close-references-button"
+    assert isinstance(page.new_conversation_button, gr.Button)
     assert page.conversation_count.elem_id == "chat-conversation-count"
     assert page.message.elem_id == "chat-message-composer"
 
@@ -38,11 +30,8 @@ def test_build_chat_page_assigns_reference_hooks() -> None:
 def test_chat_page_css_contains_reference_card_selectors() -> None:
     assert "#chat-sidebar-shell" in CHAT_PAGE_CSS
     assert "#chat-sidebar-controls" in CHAT_PAGE_CSS
-    assert "#chat-mode-selector" in CHAT_PAGE_CSS
     assert "#chat-sidebar-list-container" in CHAT_PAGE_CSS
     assert "#chat-conversation-selector" in CHAT_PAGE_CSS
-    assert "#chat-references-column" in CHAT_PAGE_CSS
-    assert "#chat-chat-column" in CHAT_PAGE_CSS
     assert ".chat-course-title" in CHAT_PAGE_CSS
     assert "overflow-y: auto;" in CHAT_PAGE_CSS
     assert "max-height: 20rem;" in CHAT_PAGE_CSS
@@ -56,7 +45,6 @@ def test_chat_page_css_contains_reference_card_selectors() -> None:
     assert "Brukes for nye samtaler og blir standard til du endrer den." not in CHAT_PAGE_CSS
     assert "#chat-conversation-selector .wrap {\n    overflow: visible;\n}" in CHAT_PAGE_CSS
     assert "height: 100%;" not in CHAT_PAGE_CSS.split("#chat-conversation-selector .wrap", 1)[1].split(".chat-conversation-summary", 1)[0]
-    assert ".chat-reference-entry" in CHAT_PAGE_CSS
 
 
 def test_chat_course_title_text_prefers_course_name_from_state() -> None:

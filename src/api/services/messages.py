@@ -1,4 +1,4 @@
-"""Message business logic and database queries."""
+"""Message business logic and course-coded experiment routing."""
 
 import uuid
 from datetime import datetime
@@ -16,45 +16,62 @@ from src.api.models.message import Message
 from src.api.services.conversation_context_summaries import (
     maybe_compress_conversation_history,
 )
-from src.api.services.source_metadata import extract_source_page
 from src.api.schemas.pagination import PaginationParams
 from src.api.utils.exception_util import bad_request_error, not_found_error, stage_error
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
-from src.chain import build_kg_rag_chain
-from src.kg.retriever import get_kg_retriever
+from src.chain import build_kg_rag_chain, build_no_rag_chain
 
 logger = get_service_logger(__name__)
 
-# Chains are expensive to build — cache by active course scope.
-_chain_cache: dict[str, Any] = {}
+_RAG_COURSE_CODE = "os_g1"
+_SYS_COURSE_CODE = "os_g2"
+_CONTROL_COURSE_CODE = "os_g3"
+
+# Chains are expensive to build — cache by strategy, scope, and prompt variant.
+_chain_cache: dict[tuple[str, str | None, str], Any] = {}
 
 
-def _get_chain(scope: str) -> Any:
-    """Return a cached KG-RAG chain for the given collection scope, building it on first access."""
-    if scope not in _chain_cache:
-        _chain_cache[scope] = build_kg_rag_chain(
+def _experiment_strategy_for_course(course: Course) -> tuple[str, str]:
+    """Return (chain_kind, prompt_variant) for the active course."""
+    course_code = str(course.code or "").strip().lower()
+    if course_code == _RAG_COURSE_CODE:
+        return "kg_rag", "default"
+    if course_code == _SYS_COURSE_CODE:
+        return "no_rag", "default"
+    if course_code == _CONTROL_COURSE_CODE:
+        return "no_rag", "control"
+    if course.rag_mode == "no_rag":
+        return "no_rag", "default"
+    return "kg_rag", "default"
+
+
+def _get_chain(
+    *,
+    chain_kind: str,
+    scope: str | None,
+    prompt_variant: str,
+) -> Any:
+    """Return a cached chain for the given routing combination."""
+    cache_key = (chain_kind, scope, prompt_variant)
+    chain = _chain_cache.get(cache_key)
+    if chain is not None:
+        return chain
+
+    if chain_kind == "kg_rag":
+        if not scope:
+            raise ValueError("This course does not currently have ingested materials.")
+        chain = build_kg_rag_chain(
             chroma_collection=scope,
             graph_scope=scope,
+            prompt_variant=prompt_variant,
         )
-    return _chain_cache[scope]
+    elif chain_kind == "no_rag":
+        chain = build_no_rag_chain(prompt_variant=prompt_variant)
+    else:
+        raise ValueError(f"Unsupported chain kind: {chain_kind}")
 
-
-def _serialize_source_documents(docs: list[Any]) -> list[dict[str, Any]]:
-    """Convert retrieved documents into source references for persistence."""
-    serialized: list[dict[str, Any]] = []
-    for doc in docs:
-        metadata = doc.metadata if hasattr(doc, "metadata") and isinstance(doc.metadata, dict) else {}
-        chunk_id = metadata.get("chunk_id")
-        if not isinstance(chunk_id, str) or not chunk_id.strip():
-            continue
-        serialized.append(
-            {
-                "chunk_id": chunk_id.strip(),
-                "source_file": str(metadata.get("source_file") or "").strip(),
-                "page": extract_source_page(metadata),
-            }
-        )
-    return serialized
+    _chain_cache[cache_key] = chain
+    return chain
 
 
 async def get_conversation_messages(
@@ -120,12 +137,17 @@ async def create_message(
     if course is None:
         raise not_found_error("Course not found.")
 
-    if not course.chroma_collection:
+    chain_kind, prompt_variant = _experiment_strategy_for_course(course)
+
+    if chain_kind == "kg_rag" and not course.chroma_collection:
         raise bad_request_error("This course does not currently have ingested materials.")
 
-    # Build or retrieve the cached chain, validating the collection exists.
     try:
-        chain = _get_chain(course.chroma_collection)
+        chain = _get_chain(
+            chain_kind=chain_kind,
+            scope=course.chroma_collection,
+            prompt_variant=prompt_variant,
+        )
     except ValueError as exc:
         raise stage_error(
             "message_chain_configuration_invalid",
@@ -141,23 +163,6 @@ async def create_message(
         raise stage_error(
             "message_chain_initialization_failed",
             "Failed to initialize the tutor agent for this course.",
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        ) from exc
-
-    try:
-        retriever = get_kg_retriever(
-            collection_name=course.chroma_collection,
-            graph_scope=course.chroma_collection,
-        )
-    except Exception as exc:
-        logger.exception(
-            "message_retriever_initialization_failed",
-            conversation_id=conversation.id,
-            collection=course.chroma_collection,
-        )
-        raise stage_error(
-            "message_retriever_initialization_failed",
-            "Failed to initialize the course retriever.",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         ) from exc
 
@@ -204,32 +209,16 @@ async def create_message(
             logger,
             collection=course.chroma_collection,
             conversation_id=conversation.id,
+            chain_kind=chain_kind,
+            prompt_variant=prompt_variant,
         )
     )
-    # Get serialised sources for the AI message
-    try:
-        source_docs = await retriever.ainvoke(content)
-        serialized_sources = _serialize_source_documents(source_docs)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception(
-            "message_context_retrieval_failed",
-            conversation_id=conversation.id,
-            collection=course.chroma_collection,
-        )
-        raise stage_error(
-            "message_context_retrieval_failed",
-            "Failed to retrieve supporting course context for this message.",
-            status_code=status.HTTP_502_BAD_GATEWAY,
-        ) from exc
 
     try:
         answer: str = await chain.ainvoke(
             {
                 "question": content,
                 "chat_history": lc_history,
-                "system_prompt_mode": conversation.system_prompt_mode,
                 "course_specific_instructions": course.course_specific_instructions,
                 "conversation_summary": conversation_summary,
             }
@@ -254,7 +243,6 @@ async def create_message(
         conversation_id=conversation.id,
         role="ai",
         content=answer,
-        sources=serialized_sources,
     )
     conversation.updated_at = datetime.utcnow()
 

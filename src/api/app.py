@@ -113,12 +113,7 @@ async def ask(request: AskRequest):
         logger.error("chain_error", error=str(exc))
         raise HTTPException(status_code=500, detail="Failed to generate response.")
 
-    # Extract source filenames from the retriever step (stored in the
-    # formatted context string).  A more robust approach would capture the
-    # retriever's raw documents; this is a lightweight first pass.
-    sources: list[str] = []
-
-    return AskResponse(answer=answer, sources=sources)
+    return AskResponse(answer=answer)
 
 
 def start():

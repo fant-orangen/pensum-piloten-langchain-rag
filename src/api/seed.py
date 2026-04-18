@@ -1,66 +1,64 @@
-"""Test data seeding for Pensum Piloten.
-
-This module provides an asynchronous `seed()` function to insert a canonical set of test users, courses, and enrollments into the database.
-It is used during development/testing to ensure the application can start with known test data for local exercise, UI flows, and early feature validation.
-
-## Activation
-
-Seeding is activated by setting `SEED_TEST_DATA=true` in the environment or a `.env` file.
-When enabled, the `seed()` function should be called once on startup (typically in the FastAPI startup handler).
-
-## What gets seeded?
-
-- **Users**: One teacher, one student, one admin (ids and emails are consistent across runs).
-- **Courses**: A main test course (_COURSE_CODE = "TEST101", instructor: teacher), and a second test course ("TEST102", instructor: admin).
-- **Enrollments**:
-    - The student is enrolled in the main test course as a student.
-    - The teacher is enrolled as a teacher in TEST101 and (for UI flows) as a *student* in TEST102.
-- **Directories**: Document directories are created if missing. Course documents may be synced from their directory.
-- **RAG/KG index**: Course metadata (chroma_collection, index_version) is loaded from a local manifest if present (see `.pensum_piloten/rebuild_manifest.json`).
-
-Idempotency is enforced: if the objects exist, nothing is duplicated or changed except for (instructive) metadata updates and roles.
-
-## Usage pattern
-
-This function is safe to call multiple times or on every startup. It will provision the known users, courses, and document state needed to exercise the API and frontend UI.
-
-"""
+"""Seed the dedicated operating-systems experiment dataset."""
 
 import json
+import shutil
 from pathlib import Path
 
 import structlog
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.conversation import Conversation  # noqa: F401 — keep metadata complete
 from src.api.models.course import Course
+from src.api.models.course_document import CourseDocument
 from src.api.models.enrollment import CourseEnrollment
+from src.api.models.message import Message
 from src.api.models.user import User
 from src.api.services.auth import hash_password
 from src.api.services.course_documents import (
     build_course_documents_dir,
     build_course_scope_name,
+    purge_course_materials,
     sync_course_documents_from_directory,
 )
 
 logger = structlog.get_logger(__name__)
 
-# -----------------------------
-# Constants for canonical test data
-# -----------------------------
 _TEACHER_EMAIL = "teacher@test.com"
-_TEACHER2_EMAIL = "teacher2@test.com"
-_STUDENT_EMAIL = "student@test.com"
 _ADMIN_EMAIL = "admin@test.com"
-_COURSE_CODE = "TEST101"
-_SECOND_COURSE_CODE = "TEST102"
-_COURSE_SPECIFIC_INSTRUCTIONS = (
-    "This course is specifically about understanding NTFS when discussing file systems. "
-    "When file-system concepts are explained, always describe them with reference to NTFS."
-)
 _COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
 _REBUILD_MANIFEST_NAME = "rebuild_manifest.json"
+_LEGACY_TEST_COURSE_CODES = ("TEST101", "TEST102")
+_RAG_COURSE_CODE = "os_g1"
+_SYS_COURSE_CODE = "os_g2"
+_CONTROL_COURSE_CODE = "os_g3"
+_EXPERIMENT_PASSWORD = "password123"
+_OPERATING_SYSTEMS_NAME = "Operating Systems"
+
+_EXPERIMENT_COURSES = (
+    {
+        "code": _RAG_COURSE_CODE,
+        "rag_mode": "kg_rag",
+        "use_manifest": True,
+    },
+    {
+        "code": _SYS_COURSE_CODE,
+        "rag_mode": "no_rag",
+        "use_manifest": False,
+    },
+    {
+        "code": _CONTROL_COURSE_CODE,
+        "rag_mode": "no_rag",
+        "use_manifest": False,
+    },
+)
+
+_EXPERIMENT_USER_GROUPS = (
+    (_RAG_COURSE_CODE, "os_g1_student", 12),
+    (_SYS_COURSE_CODE, "os_g2_student", 12),
+    (_CONTROL_COURSE_CODE, "os_g3_student", 12),
+)
 
 
 def _load_seed_scope_from_manifest(course_code: str) -> tuple[str, int]:
@@ -100,180 +98,169 @@ def _load_seed_scope_from_manifest(course_code: str) -> tuple[str, int]:
 
 
 async def seed(db: AsyncSession) -> None:
-    """
-    Populate canonical test users, courses, and their relationships in the database for dev/test/demo.
-
-    - Creates admin, teacher, student (with fixed credentials).
-    - Creates two test courses. Main course uses chroma_collection/index_version from local manifest if present.
-    - Ensures enrollments for test flows (incl. teacher enrolled as student in course 2).
-    - Invokes sync from doc directory for seeded course.
-    - Idempotent: skips/updates, does not duplicate.
-    """
-    test_course_dir = build_course_documents_dir(_COURSE_CODE)
-    second_course_dir = build_course_documents_dir(_SECOND_COURSE_CODE)
-    test_course_scope, test_course_version = _load_seed_scope_from_manifest(_COURSE_CODE)
-    second_course_scope, second_course_version = _load_seed_scope_from_manifest(_SECOND_COURSE_CODE)
-    test_course_dir.mkdir(parents=True, exist_ok=True)
-    second_course_dir.mkdir(parents=True, exist_ok=True)
-
-    # --- Admin ---
+    """Populate the test branch with course-coded experiment cohorts."""
     admin = await _get_or_create_user(
         db,
         email=_ADMIN_EMAIL,
-        password="password123",
+        password=_EXPERIMENT_PASSWORD,
         first_name="Test",
         last_name="Admin",
         global_role="admin",
     )
 
-    # --- Teacher ---
     teacher = await _get_or_create_user(
         db,
         email=_TEACHER_EMAIL,
-        password="password123",
+        password=_EXPERIMENT_PASSWORD,
         first_name="Test",
         last_name="Teacher",
         global_role="teacher",
     )
 
-    # --- Teacher 2 ---
-    teacher2 = await _get_or_create_user(
-        db,
-        email=_TEACHER2_EMAIL,
-        password="password123",
-        first_name="Test",
-        last_name="Teacher2",
-        global_role="teacher",
-    )
+    await _promote_legacy_rag_materials()
+    await _remove_legacy_test_courses(db)
 
-    # --- Student ---
-    student = await _get_or_create_user(
-        db,
-        email=_STUDENT_EMAIL,
-        password="password123",
-        first_name="Test",
-        last_name="Student",
-        global_role="student",
-    )
+    seeded_courses: dict[str, Course] = {}
+    for course_config in _EXPERIMENT_COURSES:
+        course = await _get_or_create_experiment_course(
+            db,
+            code=course_config["code"],
+            created_by_id=teacher.id,
+            rag_mode=course_config["rag_mode"],
+            use_manifest=course_config["use_manifest"],
+        )
+        seeded_courses[course.code] = course
 
-    # --- Course ---
-    course_result = await db.execute(select(Course).where(Course.code == _COURSE_CODE))
+    for course in seeded_courses.values():
+        await _ensure_course_enrollment(db, teacher.id, course.id, role="teacher")
+    await _ensure_course_enrollment(db, admin.id, seeded_courses[_RAG_COURSE_CODE].id, role="teacher")
+
+    for course_code, prefix, count in _EXPERIMENT_USER_GROUPS:
+        course = seeded_courses[course_code]
+        for index in range(1, count + 1):
+            student = await _get_or_create_user(
+                db,
+                email=f"{prefix}{index:02d}@test.com",
+                password=_EXPERIMENT_PASSWORD,
+                first_name="Test",
+                last_name=f"{course_code.upper()} {index:02d}",
+                global_role="student",
+            )
+            await _ensure_course_enrollment(db, student.id, course.id, role="student")
+
+    await _seed_course_documents(db, seeded_courses[_RAG_COURSE_CODE])
+    await db.commit()
+    logger.info("seed_complete")
+
+
+async def _promote_legacy_rag_materials() -> None:
+    """Copy legacy TEST101 materials into os_g1 when os_g1 is still empty."""
+    legacy_dir = build_course_documents_dir(_LEGACY_TEST_COURSE_CODES[0])
+    rag_dir = build_course_documents_dir(_RAG_COURSE_CODE)
+    if not legacy_dir.exists():
+        rag_dir.mkdir(parents=True, exist_ok=True)
+        return
+
+    rag_dir.mkdir(parents=True, exist_ok=True)
+    if any(rag_dir.iterdir()):
+        return
+
+    shutil.copytree(legacy_dir, rag_dir, dirs_exist_ok=True)
+    logger.info("seed_copied_legacy_rag_materials", source=str(legacy_dir), target=str(rag_dir))
+
+
+async def _remove_legacy_test_courses(db: AsyncSession) -> None:
+    """Delete the old TEST101/TEST102 seeded courses and their dependent rows."""
+    result = await db.execute(
+        select(Course).where(Course.code.in_(_LEGACY_TEST_COURSE_CODES))
+    )
+    legacy_courses = list(result.scalars().all())
+    for course in legacy_courses:
+        conversation_ids = (
+            select(Conversation.id)
+            .where(Conversation.course_id == course.id)
+            .scalar_subquery()
+        )
+        await db.execute(sa_delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+        await db.execute(sa_delete(Conversation).where(Conversation.course_id == course.id))
+        await db.execute(sa_delete(CourseDocument).where(CourseDocument.course_id == course.id))
+        await db.execute(sa_delete(CourseEnrollment).where(CourseEnrollment.course_id == course.id))
+        await purge_course_materials(course, db)
+        await db.delete(course)
+        logger.info("seed_removed_legacy_course", code=course.code)
+
+
+async def _get_or_create_experiment_course(
+    db: AsyncSession,
+    *,
+    code: str,
+    created_by_id: object,
+    rag_mode: str,
+    use_manifest: bool,
+) -> Course:
+    """Create or update one experiment course."""
+    course_dir = build_course_documents_dir(code)
+    course_dir.mkdir(parents=True, exist_ok=True)
+    if use_manifest:
+        chroma_collection, index_version = _load_seed_scope_from_manifest(code)
+    else:
+        chroma_collection, index_version = None, 0
+
+    course_result = await db.execute(select(Course).where(Course.code == code))
     course = course_result.scalars().first()
     if course is None:
         course = Course(
-            name="Test Course",
-            code=_COURSE_CODE,
-            chroma_collection=test_course_scope,
-            documents_dir=str(test_course_dir),
-            rag_mode="kg_rag",
-            course_specific_instructions=_COURSE_SPECIFIC_INSTRUCTIONS,
-            index_version=test_course_version,
-            created_by_id=teacher.id,
+            name=_OPERATING_SYSTEMS_NAME,
+            code=code,
+            chroma_collection=chroma_collection,
+            documents_dir=str(course_dir),
+            rag_mode=rag_mode,
+            course_specific_instructions=None,
+            index_version=index_version,
+            created_by_id=created_by_id,
         )
         db.add(course)
-        await db.flush()  # populate course.id before using it below
-        logger.info("seed_created_course", code=_COURSE_CODE)
-    else:
-        course.chroma_collection = test_course_scope
-        course.documents_dir = str(test_course_dir)
-        course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
-        course.index_version = max(course.index_version, test_course_version)
-        db.add(course)
-        logger.info("seed_course_exists", code=_COURSE_CODE)
-
-    # --- Second Course ---
-    second_course_result = await db.execute(select(Course).where(Course.code == _SECOND_COURSE_CODE))
-    second_course = second_course_result.scalars().first()
-    if second_course is None:
-        second_course = Course(
-            name="Second Test Course",
-            code=_SECOND_COURSE_CODE,
-            chroma_collection=second_course_scope,
-            documents_dir=str(second_course_dir),
-            rag_mode="kg_rag",
-            index_version=second_course_version,
-            created_by_id=admin.id,
-        )
-        db.add(second_course)
         await db.flush()
-        logger.info("seed_created_course", code=_SECOND_COURSE_CODE)
+        logger.info("seed_created_course", code=code)
+        return course
+
+    course.name = _OPERATING_SYSTEMS_NAME
+    course.rag_mode = rag_mode
+    course.documents_dir = str(course_dir)
+    course.created_by_id = created_by_id
+    course.course_specific_instructions = None
+    if use_manifest:
+        course.chroma_collection = chroma_collection
+        course.index_version = max(course.index_version, index_version)
     else:
-        second_course.documents_dir = str(second_course_dir)
-        second_course.chroma_collection = second_course_scope
-        second_course.index_version = max(second_course.index_version, second_course_version)
-        db.add(second_course)
-        logger.info("seed_course_exists", code=_SECOND_COURSE_CODE)
+        course.chroma_collection = None
+        course.index_version = 0
+    db.add(course)
+    logger.info("seed_course_exists", code=code)
+    return course
 
-    # --- Enrollment ---
-    # Student enrolled in TEST101 as student
-    enrollment_result = await db.execute(
+
+async def _ensure_course_enrollment(
+    db: AsyncSession,
+    user_id: object,
+    course_id: object,
+    *,
+    role: str,
+) -> None:
+    """Idempotently ensure one enrollment row with the requested role."""
+    result = await db.execute(
         select(CourseEnrollment).where(
-            CourseEnrollment.user_id == student.id,
-            CourseEnrollment.course_id == course.id,
+            CourseEnrollment.user_id == user_id,
+            CourseEnrollment.course_id == course_id,
         )
     )
-    if enrollment_result.scalars().first() is None:
-        db.add(CourseEnrollment(user_id=student.id, course_id=course.id, role="student"))
-        logger.info("seed_enrolled_student", email=_STUDENT_EMAIL, course=_COURSE_CODE)
-
-    # Teacher enrolled in TEST101 as teacher
-    teacher_enrollment_result = await db.execute(
-        select(CourseEnrollment).where(
-            CourseEnrollment.user_id == teacher.id,
-            CourseEnrollment.course_id == course.id,
-        )
-    )
-    if teacher_enrollment_result.scalars().first() is None:
-        db.add(CourseEnrollment(user_id=teacher.id, course_id=course.id, role="teacher"))
-        logger.info("seed_enrolled_teacher", email=_TEACHER_EMAIL, course=_COURSE_CODE)
-
-    # Teacher2 enrolled in TEST101 as teacher
-    teacher2_enrollment_result = await db.execute(
-        select(CourseEnrollment).where(
-            CourseEnrollment.user_id == teacher2.id,
-            CourseEnrollment.course_id == course.id,
-        )
-    )
-    if teacher2_enrollment_result.scalars().first() is None:
-        db.add(CourseEnrollment(user_id=teacher2.id, course_id=course.id, role="teacher"))
-        logger.info("seed_enrolled_teacher2", email=_TEACHER2_EMAIL, course=_COURSE_CODE)
-
-    # Teacher2 enrolled in TEST102 as teacher
-    teacher2_second_enrollment_result = await db.execute(
-        select(CourseEnrollment).where(
-            CourseEnrollment.user_id == teacher2.id,
-            CourseEnrollment.course_id == second_course.id,
-        )
-    )
-    if teacher2_second_enrollment_result.scalars().first() is None:
-        db.add(CourseEnrollment(user_id=teacher2.id, course_id=second_course.id, role="teacher"))
-        logger.info("seed_enrolled_teacher2", email=_TEACHER2_EMAIL, course=_SECOND_COURSE_CODE)
-
-    # Teacher enrolled in TEST102 as student (for UI/role switching flows)
-    second_course_teacher_enrollment_result = await db.execute(
-        select(CourseEnrollment).where(
-            CourseEnrollment.user_id == teacher.id,
-            CourseEnrollment.course_id == second_course.id,
-        )
-    )
-    second_course_teacher_enrollment = second_course_teacher_enrollment_result.scalars().first()
-    if second_course_teacher_enrollment is None:
-        db.add(CourseEnrollment(user_id=teacher.id, course_id=second_course.id, role="student"))
-        logger.info("seed_enrolled_teacher", email=_TEACHER_EMAIL, course=_SECOND_COURSE_CODE, role="student")
-    elif second_course_teacher_enrollment.role != "student":
-        # Non-idempotent: forcibly update teacher's enrollment to 'student'
-        second_course_teacher_enrollment.role = "student"
-        db.add(second_course_teacher_enrollment)
-        logger.info(
-            "seed_updated_teacher_enrollment",
-            email=_TEACHER_EMAIL,
-            course=_SECOND_COURSE_CODE,
-            role="student",
-        )
-
-    await _seed_course_documents(db, course)
-    await db.commit()
-    logger.info("seed_complete")
+    enrollment = result.scalars().first()
+    if enrollment is None:
+        db.add(CourseEnrollment(user_id=user_id, course_id=course_id, role=role))
+        return
+    if enrollment.role != role:
+        enrollment.role = role
+        db.add(enrollment)
 
 
 async def _get_or_create_user(

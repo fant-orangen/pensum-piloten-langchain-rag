@@ -128,16 +128,8 @@ export interface MessageRead {
   conversation_id: string
   role: MessageRole
   content: string
-  sources: unknown
   created_at: string
   conversation_compression_triggered: boolean
-}
-
-export interface MessageSourceRead {
-  chunk_id: string
-  document: string
-  page: string
-  content: string
 }
 
 export interface AdminUserRead {
@@ -153,8 +145,3 @@ export interface PaginatedResponse<T> {
   total: number
 }
 
-export interface SystemPromptPreferenceUpdateResponse {
-  success: boolean
-  message: string
-  mode: SystemPromptMode
-}

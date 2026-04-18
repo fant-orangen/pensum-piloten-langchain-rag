@@ -9,7 +9,7 @@ from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models.user import User
 from src.api.schemas.conversation import ConversationCreate, ConversationRead, ConversationTitleUpdate
-from src.api.schemas.message import MessageCreate, MessageRead, MessageSourceRead
+from src.api.schemas.message import MessageCreate, MessageRead
 from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.conversations import (
     create_conversation,
@@ -18,7 +18,6 @@ from src.api.services.conversations import (
     get_user_conversations,
     rename_conversation_for_user,
 )
-from src.api.services.message_sources import get_message_sources_for_user
 from src.api.services.messages import create_message, get_conversation_messages
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -58,46 +57,6 @@ async def list_messages(
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_conversation_messages(conversation_id, params, db)
     return Page.create(items=[MessageRead.model_validate(m) for m in items], total=total, params=params)
-
-
-@router.get(
-    "/{conversation_id}/messages/{message_id}/sources",
-    response_model=list[MessageSourceRead],
-)
-async def get_message_sources(
-    conversation_id: uuid.UUID,
-    message_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> list[MessageSourceRead]:
-    """
-    Retrieve the resolved knowledge source chunks (e.g., document excerpts, context sources)
-    that were retrieved and attached to a specific message during AI generation.
-
-    - Only the conversation owner may access message sources.
-    - Sources correspond to supporting context (from RAG retrieval) for an LLM-generated answer.
-    - Message sources are returned as an ordered list, typically matching the retrieval order.
-
-    Parameters:
-        conversation_id (uuid.UUID): Unique identifier for the conversation.
-        message_id (uuid.UUID): Unique identifier for the message.
-        current_user (User, dependency): Currently authenticated user (owner check enforced).
-        db (AsyncSession, dependency): Async database session.
-
-    Returns:
-        list[MessageSourceRead]: List of resolved source chunk models referenced by this message.
-
-    Raises:
-        HTTPException 404: If the conversation, message, or sources are not found or not owned by the user.
-        HTTPException 403: If the user does not own the conversation.
-    """
-    sources = await get_message_sources_for_user(
-        conversation_id,
-        message_id,
-        current_user.id,
-        db,
-    )
-    return [MessageSourceRead.model_validate(source) for source in sources]
 
 
 @router.post("", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)

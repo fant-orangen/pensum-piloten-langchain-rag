@@ -11,13 +11,11 @@ import {
   Plus,
   Send,
   Trash2,
-  X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { nb } from 'date-fns/locale'
 import clsx from 'clsx'
-import { useAuth } from '../contexts/AuthContext'
 import { Layout } from '../components/Layout'
 import { Spinner } from '../components/Spinner'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -28,17 +26,9 @@ import {
   getMessages,
   renameConversation,
   sendMessage,
-  getMessageSources,
 } from '../api/conversations'
 import { getCourse } from '../api/courses'
-import { updateSystemPromptMode } from '../api/preferences'
-import type { ConversationRead, MessageRead, MessageSourceRead, SystemPromptMode } from '../types'
-
-const PROMPT_MODE_OPTIONS: { value: SystemPromptMode; label: string; description: string }[] = [
-  { value: 1, label: 'Sokratisk', description: 'Guider deg med spørsmål' },
-  { value: 2, label: 'Direkte', description: 'Gir direkte svar' },
-  { value: 3, label: 'Eksempel', description: 'Forklarer med eksempler' },
-]
+import type { ConversationRead, MessageRead } from '../types'
 
 function formatConversationDate(dateStr: string): string {
   try {
@@ -50,13 +40,10 @@ function formatConversationDate(dateStr: string): string {
 
 interface MessageBubbleProps {
   message: MessageRead
-  onShowSources: (messageId: string) => void
-  activeSourceMessageId: string | null
 }
 
-function MessageBubble({ message, onShowSources, activeSourceMessageId }: MessageBubbleProps) {
+function MessageBubble({ message }: MessageBubbleProps) {
   const isHuman = message.role === 'human'
-  const isSourcesActive = activeSourceMessageId === message.id
 
   return (
     <article
@@ -75,23 +62,10 @@ function MessageBubble({ message, onShowSources, activeSourceMessageId }: Messag
       >
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
         {!isHuman && (
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <time
-              dateTime={message.created_at}
-              className="text-xs text-gray-400"
-            >
+          <div className="mt-2">
+            <time dateTime={message.created_at} className="text-xs text-gray-400">
               {formatConversationDate(message.created_at)}
             </time>
-            <button
-              onClick={() => onShowSources(message.id)}
-              className={clsx(
-                'text-xs underline-offset-2 transition-colors hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 rounded',
-                isSourcesActive ? 'text-indigo-600 font-medium' : 'text-gray-400 hover:text-indigo-600'
-              )}
-              aria-pressed={isSourcesActive}
-            >
-              Vis kilder
-            </button>
           </div>
         )}
         {isHuman && (
@@ -101,67 +75,6 @@ function MessageBubble({ message, onShowSources, activeSourceMessageId }: Messag
         )}
       </div>
     </article>
-  )
-}
-
-interface SourcesPanelProps {
-  conversationId: string
-  messageId: string
-  onClose: () => void
-}
-
-function SourcesPanel({ conversationId, messageId, onClose }: SourcesPanelProps) {
-  const { data: sources, isLoading, isError } = useQuery<MessageSourceRead[]>({
-    queryKey: ['message-sources', conversationId, messageId],
-    queryFn: () => getMessageSources(conversationId, messageId),
-  })
-
-  return (
-    <aside
-      aria-label="Kildehenvisninger"
-      className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white"
-    >
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <h2 className="text-sm font-semibold text-gray-900">Kilder</h2>
-        <button
-          onClick={onClose}
-          className="rounded-md p-1 text-gray-400 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"
-          aria-label="Lukk kildeliste"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto p-4">
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Spinner size="md" className="text-indigo-600" />
-          </div>
-        )}
-        {isError && (
-          <p className="text-sm text-red-600">Klarte ikke laste kilder.</p>
-        )}
-        {sources && sources.length === 0 && (
-          <p className="text-sm text-gray-500">Ingen kilder tilgjengelig for denne meldingen.</p>
-        )}
-        {sources && sources.length > 0 && (
-          <ol className="space-y-4">
-            {sources.map((source, idx) => (
-              <li key={source.chunk_id} className="rounded-lg border border-gray-200 p-3">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <span className="text-xs font-semibold text-indigo-600">Kilde {idx + 1}</span>
-                  <span className="text-xs text-gray-400">Side {source.page}</span>
-                </div>
-                <p className="mb-1 text-xs font-medium text-gray-700 truncate" title={source.document}>
-                  {source.document}
-                </p>
-                <p className="text-xs leading-relaxed text-gray-600 line-clamp-4">{source.content}</p>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
-    </aside>
   )
 }
 
@@ -265,13 +178,10 @@ function ConversationItem({ conversation, isActive, onSelect, onDelete, onRename
 export function ChatPage() {
   const { courseId } = useParams<{ courseId?: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
   const queryClient = useQueryClient()
 
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
-  const [activeSourceMessageId, setActiveSourceMessageId] = useState<string | null>(null)
-  const [promptMode, setPromptMode] = useState<SystemPromptMode>(user?.system_prompt_mode ?? 1)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -299,7 +209,6 @@ export function ChatPage() {
     onSuccess: (conv) => {
       queryClient.invalidateQueries({ queryKey: ['conversations', courseId] })
       setSelectedConversationId(conv.id)
-      setActiveSourceMessageId(null)
     },
     onError: () => toast.error('Klarte ikke opprette samtale.'),
   })
@@ -310,7 +219,6 @@ export function ChatPage() {
       queryClient.invalidateQueries({ queryKey: ['conversations', courseId] })
       if (selectedConversationId === deletedId) {
         setSelectedConversationId(null)
-        setActiveSourceMessageId(null)
       }
     },
     onError: () => toast.error('Klarte ikke slette samtale.'),
@@ -329,11 +237,6 @@ export function ChatPage() {
       queryClient.invalidateQueries({ queryKey: ['conversations', courseId] })
     },
     onError: () => toast.error('Klarte ikke sende melding.'),
-  })
-
-  const promptModeMutation = useMutation({
-    mutationFn: updateSystemPromptMode,
-    onError: () => toast.error('Klarte ikke oppdatere modus.'),
   })
 
   const displayMessages = messagesQuery.data
@@ -356,15 +259,6 @@ export function ChatPage() {
       e.preventDefault()
       handleSend()
     }
-  }
-
-  function handlePromptModeChange(mode: SystemPromptMode) {
-    setPromptMode(mode)
-    promptModeMutation.mutate(mode)
-  }
-
-  function handleShowSources(messageId: string) {
-    setActiveSourceMessageId((prev) => (prev === messageId ? null : messageId))
   }
 
   const conversations = conversationsQuery.data?.items ?? []
@@ -406,40 +300,6 @@ export function ChatPage() {
                 </button>
               </div>
 
-              {/* Prompt mode */}
-              <div className="border-b border-gray-100 px-4 py-3">
-                <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Læringsmodus</p>
-                <fieldset>
-                  <legend className="sr-only">Velg læringsmodus</legend>
-                  <div className="space-y-1">
-                    {PROMPT_MODE_OPTIONS.map((opt) => (
-                      <label
-                        key={opt.value}
-                        className={clsx(
-                          'flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
-                          promptMode === opt.value
-                            ? 'bg-indigo-50 text-indigo-900'
-                            : 'text-gray-600 hover:bg-gray-50'
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="prompt-mode"
-                          value={opt.value}
-                          checked={promptMode === opt.value}
-                          onChange={() => handlePromptModeChange(opt.value)}
-                          className="h-3.5 w-3.5 accent-indigo-600"
-                        />
-                        <div>
-                          <span className="font-medium">{opt.label}</span>
-                          <span className="ml-1 text-xs text-gray-400">{opt.description}</span>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </div>
-
               {/* New conversation button */}
               <div className="px-4 py-3">
                 <button
@@ -475,10 +335,7 @@ export function ChatPage() {
                       <ConversationItem
                         conversation={conv}
                         isActive={selectedConversationId === conv.id}
-                        onSelect={() => {
-                          setSelectedConversationId(conv.id)
-                          setActiveSourceMessageId(null)
-                        }}
+                        onSelect={() => setSelectedConversationId(conv.id)}
                         onDelete={() => deleteConversationMutation.mutate(conv.id)}
                         onRename={(title) => renameConversationMutation.mutate({ id: conv.id, title })}
                       />
@@ -546,12 +403,7 @@ export function ChatPage() {
                   </div>
                 )}
                 {displayMessages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    onShowSources={handleShowSources}
-                    activeSourceMessageId={activeSourceMessageId}
-                  />
+                  <MessageBubble key={msg.id} message={msg} />
                 ))}
                 {sendMessageMutation.isPending && (
                   <div className="flex justify-start">
@@ -606,15 +458,6 @@ export function ChatPage() {
             </div>
           )}
         </div>
-
-        {/* Right sources panel */}
-        {activeSourceMessageId && selectedConversationId && (
-          <SourcesPanel
-            conversationId={selectedConversationId}
-            messageId={activeSourceMessageId}
-            onClose={() => setActiveSourceMessageId(null)}
-          />
-        )}
       </div>
     </Layout>
   )

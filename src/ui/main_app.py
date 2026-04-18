@@ -59,12 +59,8 @@ from src.ui.pages import (
 from src.ui.pages.chat_handlers import (
     _bootstrap_chat_on_route_handler,
     _chat_handler,
-    _chatbot_select_handler,
-    _close_reference_layout_handler,
     _load_conversation_handler,
     _new_conversation_handler,
-    _open_reference_layout_handler,
-    _reference_layout_from_panel_handler,
     _reset_scope_handler,
 )
 from src.ui.router import (
@@ -402,14 +398,6 @@ def build_main_app() -> gr.Blocks:
             chat_page.conversation_state,
             chat_page.conversation_selector,
             chat_page.conversation_count,
-            chat_page.source_history_state,
-            chat_page.references_panel,
-            chat_page.references_status,
-        ]
-        reference_visibility_outputs = [
-            chat_page.references_open_state,
-            chat_page.references_container,
-            chat_page.open_references_button_container,
         ]
         route_bootstrap_outputs = chat_outputs + [chat_page.course_id_state]
 
@@ -580,116 +568,55 @@ def build_main_app() -> gr.Blocks:
                 inputs=[app_state],
                 outputs=app_outputs,
             )
-        send_click = chat_page.send_button.click(
+        chat_page.send_button.click(
             fn=_chat_handler,
             inputs=[
                 chat_page.message,
                 chat_page.chatbot,
-                chat_page.source_history_state,
                 chat_page.conversation_state,
                 chat_page.token_state,
                 chat_page.course_id_state,
-                chat_page.mode_selector,
             ],
             outputs=chat_outputs,
         )
-        send_click.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        message_submit = chat_page.message.submit(
+        chat_page.message.submit(
             fn=_chat_handler,
             inputs=[
                 chat_page.message,
                 chat_page.chatbot,
-                chat_page.source_history_state,
                 chat_page.conversation_state,
                 chat_page.token_state,
                 chat_page.course_id_state,
-                chat_page.mode_selector,
             ],
             outputs=chat_outputs,
         )
-        message_submit.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        chatbot_select = chat_page.chatbot.select(
-            fn=_chatbot_select_handler,
-            inputs=[
-                chat_page.source_history_state,
-                chat_page.token_state,
-                chat_page.conversation_state,
-            ],
-            outputs=[
-                chat_page.source_history_state,
-                chat_page.references_panel,
-                chat_page.references_status,
-            ],
-        )
-        chatbot_select.success(
-            fn=_reference_layout_from_panel_handler,
-            inputs=[
-                chat_page.references_panel,
-                chat_page.references_status,
-            ],
-            outputs=reference_visibility_outputs,
-        )
-        conversation_change = chat_page.conversation_selector.change(
+        chat_page.conversation_selector.change(
             fn=_load_conversation_handler,
             inputs=[chat_page.conversation_selector, chat_page.token_state, chat_page.course_id_state],
             outputs=chat_outputs,
         )
-        conversation_change.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        new_conversation_click = chat_page.new_conversation_button.click(
+        chat_page.new_conversation_button.click(
             fn=_new_conversation_handler,
             inputs=[
                 chat_page.token_state,
                 chat_page.course_id_state,
-                chat_page.mode_selector,
             ],
             outputs=chat_outputs,
         )
-        new_conversation_click.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        route_change = chat_page.route_state.change(
+        chat_page.route_state.change(
             fn=_bootstrap_chat_on_route_handler,
             inputs=[chat_page.route_state, chat_page.token_state, chat_page.course_id_state],
             outputs=route_bootstrap_outputs,
         )
-        route_change.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        token_change = chat_page.token_state.change(
+        chat_page.token_state.change(
             fn=_reset_scope_handler,
             inputs=[chat_page.token_state, chat_page.course_id_state],
             outputs=chat_outputs,
         )
-        token_change.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        course_change = chat_page.course_id_state.change(
+        chat_page.course_id_state.change(
             fn=_reset_scope_handler,
             inputs=[chat_page.token_state, chat_page.course_id_state],
             outputs=chat_outputs,
-        )
-        course_change.success(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
         )
         chat_page.course_id_state.change(
             fn=_handle_chat_course_title,
@@ -700,16 +627,6 @@ def build_main_app() -> gr.Blocks:
             fn=_handle_chat_course_title,
             inputs=[chat_page.token_state, chat_page.course_id_state],
             outputs=[chat_page.course_title],
-        )
-        chat_page.open_references_button.click(
-            fn=_open_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
-        )
-        chat_page.close_references_button.click(
-            fn=_close_reference_layout_handler,
-            inputs=None,
-            outputs=reference_visibility_outputs,
         )
         chat_page.back_button.click(
             fn=_handle_back_to_home,

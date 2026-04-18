@@ -8,12 +8,10 @@ from src.ui.pages.chat_handlers.common import _default_conversation_state
 from src.ui.pages.chat_handlers.contracts import (
     _AUTO_COURSE_STATUS,
     _NO_COURSE_STATUS,
-    _REFERENCE_DEFAULT_STATUS,
     _SCOPE_CHANGED_STATUS,
     ChatBootstrapOutputs,
     ChatOutputs,
 )
-from src.ui.pages.chat_handlers.references import _empty_reference_panel
 from src.ui.pages.chat_handlers.sidebar import (
     _conversation_count_text,
     _refresh_sidebar,
@@ -46,10 +44,6 @@ def _skip_chat_bootstrap_updates() -> ChatBootstrapOutputs:
         skip,
         skip,
         skip,
-        skip,
-        skip,
-        skip,
-        skip,
     )
 
 
@@ -71,9 +65,6 @@ def _bootstrap_chat_on_route_handler(
             _default_conversation_state(),
             gr.update(choices=[], value=None),
             _conversation_count_text(0),
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
             None,
         )
 
@@ -89,9 +80,6 @@ def _bootstrap_chat_on_route_handler(
             _default_conversation_state(),
             gr.update(choices=[], value=None),
             _conversation_count_text(0),
-            [],
-            _empty_reference_panel(),
-            _REFERENCE_DEFAULT_STATUS,
             None,
         )
 
@@ -108,9 +96,6 @@ def _bootstrap_chat_on_route_handler(
         _default_conversation_state(),
         selector_update,
         count_text,
-        [],
-        _empty_reference_panel(),
-        _REFERENCE_DEFAULT_STATUS,
         resolved_course_id,
     )
 
@@ -133,7 +118,4 @@ def _reset_scope_handler(
         _default_conversation_state(),
         gr.update(choices=[], value=None),
         _conversation_count_text(0),
-        [],
-        _empty_reference_panel(),
-        _REFERENCE_DEFAULT_STATUS,
     )

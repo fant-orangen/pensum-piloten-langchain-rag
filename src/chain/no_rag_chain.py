@@ -11,21 +11,21 @@ from langchain_core.runnables import RunnableParallel, RunnableLambda
 from src.models import get_llm
 from src.prompts import build_tutor_prompt
 from src.prompts.templates import (
+    default_tutoring_instructions,
     format_conversation_summary,
     format_course_specific_instructions,
-    resolve_system_prompt_mode,
 )
 
 logger = structlog.get_logger(__name__)
 
 
-def build_no_rag_chain():
+def build_no_rag_chain(*, prompt_variant: str = "default"):
     """Construct and return the no-retrieval tutor chain.
 
     Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
     and yields the tutor's response as a string.
     """
-    prompt = build_tutor_prompt()
+    prompt = build_tutor_prompt(template_variant=prompt_variant)
     llm = get_llm(temperature=0.3)
 
     extract_question = RunnableLambda(lambda x: x["question"])
@@ -35,8 +35,8 @@ def build_no_rag_chain():
             context=RunnableLambda(lambda _: ""),
             question=extract_question,
             chat_history=RunnableLambda(lambda x: x.get("chat_history", [])),
-            mode=RunnableLambda(
-                lambda x: resolve_system_prompt_mode(x.get("system_prompt_mode"))
+            tutoring_instructions=RunnableLambda(
+                lambda _: default_tutoring_instructions()
             ),
             course_specific_instructions=RunnableLambda(
                 lambda x: format_course_specific_instructions(

@@ -2,150 +2,15 @@
 
 from __future__ import annotations
 
-import re
-from html import unescape
 from typing import Any
 
 from src.ui.services.api_client import ApiError, ApiUnauthorizedError, get, post
-
-_EXCERPT_MAX_LENGTH = 220
-_PAGE_KEYS = (
-    "page",
-    "page_label",
-    "page_number",
-    "page_num",
-    "source_page",
-    "page_index",
-)
-_LOC_PAGE_KEYS = (
-    "page",
-    "page_label",
-    "pageNumber",
-    "page_number",
-)
-
-
-def _extract_document(value: dict[str, Any]) -> str:
-    for key in ("document", "source_file", "filename", "file", "source", "name"):
-        candidate = value.get(key)
-        if isinstance(candidate, str) and candidate.strip():
-            return candidate.strip()
-    return "Ukjent dokument"
-
-
-def _extract_page(value: dict[str, Any]) -> str:
-    for key in _PAGE_KEYS:
-        page = value.get(key)
-        if page is None:
-            continue
-        if isinstance(page, str):
-            candidate = page.strip()
-        else:
-            candidate = str(page).strip()
-        if candidate:
-            return candidate
-
-    metadata = value.get("metadata")
-    if isinstance(metadata, dict):
-        for key in _PAGE_KEYS:
-            page = metadata.get(key)
-            if page is None:
-                continue
-            if isinstance(page, str):
-                candidate = page.strip()
-            else:
-                candidate = str(page).strip()
-            if candidate:
-                return candidate
-
-    loc = value.get("loc")
-    if isinstance(loc, dict):
-        for key in _LOC_PAGE_KEYS:
-            page = loc.get(key)
-            if page is None:
-                continue
-            if isinstance(page, str):
-                candidate = page.strip()
-            else:
-                candidate = str(page).strip()
-            if candidate:
-                return candidate
-
-    return ""
-
-
-def _truncate_excerpt(text: str, *, max_length: int = _EXCERPT_MAX_LENGTH) -> str:
-    if len(text) <= max_length:
-        return text
-    return text[: max_length - 3].rstrip() + "..."
-
-
-def _normalize_excerpt_text(value: str) -> str:
-    text = unescape(value).replace("\r\n", "\n").replace("\r", "\n").replace("\xa0", " ")
-    text = re.sub(r"(?is)<\s*(script|style)[^>]*>.*?<\s*/\s*\1\s*>", " ", text)
-    text = re.sub(r"(?i)<\s*br\s*/?\s*>", "\n", text)
-    text = re.sub(r"(?i)</\s*(p|div|section|article|h[1-6]|tr)\s*>", "\n", text)
-    text = re.sub(r"(?i)<\s*li[^>]*>", "- ", text)
-    text = re.sub(r"(?i)</\s*li\s*>", "\n", text)
-    text = re.sub(r"(?i)<[^>]+>", "", text)
-
-    normalized_lines = [
-        re.sub(r"[^\S\n]+", " ", line).strip()
-        for line in text.split("\n")
-    ]
-    collapsed = "\n".join(line for line in normalized_lines if line)
-    return _truncate_excerpt(collapsed)
-
-
-def _extract_excerpt(value: dict[str, Any]) -> str:
-    for key in ("excerpt", "text", "content", "chunk", "snippet"):
-        candidate = value.get(key)
-        if isinstance(candidate, str) and candidate.strip():
-            return _normalize_excerpt_text(candidate)
-    return ""
-
-
-def normalize_sources_payload(value: Any) -> list[dict[str, str]]:
-    """Normalize backend source payloads to a frontend-safe shape."""
-    if isinstance(value, str):
-        document = value.strip()
-        return [{"document": document or "Ukjent dokument", "page": "", "excerpt": ""}]
-    if isinstance(value, dict):
-        return [
-            {
-                "document": _extract_document(value),
-                "page": _extract_page(value),
-                "excerpt": _extract_excerpt(value),
-            }
-        ]
-    if not isinstance(value, list):
-        return []
-
-    normalized: list[dict[str, str]] = []
-    for item in value:
-        if isinstance(item, str):
-            document = item.strip()
-            normalized.append(
-                {"document": document or "Ukjent dokument", "page": "", "excerpt": ""}
-            )
-            continue
-        if isinstance(item, dict):
-            normalized.append(
-                {
-                    "document": _extract_document(item),
-                    "page": _extract_page(item),
-                    "excerpt": _extract_excerpt(item),
-                }
-            )
-    return normalized
 
 
 def _normalize_message_payload(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
-    normalized = dict(value)
-    normalized["sources"] = normalize_sources_payload(value.get("sources"))
-    return normalized
+    return dict(value)
 
 
 def list_conversations(
@@ -203,7 +68,7 @@ def get_messages(
         (messages, total, error_message)
 
         On success, messages is a list of dicts with keys:
-            id, conversation_id, role, content, sources, created_at
+            id, conversation_id, role, content, created_at
     """
     try:
         data = get(
@@ -232,31 +97,6 @@ def get_messages(
         if (normalized := _normalize_message_payload(item)) is not None
     ]
     return normalized_items, int(total), ""
-
-
-def get_message_sources(
-    token: str,
-    conversation_id: str,
-    message_id: str,
-) -> tuple[list[dict[str, str]], str]:
-    """Fetch resolved source chunks for a specific message."""
-    try:
-        data = get(
-            f"/conversations/{conversation_id}/messages/{message_id}/sources",
-            token=token,
-        )
-    except ApiUnauthorizedError:
-        return [], "Sessionen er utløpt — logg inn på nytt."
-    except ApiError as exc:
-        if exc.status == 403:
-            return [], "Du har ikke tilgang til denne samtalen."
-        if exc.status == 404:
-            return [], "Meldingen ble ikke funnet."
-        return [], f"Kunne ikke hente kilder: {exc.detail}"
-    except Exception as exc:
-        return [], f"Kunne ikke nå API-serveren: {exc}"
-
-    return normalize_sources_payload(data), ""
 
 
 def create_conversation(
@@ -303,7 +143,7 @@ def send_message(
         (success, error_message, ai_message_data)
 
         On success, ai_message_data is a dict with keys:
-            id, conversation_id, role, content, sources, created_at
+            id, conversation_id, role, content, created_at
     """
     try:
         data = post(

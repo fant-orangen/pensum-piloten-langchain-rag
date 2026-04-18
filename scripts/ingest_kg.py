@@ -2,7 +2,7 @@
 
 Usage:
     python -m scripts.ingest_kg
-    python -m scripts.ingest_kg --course-code TEST101
+    python -m scripts.ingest_kg --course-code os_g1
 """
 
 import argparse
@@ -31,8 +31,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--course-code",
         type=str,
-        default="TEST101",
-        help="Course code to rebuild (defaults to TEST101).",
+        default="os_g1",
+        help="Course code to rebuild (defaults to os_g1).",
     )
     args = parser.parse_args(argv)
 

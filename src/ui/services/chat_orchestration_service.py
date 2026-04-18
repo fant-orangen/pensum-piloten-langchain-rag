@@ -113,23 +113,9 @@ def fetch_messages(conversation_token: str, conversation_id: str) -> tuple[list[
         role = msg.get("role", "")
         content = msg.get("content", "")
         if role == "human":
-            history.append(
-                {
-                    "message_id": str(msg.get("id", "")).strip() or None,
-                    "role": "user",
-                    "content": content,
-                    "sources": [],
-                }
-            )
+            history.append({"role": "user", "content": content})
         elif role == "ai":
-            history.append(
-                {
-                    "message_id": str(msg.get("id", "")).strip() or None,
-                    "role": "assistant",
-                    "content": content,
-                    "sources": list(msg.get("sources") or []),
-                }
-            )
+            history.append({"role": "assistant", "content": content})
     return history, ""
 
 

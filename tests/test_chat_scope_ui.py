@@ -27,10 +27,9 @@ def test_chat_handler_blocks_send_when_no_course_selected(monkeypatch) -> None:
     monkeypatch.setattr(conversation_service, "send_message", _fake_send_message)
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
 
-    _message, _history, status, conv_state, _selector, _count, _source_history, _ref_rows, _ref_status = chat_page._chat_handler(
+    _message, _history, status, conv_state, _selector, _count = chat_page._chat_handler(
         user_message="hello",
         history=[],
-        source_history=[],
         conversation_state={"conversation_id": "conv-1", "title": "Old", "course_id": "course-1"},
         token="token-1",
         course_id_state=None,
@@ -58,10 +57,9 @@ def test_chat_handler_blocks_stale_conversation_course_mismatch(monkeypatch) -> 
     monkeypatch.setattr(conversation_service, "send_message", _fake_send_message)
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
 
-    _message, _history, status, conv_state, _selector, _count, _source_history, _ref_rows, _ref_status = chat_page._chat_handler(
+    _message, _history, status, conv_state, _selector, _count = chat_page._chat_handler(
         user_message="hello",
         history=[],
-        source_history=[],
         conversation_state={"conversation_id": "conv-1", "title": "Old", "course_id": "course-1"},
         token="token-1",
         course_id_state="course-2",
@@ -89,7 +87,7 @@ def test_load_handler_accepts_only_conversations_in_active_course_scope(monkeypa
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
     monkeypatch.setattr(conversation_service, "get_messages", _fake_get_messages)
 
-    _message, _history, status, conv_state, _selector, _count, _source_history, _ref_rows, _ref_status = chat_page._load_conversation_handler(
+    _message, _history, status, conv_state, _selector, _count = chat_page._load_conversation_handler(
         conversation_id="conv-1",
         token="token-1",
         course_id="course-2",
@@ -109,9 +107,9 @@ def test_refresh_handler_clears_invalid_selected_conversation(monkeypatch) -> No
 
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
 
-    selector_update, _count, status, conv_state, _source_history, _ref_rows, _ref_status = chat_page._refresh_handler(
+    selector_update, _count, status, conv_state = chat_page._refresh_handler(
         conversation_state={"conversation_id": "conv-1", "title": "Old", "course_id": "course-1"},
-        source_history=[],
+        history=[],
         token="token-1",
         course_id_state="course-1",
     )
@@ -135,7 +133,7 @@ def test_chat_handler_auto_creates_conversation_when_missing(monkeypatch) -> Non
         assert conversation_id == "conv-new"
         assert content == "hello"
         calls["send"] += 1
-        return True, "", {"content": "ok", "sources": []}
+        return True, "", {"content": "ok"}
 
     def _fake_list_conversations(
         token: str,
@@ -155,10 +153,9 @@ def test_chat_handler_auto_creates_conversation_when_missing(monkeypatch) -> Non
     monkeypatch.setattr(conversation_service, "send_message", _fake_send_message)
     monkeypatch.setattr(conversation_service, "list_conversations", _fake_list_conversations)
 
-    _message, history, _status, conv_state, _selector, _count, _source_history, _ref_rows, _ref_status = chat_page._chat_handler(
+    _message, history, _status, conv_state, _selector, _count = chat_page._chat_handler(
         user_message="hello",
         history=[],
-        source_history=[],
         conversation_state=chat_page._default_conversation_state(),
         token="token-1",
         course_id_state="course-1",
