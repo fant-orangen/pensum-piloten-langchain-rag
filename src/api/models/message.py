@@ -26,5 +26,5 @@ class Message(SQLModel, table=True):
     # Only populated on AI messages. Stored as JSONB so individual fields
     # (filename, chunk_id) are indexable without a separate join table.
     # Example: [{"filename": "memory.pdf", "chunk_id": "abc123"}]
-    sources: Optional[Any] = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    sources: Optional[Any] = Field(default=None, sa_column=Column(JSONB, nullable=True)) # Not used anymore
     created_at: datetime = Field(default_factory=datetime.utcnow)
