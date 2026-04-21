@@ -1,5 +1,6 @@
 """FastAPI application — thin HTTP layer over the RAG chain."""
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -16,6 +17,7 @@ from src.api.database import init_engine, create_tables, get_db
 from src.api.routers import admin, auth, conversations, courses, preferences
 from src.api.services.admin import ensure_admin_user
 from src.api.seed import seed
+from scripts.build_kg import load_all_courses
 
 logger = structlog.get_logger(__name__)
 
@@ -36,6 +38,11 @@ async def lifespan(app: FastAPI):
     if settings.seed_test_data:
         async for db in get_db():
             await seed(db)
+    if settings.kg_autoload_on_startup:
+        try:
+            await asyncio.to_thread(load_all_courses)
+        except Exception as exc:
+            logger.warning("kg_autoload_failed", error=str(exc))
     yield
 
 

@@ -64,6 +64,7 @@ dev = [
 [project.scripts]
 ingest = "scripts.ingest:main"
 ingest-kg = "scripts.ingest_kg:main"
+build-kg = "scripts.build_kg:main"
 serve = "src.api.app:start"
 
 [tool.setuptools.packages.find]

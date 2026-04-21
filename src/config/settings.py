@@ -89,6 +89,13 @@ class Settings(BaseSettings):
     # Safe to leave on — seed is skipped if data already exists.
     seed_test_data: bool = False
 
+    # --- KG autoload ---
+    # On API startup, replay any cached per-course KG triplets from disk into
+    # Neo4j for scopes that are currently empty. Lets a fresh
+    # Neo4j volume (e.g. a new Docker container) inherit the graph built by a
+    # previous `ingest-kg` run without repeating extraction.
+    kg_autoload_on_startup: bool = True
+
     # --- Optional admin bootstrap ---
     # If both email and password are set, startup ensures this account exists
     # with global_role="admin".
