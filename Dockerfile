@@ -10,11 +10,19 @@ RUN apt-get update \
 
 WORKDIR /app
 
+# Install Python dependencies against stub package directories so this heavy
+# layer stays cached across source edits. `pip install -e .` needs src/ and
+# scripts/ to exist (they're the packages declared in pyproject.toml), but it
+# does not care about their contents — it only writes a .pth file pointing at
+# /app. The real source is copied in a later layer and picked up at runtime.
 COPY pyproject.toml ./
+RUN mkdir -p src scripts \
+    && touch src/__init__.py scripts/__init__.py \
+    && pip install --upgrade pip \
+    && pip install -e .
+
 COPY src ./src
 COPY scripts ./scripts
-
-RUN pip install --upgrade pip && pip install -e .
 
 RUN mkdir -p /app/data/documents /app/data/chroma /app/data/course_materials
 
