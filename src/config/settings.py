@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-
+# TODO: review these settings and evaluate whether we need to change them.
 class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     retriever_top_k: int = 5
     kg_max_final_chunks: int = 20
     temperature: float = 0.3
-    conversation_compression_token_limit: int = 1000
+    conversation_compression_token_limit: int = 30000
 
     # --- Neo4j (Knowledge Graph) ---
     neo4j_uri: str = "bolt://localhost:7687"

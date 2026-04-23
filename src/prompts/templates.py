@@ -108,9 +108,7 @@ Clarity and focus are more valuable than comprehensiveness. A concise, precisely
 - Prefer one useful step over a long lecture.
 </reasoning_policy>
 
-{tutoring_instructions}
 
-{course_specific_instructions}
 {conversation_summary}
 
 <execution>
@@ -139,7 +137,6 @@ You are an educational assistant for students of informatics and computer scienc
 - Keep the response focused and avoid unnecessary detail.
 </constraints>
 
-{course_specific_instructions}
 {conversation_summary}
 
 </system_prompt>
