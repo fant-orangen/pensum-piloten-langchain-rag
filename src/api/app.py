@@ -1,5 +1,16 @@
 """FastAPI application — thin HTTP layer over the RAG chain."""
 
+import sys
+from pathlib import Path
+
+# The `serve` console script imports only the `src` package. Top-level
+# `import scripts.*` (e.g. build_kg for KG autoload) needs the repo root on
+# sys.path—same as running from the project root in a shell.
+_root = Path(__file__).resolve().parents[2]
+_root_str = str(_root)
+if _root_str not in sys.path:
+    sys.path.insert(0, _root_str)
+
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Any

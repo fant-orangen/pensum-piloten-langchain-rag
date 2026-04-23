@@ -53,6 +53,10 @@ from src.api.utils import (
 _EMAIL_ADAPTER = TypeAdapter(EmailStr)
 _CSV_HEADER_VALUES = {"email", "emails", "student_email", "student_emails", "e-mail", "epost"}
 
+# Codes of the three seeded study courses that form the rotation cycle
+# os_g1 (RAG) -> os_g2 (system prompt only) -> os_g3 (control) -> os_g1 ...
+_STUDY_COURSE_CODES: tuple[str, ...] = ("os_g1", "os_g2", "os_g3")
+
 
 @dataclass(slots=True)
 class ParsedEnrollmentImport:
@@ -645,6 +649,61 @@ async def unenroll_all_students(
     removed = len(result.fetchall())
     await db.commit()
     return removed
+
+
+async def advance_study_course(current_user: User, db: AsyncSession) -> Course:
+    """Swap the caller's study-course student enrollment to the next course in the cycle.
+
+    Rotation is fixed: os_g1 -> os_g2 -> os_g3 -> os_g1. The next code is
+    computed purely from the current code, so the caller's email-prefix group
+    never needs to be inspected server-side.
+
+    Raises 409 if the caller does not currently hold exactly one student-role
+    enrollment in a study course (prevents teachers/admins or mis-seeded users
+    from advancing). Raises 404 if the next course is missing.
+    """
+    result = await db.execute(
+        select(CourseEnrollment, Course)
+        .join(Course, Course.id == CourseEnrollment.course_id)
+        .where(
+            CourseEnrollment.user_id == current_user.id,
+            CourseEnrollment.role == "student",
+            Course.code.in_(_STUDY_COURSE_CODES),
+        )
+    )
+    rows = list(result.all())
+    if len(rows) != 1:
+        raise conflict_error(
+            "Caller must hold exactly one study-course student enrollment to advance."
+        )
+
+    current_enrollment, current_course = rows[0]
+
+    # Study codes are os_g1 / os_g2 / os_g3 — last character is the group digit.
+    try:
+        current_num = int(current_course.code[-1])
+    except (ValueError, IndexError) as exc:
+        raise conflict_error(
+            f"Current course code '{current_course.code}' is not a recognised study course."
+        ) from exc
+
+    next_code = f"os_g{(current_num % 3) + 1}"
+    next_result = await db.execute(select(Course).where(Course.code == next_code))
+    next_course = next_result.scalars().first()
+    if next_course is None:
+        raise not_found_error(f"Next study course '{next_code}' not found.")
+
+    await db.delete(current_enrollment)
+    db.add(
+        CourseEnrollment(
+            user_id=current_user.id,
+            course_id=next_course.id,
+            role="student",
+        )
+    )
+    await db.commit()
+    await db.refresh(next_course)
+    return next_course
 
 
 async def unenroll_user(

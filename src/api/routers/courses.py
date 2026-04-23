@@ -34,6 +34,7 @@ from src.api.services.course_documents import (
     stage_course_documents_from_zip,
 )
 from src.api.services.courses import (
+    advance_study_course,
     cancel_enrollment_import,
     confirm_enrollment_import,
     create_course,
@@ -82,6 +83,21 @@ async def list_responsible_courses(
     """Return all courses where the authenticated user is enrolled as a teacher."""
     courses = await get_responsible_courses(current_user, db)
     return [CourseRead.model_validate(c) for c in courses]
+
+
+@router.post("/advance", response_model=CourseRead)
+async def advance_my_study_course(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CourseRead:
+    """Advance the caller to the next course in the os_g1 -> os_g2 -> os_g3 study cycle.
+
+    Atomically unenrolls the caller from their current study course and enrolls
+    them in the next one as a student. Defined before `/{course_id}` so the
+    literal `"advance"` path is not treated as a UUID.
+    """
+    course = await advance_study_course(current_user, db)
+    return CourseRead.model_validate(course)
 
 
 @router.get("/{course_id}", response_model=CourseRead)

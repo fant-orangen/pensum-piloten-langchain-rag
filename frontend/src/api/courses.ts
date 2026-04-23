@@ -38,6 +38,11 @@ export async function createCourse(payload: CourseCreate): Promise<CourseRead> {
   return data
 }
 
+export async function advanceStudyCourse(): Promise<CourseRead> {
+  const { data } = await apiClient.post<CourseRead>('/courses/advance')
+  return data
+}
+
 export async function deleteCourse(courseId: string): Promise<void> {
   await apiClient.delete(`/courses/${courseId}`)
 }

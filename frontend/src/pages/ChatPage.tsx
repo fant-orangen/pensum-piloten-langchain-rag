@@ -35,8 +35,13 @@ import {
   renameConversation,
   sendMessage,
 } from '../api/conversations'
-import { getCourse } from '../api/courses'
+import { advanceStudyCourse, getCourse } from '../api/courses'
 import type { ConversationRead, MessageRead } from '../types'
+import {
+  isStudyParticipantEmail,
+  type StudyCourseCode,
+  studyCourseSequenceForEmail,
+} from '../study/courseSequence'
 
 interface InstructionProgress {
   currentIndex: number
@@ -391,6 +396,18 @@ export function ChatPage() {
     onError: () => toast.error('Klarte ikke sende melding.'),
   })
 
+  const advanceStudyCourseMutation = useMutation({
+    mutationFn: advanceStudyCourse,
+    onSuccess: (nextCourse) => {
+      // Study enrollment swapped server-side; drop any cached lists that still
+      // reference the old course before navigating to the new one.
+      queryClient.invalidateQueries({ queryKey: ['my-courses'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      navigate(`/chat/${nextCourse.id}`, { replace: true })
+    },
+    onError: () => toast.error('Klarte ikke bytte til neste emne. Prøv igjen.'),
+  })
+
   const displayMessages = messagesQuery.data
     ? [...messagesQuery.data.items].reverse()
     : []
@@ -400,10 +417,29 @@ export function ChatPage() {
   }, [displayMessages.length])
 
   useEffect(() => {
+    setSelectedConversationId(null)
+  }, [courseId])
+
+  useEffect(() => {
     const progress = loadInstructionProgress(user?.email)
-    setInstructionIndex(progress.currentIndex)
+    // Study accounts: index is derived from the current `os_g*` course (see
+    // effect below). Stale `localStorage` would desync after a DB reset and
+    // leave "Next" disabled on a false "round 3".
+    if (!isStudyParticipantEmail(user?.email)) {
+      setInstructionIndex(progress.currentIndex)
+    }
     setCompletedInstructionIds(progress.completedIds)
   }, [user?.email])
+
+  useEffect(() => {
+    if (!user?.email || !isStudyParticipantEmail(user.email)) return
+    const code = courseQuery.data?.code
+    if (!code) return
+    const seq = studyCourseSequenceForEmail(user.email)
+    if (!seq) return
+    const idx = seq.indexOf(code as StudyCourseCode)
+    if (idx >= 0) setInstructionIndex(idx)
+  }, [user?.email, courseQuery.data?.code])
 
   useEffect(() => {
     const storageKey = instructionProgressStorageKey(user?.email)
@@ -438,7 +474,10 @@ export function ChatPage() {
 
   function handleNextInstruction() {
     if (!currentInstructionFinished || isLastInstruction) return
-    setInstructionIndex((current) => Math.min(current + 1, instructionOrder.length - 1))
+    if (advanceStudyCourseMutation.isPending) return
+    // The mutation's onSuccess bumps instructionIndex and navigates to the
+    // newly enrolled course, so we do not mutate local state here.
+    advanceStudyCourseMutation.mutate()
   }
 
   const conversations = conversationsQuery.data?.items ?? []
@@ -705,16 +744,31 @@ export function ChatPage() {
 
             <button
               onClick={handleNextInstruction}
-              disabled={!currentInstructionFinished || isLastInstruction}
+              disabled={
+                !currentInstructionFinished
+                || isLastInstruction
+                || advanceStudyCourseMutation.isPending
+              }
               className={clsx(
                 'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600',
-                !currentInstructionFinished || isLastInstruction
+                !currentInstructionFinished
+                  || isLastInstruction
+                  || advanceStudyCourseMutation.isPending
                   ? 'cursor-not-allowed bg-gray-200 text-gray-500'
                   : 'bg-gray-900 text-white hover:bg-gray-800'
               )}
             >
-              {isLastInstruction ? 'No next round' : 'Next'}
-              {!isLastInstruction && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+              {advanceStudyCourseMutation.isPending ? (
+                <>
+                  <Spinner size="sm" />
+                  Advancing...
+                </>
+              ) : (
+                <>
+                  {isLastInstruction ? 'No next round' : 'Next'}
+                  {!isLastInstruction && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+                </>
+              )}
             </button>
           </div>
         </aside>

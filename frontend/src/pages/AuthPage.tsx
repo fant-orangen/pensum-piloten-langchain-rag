@@ -1,8 +1,28 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, type NavigateFunction } from 'react-router-dom'
 import { BookOpen } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Spinner } from '../components/Spinner'
+import { getCourses } from '../api/courses'
+import { isStudyParticipantEmail } from '../study/courseSequence'
+
+async function navigateAfterAuth(
+  navigate: NavigateFunction,
+  email: string
+) {
+  if (isStudyParticipantEmail(email)) {
+    try {
+      const courses = await getCourses()
+      if (courses.length === 1) {
+        navigate(`/chat/${courses[0].id}`, { replace: true })
+        return
+      }
+    } catch {
+      // fall through to dashboard
+    }
+  }
+  navigate('/', { replace: true })
+}
 
 type Tab = 'login' | 'register'
 
@@ -52,7 +72,7 @@ export function AuthPage() {
     setLoginLoading(true)
     try {
       await login(loginEmail, loginPassword)
-      navigate('/')
+      await navigateAfterAuth(navigate, loginEmail.trim())
     } catch (err) {
       setLoginError(getApiErrorMessage(err))
     } finally {
@@ -71,7 +91,7 @@ export function AuthPage() {
     setRegLoading(true)
     try {
       await register({ email: regEmail, password: regPassword, first_name: regFirstName, last_name: regLastName })
-      navigate('/')
+      await navigateAfterAuth(navigate, regEmail.trim())
     } catch (err) {
       setRegError(getApiErrorMessage(err))
     } finally {

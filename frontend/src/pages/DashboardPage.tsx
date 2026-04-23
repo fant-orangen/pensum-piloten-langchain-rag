@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, BookOpen, X, ChevronRight } from 'lucide-react'
@@ -14,6 +14,7 @@ import {
   createCourse,
 } from '../api/courses'
 import type { CourseRead } from '../types'
+import { isStudyParticipantEmail } from '../study/courseSequence'
 
 function CourseCard({
   course,
@@ -226,6 +227,14 @@ export function DashboardPage() {
     queryFn: getCourses,
     enabled: !isTeacher,
   })
+
+  const isStudyParticipant = !isTeacher && isStudyParticipantEmail(user?.email)
+  useEffect(() => {
+    if (!isStudyParticipant || !studentCoursesQuery.isSuccess) return
+    const courses = studentCoursesQuery.data
+    if (!courses || courses.length !== 1) return
+    navigate(`/chat/${courses[0].id}`, { replace: true })
+  }, [isStudyParticipant, studentCoursesQuery.isSuccess, studentCoursesQuery.data, navigate])
 
   return (
     <Layout>
