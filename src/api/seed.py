@@ -135,6 +135,8 @@ async def seed(db: AsyncSession) -> None:
         await _ensure_course_enrollment(db, teacher.id, course.id, role="teacher")
     await _ensure_course_enrollment(db, admin.id, seeded_courses[_RAG_COURSE_CODE].id, role="teacher")
 
+    all_study_course_ids = {c.id for c in seeded_courses.values()}
+
     for course_code, prefix, count in _EXPERIMENT_USER_GROUPS:
         course = seeded_courses[course_code]
         for index in range(1, count + 1):
@@ -146,7 +148,7 @@ async def seed(db: AsyncSession) -> None:
                 last_name=f"{course_code.upper()} {index:02d}",
                 global_role="student",
             )
-            await _ensure_course_enrollment(db, student.id, course.id, role="student")
+            await _ensure_single_study_enrollment(db, student.id, course.id, all_study_course_ids)
 
     await _seed_course_documents(db, seeded_courses[_RAG_COURSE_CODE])
     await db.commit()
@@ -238,6 +240,52 @@ async def _get_or_create_experiment_course(
     db.add(course)
     logger.info("seed_course_exists", code=code)
     return course
+
+
+async def _ensure_single_study_enrollment(
+    db: AsyncSession,
+    user_id: object,
+    target_course_id: object,
+    all_study_course_ids: set,
+) -> None:
+    """Ensure the user holds exactly one student enrollment among the study courses.
+
+    - If they have no study enrollment, enroll them in target_course_id.
+    - If they already have exactly one study enrollment (even a different one from
+      a prior advance), leave it untouched to preserve experiment progress.
+    - If they somehow hold multiple study enrollments (the bug this fixes), remove
+      all of them and re-enroll in target_course_id to restore a clean state.
+    """
+    result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.user_id == user_id,
+            CourseEnrollment.course_id.in_(all_study_course_ids),
+            CourseEnrollment.role == "student",
+        )
+    )
+    existing = list(result.scalars().all())
+
+    if len(existing) == 1:
+        return  # already in a valid single-enrollment state; don't undo any advancement
+
+    if len(existing) > 1:
+        # Multiple enrollments — delete all non-target ones. Never delete-then-reinsert
+        # the same (user_id, course_id) pair: that triggers a unique constraint violation
+        # during SQLAlchemy's autoflush.
+        has_target = any(e.course_id == target_course_id for e in existing)
+        for e in existing:
+            if e.course_id != target_course_id:
+                await db.delete(e)
+        logger.warning(
+            "seed_repaired_duplicate_study_enrollments",
+            user_id=str(user_id),
+            removed=len(existing) - (1 if has_target else 0),
+            reset_to=str(target_course_id),
+        )
+        if has_target:
+            return  # target enrollment already present; extras removed above
+
+    db.add(CourseEnrollment(user_id=user_id, course_id=target_course_id, role="student"))
 
 
 async def _ensure_course_enrollment(
