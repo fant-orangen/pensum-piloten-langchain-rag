@@ -25,3 +25,8 @@ export function isStudyParticipantEmail(email: string | undefined): boolean {
   if (!email?.trim()) return false
   return STUDY_EMAIL_PATTERN.test(email)
 }
+
+export function studyInstructionProgressKey(email: string | undefined): string | null {
+  const normalizedEmail = email?.trim().toLowerCase()
+  return normalizedEmail ? `study-instructions:${normalizedEmail}` : null
+}

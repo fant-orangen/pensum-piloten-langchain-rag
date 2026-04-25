@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { getMe, login as apiLogin, register as apiRegister } from '../api/auth'
 import type { UserResponse } from '../types'
+import { studyInstructionProgressKey } from '../study/courseSequence'
 
 /**
  * Shape of the value exposed by {@link AuthContext}.
@@ -136,10 +137,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** @see {@link AuthContextValue.logout} */
   const logout = useCallback(() => {
+    const progressKey = studyInstructionProgressKey(user?.email)
+    if (progressKey) localStorage.removeItem(progressKey)
     localStorage.removeItem('access_token')
     setToken(null)
     setUser(null)
-  }, [])
+  }, [user?.email])
 
   /** @see {@link AuthContextValue.register} */
   const register = useCallback(

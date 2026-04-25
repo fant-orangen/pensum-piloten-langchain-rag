@@ -39,6 +39,7 @@ import { advanceStudyCourse, getCourse } from '../api/courses'
 import type { ConversationRead, MessageRead } from '../types'
 import {
   isStudyParticipantEmail,
+  studyInstructionProgressKey,
   type StudyCourseCode,
   studyCourseSequenceForEmail,
 } from '../study/courseSequence'
@@ -67,13 +68,8 @@ function instructionOrderForEmail(email: string | undefined): InstructionSetId[]
   return DEFAULT_INSTRUCTION_ORDER
 }
 
-function instructionProgressStorageKey(email: string | undefined): string | null {
-  const normalizedEmail = email?.trim().toLowerCase()
-  return normalizedEmail ? `study-instructions:${normalizedEmail}` : null
-}
-
 function loadInstructionProgress(email: string | undefined): InstructionProgress {
-  const storageKey = instructionProgressStorageKey(email)
+  const storageKey = studyInstructionProgressKey(email)
   if (!storageKey) {
     return { currentIndex: 0, completedIds: [] }
   }
@@ -451,7 +447,7 @@ export function ChatPage() {
   }, [user?.email, courseQuery.data?.code, instructionOrder.length])
 
   useEffect(() => {
-    const storageKey = instructionProgressStorageKey(user?.email)
+    const storageKey = studyInstructionProgressKey(user?.email)
     if (!storageKey) return
 
     const payload: InstructionProgress = {
