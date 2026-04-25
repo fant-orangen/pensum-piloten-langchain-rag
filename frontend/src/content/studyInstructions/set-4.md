@@ -1,3 +1,3 @@
-# Avslutning
+# Stage 4
 
-Alle tre runder er fullført. Klikk på lenken nedenfor for å fylle ut den avsluttende spørreundersøkelsen.
+Thank you for completing the first three stages! Click the link below and complete the fourth and final survey (you do not need the chat interface for this stage).
