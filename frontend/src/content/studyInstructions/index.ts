@@ -1,8 +1,9 @@
 import set1Instructions from './set-1.md?raw'
 import set2Instructions from './set-2.md?raw'
 import set3Instructions from './set-3.md?raw'
+import set4Instructions from './set-4.md?raw'
 
-export type InstructionSetId = 'set-1' | 'set-2' | 'set-3'
+export type InstructionSetId = 'set-1' | 'set-2' | 'set-3' | 'set-4'
 
 export interface InstructionSet {
   id: InstructionSetId
@@ -29,5 +30,11 @@ export const INSTRUCTION_SETS: Record<InstructionSetId, InstructionSet> = {
     instructionsMarkdown: set3Instructions,
     surveyLabel: 'Open survey',
     surveyUrl: 'https://nettskjema.no/a/620892',
+  },
+  'set-4': {
+    id: 'set-4',
+    instructionsMarkdown: set4Instructions,
+    surveyLabel: 'Open final survey',
+    surveyUrl: 'https://nettskjema.no/a/621099',
   },
 }

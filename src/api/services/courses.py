@@ -76,7 +76,7 @@ async def get_enrolled_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Cou
         .join(CourseEnrollment, CourseEnrollment.course_id == Course.id)
         .where(CourseEnrollment.user_id == user_id)
     )
-    return list(result.scalars().all())
+    return list(result.scalars().all()) 
 
 
 async def get_available_courses(user_id: uuid.UUID, db: AsyncSession) -> list[Course]:

@@ -48,20 +48,20 @@ interface InstructionProgress {
   completedIds: InstructionSetId[]
 }
 
-const DEFAULT_INSTRUCTION_ORDER: InstructionSetId[] = ['set-1', 'set-2', 'set-3']
+const DEFAULT_INSTRUCTION_ORDER: InstructionSetId[] = ['set-1', 'set-2', 'set-3', 'set-4']
 
 function instructionOrderForEmail(email: string | undefined): InstructionSetId[] {
   const match = email?.match(/g[123]u(\d{1,2})@/i)
   const userNumber = match ? Number.parseInt(match[1], 10) : Number.NaN
 
   if (userNumber >= 1 && userNumber <= 4) {
-    return ['set-1', 'set-2', 'set-3']
+    return ['set-1', 'set-2', 'set-3', 'set-4']
   }
   if (userNumber >= 5 && userNumber <= 8) {
-    return ['set-2', 'set-3', 'set-1']
+    return ['set-2', 'set-3', 'set-1', 'set-4']
   }
   if (userNumber >= 9 && userNumber <= 12) {
-    return ['set-3', 'set-1', 'set-2']
+    return ['set-3', 'set-1', 'set-2', 'set-4']
   }
 
   return DEFAULT_INSTRUCTION_ORDER
@@ -438,8 +438,17 @@ export function ChatPage() {
     const seq = studyCourseSequenceForEmail(user.email)
     if (!seq) return
     const idx = seq.indexOf(code as StudyCourseCode)
-    if (idx >= 0) setInstructionIndex(idx)
-  }, [user?.email, courseQuery.data?.code])
+    if (idx < 0) return
+
+    // set-4 has no course code — the user stays on their last os_g* course.
+    // If they have already advanced to set-4 (stored index = last), preserve
+    // that. Only trust the stored index when the course also matches the final
+    // study course (guards against a stale localStorage after a DB reset).
+    const finalIdx = instructionOrder.length - 1
+    const isOnLastCourse = idx === instructionOrder.length - 2
+    const stored = loadInstructionProgress(user.email).currentIndex
+    setInstructionIndex(isOnLastCourse && stored === finalIdx ? finalIdx : idx)
+  }, [user?.email, courseQuery.data?.code, instructionOrder.length])
 
   useEffect(() => {
     const storageKey = instructionProgressStorageKey(user?.email)
@@ -475,8 +484,14 @@ export function ChatPage() {
   function handleNextInstruction() {
     if (!currentInstructionFinished || isLastInstruction) return
     if (advanceStudyCourseMutation.isPending) return
-    // The mutation's onSuccess bumps instructionIndex and navigates to the
-    // newly enrolled course, so we do not mutate local state here.
+
+    // Moving from the second-to-last instruction (set-3) to the final one
+    // (set-4) requires no course change — just advance the local index.
+    if (instructionIndex === instructionOrder.length - 2) {
+      setInstructionIndex(instructionOrder.length - 1)
+      return
+    }
+
     advanceStudyCourseMutation.mutate()
   }
 
@@ -728,49 +743,49 @@ export function ChatPage() {
             </a>
           </div>
 
-          <div className="space-y-3 border-t border-gray-200 px-5 py-4">
-            <button
-              onClick={handleFinishTest}
-              disabled={currentInstructionFinished}
-              className={clsx(
-                'w-full rounded-lg px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600',
-                currentInstructionFinished
-                  ? 'cursor-default bg-emerald-100 text-emerald-700'
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
-              )}
-            >
-              {currentInstructionFinished ? 'Test finished' : 'Finish test'}
-            </button>
+          {!isLastInstruction && (
+            <div className="space-y-3 border-t border-gray-200 px-5 py-4">
+              <button
+                onClick={handleFinishTest}
+                disabled={currentInstructionFinished}
+                className={clsx(
+                  'w-full rounded-lg px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600',
+                  currentInstructionFinished
+                    ? 'cursor-default bg-emerald-100 text-emerald-700'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                )}
+              >
+                {currentInstructionFinished ? 'Test finished' : 'Finish test'}
+              </button>
 
-            <button
-              onClick={handleNextInstruction}
-              disabled={
-                !currentInstructionFinished
-                || isLastInstruction
-                || advanceStudyCourseMutation.isPending
-              }
-              className={clsx(
-                'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600',
-                !currentInstructionFinished
-                  || isLastInstruction
+              <button
+                onClick={handleNextInstruction}
+                disabled={
+                  !currentInstructionFinished
                   || advanceStudyCourseMutation.isPending
-                  ? 'cursor-not-allowed bg-gray-200 text-gray-500'
-                  : 'bg-gray-900 text-white hover:bg-gray-800'
-              )}
-            >
-              {advanceStudyCourseMutation.isPending ? (
-                <>
-                  <Spinner size="sm" />
-                  Advancing...
-                </>
-              ) : (
-                <>
-                  {isLastInstruction ? 'No next round' : 'Next'}
-                  {!isLastInstruction && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-                </>
-              )}
-            </button>
-          </div>
+                }
+                className={clsx(
+                  'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600',
+                  !currentInstructionFinished
+                    || advanceStudyCourseMutation.isPending
+                    ? 'cursor-not-allowed bg-gray-200 text-gray-500'
+                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                )}
+              >
+                {advanceStudyCourseMutation.isPending ? (
+                  <>
+                    <Spinner size="sm" />
+                    Advancing...
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </aside>
       </div>
     </Layout>
