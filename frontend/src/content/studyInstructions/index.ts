@@ -16,25 +16,25 @@ export const INSTRUCTION_SETS: Record<InstructionSetId, InstructionSet> = {
   'set-1': {
     id: 'set-1',
     instructionsMarkdown: set1Instructions,
-    surveyLabel: 'Open survey',
+    surveyLabel: 'Open quiz',
     surveyUrl: 'https://nettskjema.no/a/623950',
   },
   'set-2': {
     id: 'set-2',
     instructionsMarkdown: set2Instructions,
-    surveyLabel: 'Open survey',
+    surveyLabel: 'Open quiz',
     surveyUrl: 'https://nettskjema.no/a/623937',
   },
   'set-3': {
     id: 'set-3',
     instructionsMarkdown: set3Instructions,
-    surveyLabel: 'Open survey',
+    surveyLabel: 'Open quiz',
     surveyUrl: 'https://nettskjema.no/a/620892',
   },
   'set-4': {
     id: 'set-4',
     instructionsMarkdown: set4Instructions,
-    surveyLabel: 'Open final survey',
+    surveyLabel: 'Open A-B evaluation survey',
     surveyUrl: 'https://nettskjema.no/a/623951',
   },
 }
