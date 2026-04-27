@@ -689,7 +689,7 @@ export function ChatPage() {
           )}
         </div>
 
-        <aside className="flex w-96 shrink-0 flex-col border-l border-gray-200 bg-white">
+        <aside className="flex w-[28.8rem] shrink-0 flex-col border-l border-gray-200 bg-white">
           <div className="border-b border-gray-200 px-5 py-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
               Round {instructionIndex + 1} of {instructionOrder.length}
