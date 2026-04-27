@@ -17,13 +17,13 @@ export const INSTRUCTION_SETS: Record<InstructionSetId, InstructionSet> = {
     id: 'set-1',
     instructionsMarkdown: set1Instructions,
     surveyLabel: 'Open survey',
-    surveyUrl: 'https://nettskjema.no/a/621097',
+    surveyUrl: 'https://nettskjema.no/a/623950',
   },
   'set-2': {
     id: 'set-2',
     instructionsMarkdown: set2Instructions,
     surveyLabel: 'Open survey',
-    surveyUrl: 'https://nettskjema.no/a/621098',
+    surveyUrl: 'https://nettskjema.no/a/623937',
   },
   'set-3': {
     id: 'set-3',
@@ -35,6 +35,6 @@ export const INSTRUCTION_SETS: Record<InstructionSetId, InstructionSet> = {
     id: 'set-4',
     instructionsMarkdown: set4Instructions,
     surveyLabel: 'Open final survey',
-    surveyUrl: 'https://nettskjema.no/a/621099',
+    surveyUrl: 'https://nettskjema.no/a/623951',
   },
 }
