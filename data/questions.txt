@@ -1,0 +1,50 @@
+1. If I put a lock around my shared counter so that only one thread at a time can touch it, and my program still sometimes produces the wrong total, does that mean the lock is broken?
+2. If I wrap every read and write to shared variables in a lock, does that mean my program cannot have any race conditions?
+3. I’ve read that programs use virtual addresses and that these get translated to physical addresses. But if every memory access has to go through a translation step, isn’t that really slow? Why would any system accept that overhead?
+4. What problem does paging solve relative to giving each process a contiguous region of physical memory?
+5. I read that FAT file systems follow a chain of entries to find all the parts of a file. Why would anyone design a file system that way instead of just storing the full list of block locations in one place?
+6. When I save a file, my computer seems to know exactly where to find it later even though I never told it where on the disk to put it. How does it actually keep track of this?
+7. If threads in the same process share the same address space, why don’t they also each need their own completely separate copy of the program’s code and global variables?
+8. If a program uses multiple threads instead of multiple processes, does that automatically make it faster?
+9. People say race conditions are “timing-dependent bugs.” Does that just mean they only happen on slow machines or under heavy load?
+10. If a lock guarantees mutual exclusion, why do we need condition variables too?
+11. Why is it incorrect to replace every condition-variable wait with a simple loop that repeatedly checks the condition until it becomes true?
+12. If a thread signals a condition variable, shouldn’t the waiting thread run immediately?
+13. If deadlock means two threads are stuck waiting forever, how is that different from starvation?
+14. Why can fine-grained locking improve performance in some programs but make others slower or more error-prone?
+15. If one big lock is simpler and correct, why do operating systems ever bother with more complicated synchronization designs?
+16. Why can acquiring two locks in different orders be dangerous even if each individual lock is used correctly?
+17. If non-blocking synchronization avoids locks, does that mean it also avoids all concurrency bugs?
+18. If disabling interrupts can prevent races on a uniprocessor, why not just use that technique everywhere instead of locks?
+19. Why can a scheduler that maximizes throughput still make a system feel slow to users?
+20. If round robin gives every job a turn, why isn’t it always the fairest or best scheduling policy?
+21. Why can shortest-job-first reduce average waiting time even though it seems unfair to long jobs?
+22. If a machine has multiple CPUs, why can’t the operating system just keep every thread on whichever CPU is free at the moment?
+23. Why does processor affinity matter if all CPUs are supposed to be equivalent?
+24. If utilization close to 100% sounds efficient, why do systems often become much less responsive as utilization approaches 100%?
+25. If the operating system already protects processes from one another, why do we also need user mode and kernel mode?
+26. Why can’t an ordinary user program just execute privileged instructions directly if it needs something done by the hardware?
+27. If system calls are just requests for the kernel to do work, why is the boundary between user mode and kernel mode such a big deal?
+28. Why does the operating system need timer interrupts at all? Why not just let each program run until it blocks or finishes?
+29. If a process is isolated from others, how can it still communicate with other processes at all?
+30. Why is a process usually described as an abstraction rather than just “a program that is running”?
+31. If a child process is created from a parent process, why doesn’t every process creation require copying the parent’s entire memory immediately?
+32. If a microkernel keeps fewer things in the kernel, does that automatically make it better than a monolithic kernel?
+33. If a TLB is only a cache of address translations, why can TLB misses have such a noticeable effect on performance?
+34. If paging avoids external fragmentation, does that mean fragmentation is no longer a problem?
+35. What is the difference between internal fragmentation and external fragmentation, and why does paging help with one but not necessarily the other?
+36. If a page table tells the system where pages are, why do we need multi-level page tables instead of one big table?
+37. Why can a sparse virtual address space be useful even when a process is using only a small fraction of its possible addresses?
+38. If virtual memory lets the OS move pages between RAM and disk, why doesn’t that mean programs can effectively use unlimited memory with little downside?
+39. What exactly is a page fault, and why is it not always an error?
+40. If caches are supposed to speed things up, why do some access patterns still perform badly even when the same total amount of data is used?
+41. Why can a program’s working set matter more for performance than its total size?
+42. If LRU sounds smarter than FIFO, why don’t systems always implement perfect LRU?
+43. How can adding more page frames ever make a paging policy perform worse?
+44. If memory-mapped files let a file be accessed like memory, does that mean file I/O and memory access become the same thing?
+45. If zero-copy I/O avoids copying data, where does the data actually live while it is being moved?
+46. If a virtual machine is “just software pretending to be hardware,” why isn’t it unbearably slow?
+47. Why can copy-on-write make operations like process creation or snapshotting much cheaper than they first appear?
+48. If a directory is just a special kind of file, what information does it actually store?
+49. Why do modern file systems often use extents or tree-based metadata instead of simple linked allocation?
+50. If journaling makes a file system more reliable, why can a crash still leave recently written user data missing or outdated?

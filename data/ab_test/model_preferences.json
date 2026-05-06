@@ -1,0 +1,54 @@
+{
+    "labels": {
+      "A": "answer_a",
+      "B": "answer_b",
+      "T": "tie"
+    },
+    "runs": [
+      {
+        "evaluator": "Claude",
+        "run": 1,
+        "preferences": "TATTTABTBTBBABATAATBABATBBBTBTTAABBTBTBBBATBBABTTB"
+      },
+      {
+        "evaluator": "Claude",
+        "run": 2,
+        "preferences": "TATTTABTBTBTABATAATBABAABBBTBBTAABBTBBBBBATBBABTAB"
+      },
+      {
+        "evaluator": "Claude",
+        "run": 3,
+        "preferences": "TATTTABTBTBBABATAABBTBAABBBTBTAAABTABTBBBATTBTBTAB"
+      },
+      {
+        "evaluator": "ChatGPT",
+        "run": 1,
+        "preferences": "AATBBBBBBATBBBATAATBTBAATBBTBBTTABTBBBBBBAABBABTAB"
+      },
+      {
+        "evaluator": "ChatGPT",
+        "run": 2,
+        "preferences": "AATBBBBBBABBBBATAATBABAABBBTBBBTABTBBBBBBTTBBBBTBB"
+      },{
+        "evaluator": "ChatGPT",
+        "run": 3,
+        "preferences": "AATBBBBBBTBBBBATAATATBAATBBTBBBTABTBBBBBBTTBABBTBB"
+      },
+      {
+        "evaluator": "Gemini",
+        "run": 1,
+        "preferences": "TAATTTTTTTABABATAAABTBAABBBTBTTAABTABBABBATTBBBTAB"
+      },
+      {
+        "evaluator": "Gemini",
+        "run": 2,
+        "preferences": "TATTTTTTBATBTBATAATBBBAABBBBBBTTATTBBTTBBATBBBBAAB"
+      },
+      {
+        "evaluator": "Gemini",
+        "run": 3,
+        "preferences": "TATTTTTTATTBTBTTAABBTBAABBBTBATTAATTBTBBBAATBBBAAB"
+      }
+    ]
+  }
+  
