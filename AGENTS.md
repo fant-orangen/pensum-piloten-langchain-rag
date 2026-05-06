@@ -19,7 +19,7 @@ The key retrieval technique is **KG2RAG**: a hybrid that combines a vector store
 | Knowledge graph | Neo4j + NetworkX |
 | Embeddings | `sentence-transformers` (local) or OpenAI |
 | API | FastAPI + Uvicorn |
-| UI | Gradio |
+| UI | React + Vite |
 | Database | PostgreSQL via SQLModel + asyncpg; migrations with Alembic |
 | Auth | JWT (PyJWT) + bcrypt |
 | Config | `pydantic-settings`, loaded from `.env` |
@@ -41,7 +41,7 @@ src/
   models.py       Shared pydantic domain models
   domain/         Domain objects: User, Course
   storage/        Repository layer: users_repo, courses_repo
-  services/       Shared services (auth, course) used by API and UI
+  services/       Shared services (auth, course)
   api/
     app.py        FastAPI app entry point; /health and /ask endpoints; chain cache
     routers/      auth, conversations, courses
@@ -53,12 +53,13 @@ src/
     utils/authorization_util.py  Role-based access control helpers
     dependencies.py   FastAPI dependency injection (current user, DB session)
     seed.py       Optional test data seeding (controlled by seed_test_data setting)
-  ui/
-    main_app.py   Root gr.Blocks app; assembles all pages and wires all events
-    pages/        One file per page — each exports build_*_page() and handler functions
-    services/     HTTP clients that call the API (api_client, auth_service, course_service, conversation_service)
-    state.py      App state dict helpers (typed accessors, state mutation functions)
-    router.py     Route constants and visibility update logic
+frontend/
+  src/
+    App.tsx       React Router route tree
+    api/          Typed API clients for FastAPI endpoints
+    contexts/     Authentication state and providers
+    pages/        Route-level React pages
+    components/   Shared React UI components
 ```
 
 ---
@@ -69,16 +70,11 @@ src/
 
 **Chains**: The `/ask` endpoint selects a chain by `mode`. `kg_rag_chain` is the primary chain — it runs KG-expanded retrieval before generation. `no_rag_chain` is a plain LLM fallback. Chains are built lazily and cached in `_chain_cache` in `app.py`.
 
-**UI state**: The Gradio app uses a single flat `dict` passed through `gr.State`. All reads and writes go through typed helpers in `state.py` — never access state keys directly.
+**Frontend state**: The React frontend keeps authentication state in `AuthContext`, server state in TanStack Query, and the JWT token in `localStorage`.
 
-**Page pattern**: Each page in `ui/pages/` exports:
-- A `build_*_page()` function returning a `*PageComponents` dataclass of Gradio components
-- Pure handler functions that take state and inputs, return updated state and component values
-- `main_app.py` owns all `.click()` / `.change()` event wiring
+**Frontend routing**: The UI is a React single-page app. `frontend/src/App.tsx` defines protected routes for auth, dashboard, chat, teacher course pages, admin, and settings.
 
-**Routing**: The UI is a single-page app. `router.py` defines route constants and a `route_visibility_updates()` function that returns `gr.update(visible=...)` for every page group. Navigation is done by mutating the route in state and re-rendering.
-
-**API ↔ UI**: The Gradio UI talks to the FastAPI backend exclusively through `ui/services/api_client.py`. The JWT token from login is stored in `gr.State` and passed with each request.
+**API ↔ UI**: The React frontend talks to the FastAPI backend through typed clients in `frontend/src/api/`. `api/client.ts` attaches the JWT bearer token and handles unauthorized responses.
 
 ---
 
@@ -94,8 +90,9 @@ ingest                 # reads data/documents/, writes to data/chroma/
 # Build the knowledge graph
 ingest-kg              # extracts entities/relations and loads them into Neo4j
 
-# Run the Gradio UI (from project root)
-python -m src.ui.main_app
+# Run the React frontend
+cd frontend
+npm run dev
 
 # Tests
 pytest
@@ -105,11 +102,12 @@ pytest
 
 ## Data flow (RAG request)
 
-1. Student sends a question from the Gradio chat page
-2. UI sends `POST /ask` with `{question, chat_history, mode}` and JWT header
-3. `kg_rag_chain` runs: vector retrieval → KG expansion (hop out from matched chunks in Neo4j) → re-rank/merge context
-4. Augmented context + Socratic prompt template → LLM
-5. LLM response streamed back; UI displays it without revealing sources directly to student
+1. Student sends a question from the React chat page
+2. UI sends `POST /conversations/{conversation_id}/messages` with the JWT header
+3. API persists the human message and invokes the course-scoped KG-RAG chain
+4. `kg_rag_chain` runs: vector retrieval → KG expansion (hop out from matched chunks in Neo4j) → re-rank/merge context
+5. Augmented context + Socratic prompt template → LLM
+6. API stores the AI response and source references; UI displays the response and can fetch sources on demand
 
 ## Important Guidelines
 1. If Codex writes a plan, that plan should be saved for later reference in ai/plans.
