@@ -26,6 +26,12 @@ import { SourcesPanel } from './chat/SourcesPanel'
 import { formatConversationDate } from './chat/format'
 import { chatQueryKeys } from './chat/queryKeys'
 
+interface SendMessageVariables {
+  conversationId: string
+  courseId: string | undefined
+  content: string
+}
+
 export function ChatPage() {
   const { courseId } = useParams<{ courseId?: string }>()
   const navigate = useNavigate()
@@ -87,10 +93,12 @@ export function ChatPage() {
   })
 
   const sendMessageMutation = useMutation({
-    mutationFn: (content: string) => sendMessage(selectedConversationId!, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(selectedConversationId) })
-      queryClient.invalidateQueries({ queryKey: chatQueryKeys.conversations(courseId) })
+    mutationFn: ({ conversationId, content }: SendMessageVariables) => (
+      sendMessage(conversationId, content)
+    ),
+    onSuccess: (_message, variables) => {
+      queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(variables.conversationId) })
+      queryClient.invalidateQueries({ queryKey: chatQueryKeys.conversations(variables.courseId) })
     },
     onError: () => toast.error('Klarte ikke sende melding.'),
   })
@@ -111,9 +119,10 @@ export function ChatPage() {
   const handleSend = useCallback(() => {
     const content = inputValue.trim()
     if (!content || !selectedConversationId || sendMessageMutation.isPending) return
+    const conversationId = selectedConversationId
     setInputValue('')
-    sendMessageMutation.mutate(content)
-  }, [inputValue, selectedConversationId, sendMessageMutation])
+    sendMessageMutation.mutate({ conversationId, courseId, content })
+  }, [courseId, inputValue, selectedConversationId, sendMessageMutation])
 
   function handlePromptModeChange(mode: SystemPromptMode) {
     setPromptMode(mode)
@@ -126,6 +135,10 @@ export function ChatPage() {
 
   const conversations = conversationsQuery.data?.items ?? []
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
+  const isSendingSelectedConversation = (
+    sendMessageMutation.isPending &&
+    sendMessageMutation.variables?.conversationId === selectedConversationId
+  )
 
   return (
     <Layout>
@@ -184,7 +197,7 @@ export function ChatPage() {
             selectedConversationId={selectedConversationId}
             messages={displayMessages}
             isLoadingMessages={messagesQuery.isLoading}
-            isSendingMessage={sendMessageMutation.isPending}
+            isSendingMessage={isSendingSelectedConversation}
             activeSourceMessageId={activeSourceMessageId}
             messagesEndRef={messagesEndRef}
             onShowSources={handleShowSources}
