@@ -35,7 +35,7 @@ interface SendMessageVariables {
 export function ChatPage() {
   const { courseId } = useParams<{ courseId?: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const queryClient = useQueryClient()
 
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
@@ -105,7 +105,14 @@ export function ChatPage() {
 
   const promptModeMutation = useMutation({
     mutationFn: updateSystemPromptMode,
-    onError: () => toast.error('Klarte ikke oppdatere modus.'),
+    onSuccess: async (preference) => {
+      setPromptMode(preference.mode)
+      await refreshUser()
+    },
+    onError: () => {
+      toast.error('Klarte ikke oppdatere modus.')
+      setPromptMode(user?.system_prompt_mode ?? 1)
+    },
   })
 
   const displayMessages = messagesQuery.data
@@ -115,6 +122,10 @@ export function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [displayMessages.length])
+
+  useEffect(() => {
+    setPromptMode(user?.system_prompt_mode ?? 1)
+  }, [user?.system_prompt_mode])
 
   const handleSend = useCallback(() => {
     const content = inputValue.trim()
