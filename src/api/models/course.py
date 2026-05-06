@@ -8,6 +8,12 @@ from sqlmodel import Field, SQLModel
 
 
 class Course(SQLModel, table=True):
+    """A course offered on the platform, backed by a ChromaDB collection for RAG.
+
+    The active vector/KG scope is tracked via ``chroma_collection`` and ``index_version``;
+    re-ingestion builds a new partition and swaps it in atomically on success.
+    """
+
     __tablename__ = "course"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

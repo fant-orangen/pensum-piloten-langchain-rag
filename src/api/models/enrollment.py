@@ -8,6 +8,12 @@ from sqlmodel import Field, SQLModel
 
 
 class CourseEnrollment(SQLModel, table=True):
+    """Many-to-many join between User and Course carrying a per-course role.
+
+    The course-level role (student/teacher) is independent of the user's global_role
+    and controls permissions within a single course only.
+    """
+
     __tablename__ = "course_enrollment"
     # Prevent a user from being enrolled in the same course more than once.
     __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_enrollment"),)

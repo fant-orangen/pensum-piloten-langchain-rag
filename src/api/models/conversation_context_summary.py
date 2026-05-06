@@ -9,6 +9,12 @@ from sqlmodel import Field, SQLModel
 
 
 class ConversationContextSummary(SQLModel, table=True):
+    """One-to-one rolling summary of a conversation, appended to the system prompt.
+
+    Uses ``conversation_id`` as its primary key to enforce the one-to-one constraint.
+    The summary is updated incrementally as the conversation grows to keep token usage bounded.
+    """
+
     __tablename__ = "conversation_context_summary"
 
     conversation_id: uuid.UUID = Field(

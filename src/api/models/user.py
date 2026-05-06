@@ -7,6 +7,12 @@ from sqlmodel import Field, SQLModel
 
 
 class User(SQLModel, table=True):
+    """Platform user authenticated via email and password.
+
+    Holds a platform-wide role (student/teacher/admin) separate from any
+    course-level role, and a tutoring style preference used to shape the system prompt.
+    """
+
     __tablename__ = "app_user"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
