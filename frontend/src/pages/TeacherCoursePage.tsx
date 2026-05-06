@@ -1,48 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft,
-  Eye,
-  RefreshCw,
-  Trash2,
-  Upload,
-  UserPlus,
-  FileText,
-  CheckCircle,
-  AlertTriangle,
-} from 'lucide-react'
-import toast from 'react-hot-toast'
-import { format } from 'date-fns'
-import { nb } from 'date-fns/locale'
-import clsx from 'clsx'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowLeft, Eye } from 'lucide-react'
 import { Layout } from '../components/Layout'
-import { Spinner } from '../components/Spinner'
-import { DocumentStatusBadge, RebuildStatusBadge } from '../components/Badge'
-import { ConfirmDialog } from '../components/ConfirmDialog'
-import {
-  getCourseStudents,
-  enrollStudent,
-  unenrollStudent,
-  previewEnrollmentImport,
-  confirmEnrollmentImport,
-  cancelEnrollmentImport,
-  getCourseDocuments,
-  uploadDocuments,
-  uploadZip,
-  deleteDocument,
-  deleteAllDocuments,
-  getDocumentsStatus,
-  confirmIngestion,
-  getCourseInstructions,
-  updateCourseInstructions,
-  getResponsibleCourses,
-} from '../api/courses'
-import type {
-  CourseStudentRead,
-  CourseDocumentRead,
-  EnrollmentImportPreviewRead,
-} from '../types'
+import { getResponsibleCourses } from '../api/courses'
+import { InstructionsTab } from './teacher-course/InstructionsTab'
+import { MaterialsTab } from './teacher-course/MaterialsTab'
+import { StudentsTab } from './teacher-course/StudentsTab'
+import { courseQueryKeys } from './teacher-course/queryKeys'
+import { TEACHER_COURSE_TABS, type TeacherCourseTab } from './teacher-course/types'
 
 type Tab = 'students' | 'materials' | 'instructions'
 
@@ -130,21 +96,12 @@ function StudentsTab({ courseId }: StudentsTabProps) {
     onError: () => toast.error('Klarte ikke bekrefte import.'),
   })
 
-  const cancelImportMutation = useMutation({
-    mutationFn: () => cancelEnrollmentImport(courseId, preview!.preview_id),
-    onSuccess: () => {
-      setPreview(null)
-      setCsvFile(null)
-    },
-    onError: () => toast.error('Klarte ikke avbryte import.'),
+  const coursesQuery = useQuery({
+    queryKey: courseQueryKeys.responsibleCourses,
+    queryFn: getResponsibleCourses,
   })
 
-  function handleEnroll(e: React.FormEvent) {
-    e.preventDefault()
-    setEnrollError('')
-    if (!enrollEmail.trim()) { setEnrollError('E-post er påkrevd.'); return }
-    enrollMutation.mutate(enrollEmail.trim())
-  }
+  const course = coursesQuery.data?.find((c) => c.id === courseId)
 
   function handleCsvFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null
@@ -316,12 +273,11 @@ function StudentsTab({ courseId }: StudentsTabProps) {
 
           {csvFile && !preview && (
             <button
-              onClick={() => previewMutation.mutate(csvFile)}
-              disabled={previewMutation.isPending}
-              className="btn-secondary"
+              onClick={() => navigate('/')}
+              className="mb-4 flex items-center gap-1.5 rounded text-sm text-gray-500 transition-colors hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"
             >
-              {previewMutation.isPending && <Spinner size="sm" />}
-              Forhåndsvis import
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Tilbake til dashboard
             </button>
           )}
 
@@ -677,24 +633,34 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
           <div className="flex gap-2">
             {selectedDocIds.size > 0 && (
               <button
-                onClick={deleteSelected}
-                className="btn-danger text-xs py-1.5"
+                onClick={() => navigate(`/chat/${courseId}`)}
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-indigo-400 hover:bg-gray-50 hover:text-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"
               >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                Slett valgte ({selectedDocIds.size})
+                <Eye className="h-4 w-4" aria-hidden="true" />
+                Se som student
               </button>
-            )}
-            {documents.length > 0 && (
-              <button
-                onClick={() => setConfirmDeleteAll(true)}
-                className="btn-secondary text-xs py-1.5"
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                Slett alle
-              </button>
-            )}
+            </div>
           </div>
-        </div>
+
+          <div
+            role="tablist"
+            aria-label="Emneadministrasjon"
+            className="mb-6 flex border-b border-gray-200"
+          >
+            {TEACHER_COURSE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`${tab.id}-panel`}
+                id={`${tab.id}-tab`}
+                onClick={() => setActiveTab(tab.id)}
+                className={`tab-button mr-1 ${activeTab === tab.id ? 'tab-button-active' : 'tab-button-inactive'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
         {documentsQuery.isLoading && (
           <div className="flex items-center gap-3 text-gray-500">
@@ -766,210 +732,23 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
               </tbody>
             </table>
           </div>
-        )}
-      </section>
-
-      <ConfirmDialog
-        open={confirmDeleteAll}
-        title="Slett alle dokumenter"
-        description="Er du sikker på at du vil slette alle dokumenter i dette emnet? Denne handlingen kan ikke angres."
-        confirmLabel="Slett alle"
-        variant="danger"
-        onConfirm={() => { setConfirmDeleteAll(false); deleteAllMutation.mutate() }}
-        onCancel={() => setConfirmDeleteAll(false)}
-      />
-    </div>
-  )
-}
-
-// ─── Instructions Tab ─────────────────────────────────────────────────────────
-
-interface InstructionsTabProps {
-  courseId: string
-}
-
-const MAX_INSTRUCTIONS_CHARS = 3000
-
-function InstructionsTab({ courseId }: InstructionsTabProps) {
-  const queryClient = useQueryClient()
-  const [instructions, setInstructions] = useState('')
-  const [loaded, setLoaded] = useState(false)
-
-  const instructionsQuery = useQuery({
-    queryKey: ['course-instructions', courseId],
-    queryFn: () => getCourseInstructions(courseId),
-  })
-
-  useEffect(() => {
-    if (instructionsQuery.data && !loaded) {
-      setInstructions(instructionsQuery.data.course_specific_instructions ?? '')
-      setLoaded(true)
-    }
-  }, [instructionsQuery.data, loaded])
-
-  const saveMutation = useMutation({
-    mutationFn: (text: string) => updateCourseInstructions(courseId, text),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course-instructions', courseId] })
-      toast.success('Instruksjoner lagret!')
-    },
-    onError: () => toast.error('Klarte ikke lagre instruksjoner.'),
-  })
-
-  const charsLeft = MAX_INSTRUCTIONS_CHARS - instructions.length
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label htmlFor="course-instructions" className="label mb-2">
-          Emnespesifikke instruksjoner
-        </label>
-        <p className="mb-3 text-sm text-gray-500">
-          Disse instruksjonene brukes av AI-assistenten for å tilpasse svar til emnet. Du kan for
-          eksempel beskrive fagets temaer, pensum, eller pedagogiske mål.
-        </p>
-        {instructionsQuery.isLoading ? (
-          <div className="flex items-center gap-3 text-gray-500">
-            <Spinner size="sm" className="text-indigo-600" />
-            <span>Laster instruksjoner...</span>
-          </div>
-        ) : (
-          <>
-            <textarea
-              id="course-instructions"
-              rows={14}
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value.slice(0, MAX_INSTRUCTIONS_CHARS))}
-              className="input-field resize-none font-mono text-xs"
-              placeholder="Beskriv fagets innhold, mål og pedagogiske tilnærming..."
-              aria-describedby="chars-left"
-            />
-            <p
-              id="chars-left"
-              className={clsx(
-                'mt-1.5 text-right text-xs',
-                charsLeft < 200 ? 'text-orange-600' : 'text-gray-400'
-              )}
-            >
-              {charsLeft} tegn igjen
-            </p>
-          </>
-        )}
-      </div>
-
-      <button
-        onClick={() => saveMutation.mutate(instructions)}
-        disabled={saveMutation.isPending || instructionsQuery.isLoading}
-        className="btn-primary"
-      >
-        {saveMutation.isPending && <Spinner size="sm" />}
-        Lagre instruksjoner
-      </button>
-    </div>
-  )
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-
-export function TeacherCoursePage() {
-  const { courseId } = useParams<{ courseId: string }>()
-  const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<Tab>('students')
-
-  const coursesQuery = useQuery({
-    queryKey: ['responsible-courses'],
-    queryFn: getResponsibleCourses,
-  })
-
-  const course = coursesQuery.data?.find((c) => c.id === courseId)
-
-  if (!courseId) return null
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'students', label: 'Studenter' },
-    { id: 'materials', label: 'Læringsmateriell' },
-    { id: 'instructions', label: 'Instruksjoner' },
-  ]
-
-  return (
-    <Layout>
-      <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/')}
-            className="mb-4 flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 rounded transition-colors"
+          <div
+            role="tabpanel"
+            id="materials-panel"
+            aria-labelledby="materials-tab"
+            hidden={activeTab !== 'materials'}
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Tilbake til dashboard
-          </button>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {course ? course.name : 'Emneadministrasjon'}
-              </h1>
-              {course && (
-                <p className="mt-1 font-mono text-sm text-gray-500">{course.code}</p>
-              )}
-            </div>
-            <button
-              onClick={() => navigate(`/chat/${courseId}`)}
-              className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-indigo-400 hover:text-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600 transition-colors"
-            >
-              <Eye className="h-4 w-4" aria-hidden="true" />
-              Se som student
-            </button>
+            {activeTab === 'materials' && <MaterialsTab courseId={courseId} />}
+          </div>
+          <div
+            role="tabpanel"
+            id="instructions-panel"
+            aria-labelledby="instructions-tab"
+            hidden={activeTab !== 'instructions'}
+          >
+            {activeTab === 'instructions' && <InstructionsTab courseId={courseId} />}
           </div>
         </div>
-
-        {/* Tabs */}
-        <div
-          role="tablist"
-          aria-label="Emneadministrasjon"
-          className="mb-6 flex border-b border-gray-200"
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              aria-controls={`${tab.id}-panel`}
-              id={`${tab.id}-tab`}
-              onClick={() => setActiveTab(tab.id)}
-              className={`tab-button mr-1 ${activeTab === tab.id ? 'tab-button-active' : 'tab-button-inactive'}`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab panels */}
-        <div
-          role="tabpanel"
-          id="students-panel"
-          aria-labelledby="students-tab"
-          hidden={activeTab !== 'students'}
-        >
-          {activeTab === 'students' && <StudentsTab courseId={courseId} />}
-        </div>
-        <div
-          role="tabpanel"
-          id="materials-panel"
-          aria-labelledby="materials-tab"
-          hidden={activeTab !== 'materials'}
-        >
-          {activeTab === 'materials' && <MaterialsTab courseId={courseId} />}
-        </div>
-        <div
-          role="tabpanel"
-          id="instructions-panel"
-          aria-labelledby="instructions-tab"
-          hidden={activeTab !== 'instructions'}
-        >
-          {activeTab === 'instructions' && <InstructionsTab courseId={courseId} />}
-        </div>
-      </div>
       </div>
     </Layout>
   )
