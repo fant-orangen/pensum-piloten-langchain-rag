@@ -54,6 +54,18 @@ function formatDate(dateStr: string): string {
   }
 }
 
+function truncateFilename(name: string, maxLength = 60): string {
+  if (name.length <= maxLength) {
+    return name
+  }
+
+  const visibleChars = maxLength - 1
+  const startLength = Math.ceil(visibleChars * 0.6)
+  const endLength = Math.floor(visibleChars * 0.4)
+
+  return `${name.slice(0, startLength)}…${name.slice(-endLength)}`
+}
+
 // ─── Students Tab ────────────────────────────────────────────────────────────
 
 interface StudentsTabProps {
@@ -132,6 +144,13 @@ function StudentsTab({ courseId }: StudentsTabProps) {
     setEnrollError('')
     if (!enrollEmail.trim()) { setEnrollError('E-post er påkrevd.'); return }
     enrollMutation.mutate(enrollEmail.trim())
+  }
+
+  function handleCsvFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null
+    setCsvFile(file)
+    setPreview(null)
+    e.target.value = ''
   }
 
   const students: CourseStudentRead[] = studentsQuery.data?.items ?? []
@@ -255,6 +274,31 @@ function StudentsTab({ courseId }: StudentsTabProps) {
           Importer fra CSV
         </h2>
         <div className="space-y-3">
+          <div className="rounded-lg border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900">Slik fungerer CSV-import</h3>
+            <div className="mt-2 space-y-3 text-sm text-gray-600">
+              <p>
+                Last opp en CSV-fil hvis du vil melde opp flere studenter samtidig.
+                Systemet viser alltid en forhåndsvisning før noe lagres, slik at du kan
+                kontrollere resultatet før du trykker <span className="font-medium text-gray-900">Bekreft import</span>.
+              </p>
+              <p>
+                Hver rad må ha e-postadresse i første kolonne. Du kan i tillegg legge til
+                fornavn i kolonne 2 og etternavn i kolonne 3. Overskriftsrad er valgfri,
+                tomme rader ignoreres, og duplikater eller ugyldige e-poster vises i
+                forhåndsvisningen i stedet for å bli importert.
+              </p>
+              <div className="rounded-md bg-gray-50 px-3 py-3 font-mono text-xs text-gray-700">
+                <p>email,fornavn,etternavn</p>
+                <p>ola@example.com,Ola,Nordmann</p>
+                <p>kari@example.com,Kari,Nordmann</p>
+              </div>
+              <p className="text-xs text-gray-500">
+                Tips: Lagre filen som CSV med UTF-8-koding for best resultat.
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3">
             <label htmlFor="csv-file" className="btn-secondary cursor-pointer">
               <Upload className="h-4 w-4" aria-hidden="true" />
@@ -265,11 +309,7 @@ function StudentsTab({ courseId }: StudentsTabProps) {
               type="file"
               accept=".csv"
               className="sr-only"
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null
-                setCsvFile(file)
-                setPreview(null)
-              }}
+              onChange={handleCsvFileInput}
             />
             {csvFile && <span className="text-sm text-gray-600">{csvFile.name}</span>}
           </div>
@@ -359,6 +399,13 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
 
+  async function refreshMaterialsQueries() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] }),
+      queryClient.invalidateQueries({ queryKey: ['course-documents-status', courseId] }),
+    ])
+  }
+
   const documentsQuery = useQuery({
     queryKey: ['course-documents', courseId],
     queryFn: () => getCourseDocuments(courseId),
@@ -375,8 +422,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const uploadMutation = useMutation({
     mutationFn: (files: File[]) => uploadDocuments(courseId, files),
-    onSuccess: (docs) => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async (docs) => {
+      await refreshMaterialsQueries()
       toast.success(`${docs.length} fil(er) lastet opp.`)
     },
     onError: () => toast.error('Filopplasting feilet.'),
@@ -384,8 +431,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const uploadZipMutation = useMutation({
     mutationFn: (file: File) => uploadZip(courseId, file),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async (result) => {
+      await refreshMaterialsQueries()
       toast.success(
         `ZIP-import: ${result.staged_count} klargjort${result.skipped_count > 0 ? `, ${result.skipped_count} hoppet over` : ''}.`
       )
@@ -395,8 +442,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const deleteDocMutation = useMutation({
     mutationFn: (docId: string) => deleteDocument(courseId, docId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async () => {
+      await refreshMaterialsQueries()
       toast.success('Dokument fjernet.')
     },
     onError: () => toast.error('Klarte ikke fjerne dokument.'),
@@ -404,8 +451,8 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
   const deleteAllMutation = useMutation({
     mutationFn: () => deleteAllDocuments(courseId),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    onSuccess: async (result) => {
+      await refreshMaterialsQueries()
       setSelectedDocIds(new Set())
       toast.success(`${result.removed} dokument(er) fjernet.`)
     },
@@ -468,7 +515,7 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
     for (const id of selectedDocIds) {
       await deleteDocument(courseId, id)
     }
-    queryClient.invalidateQueries({ queryKey: ['course-documents', courseId] })
+    await refreshMaterialsQueries()
     setSelectedDocIds(new Set())
     toast.success('Valgte dokumenter fjernet.')
   }
@@ -529,12 +576,34 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
         <div className="mt-4">
           <button
             onClick={() => confirmMutation.mutate()}
-            disabled={confirmMutation.isPending || !status || (status.pending_additions === 0 && status.pending_removals === 0)}
+            disabled={
+              isUploading ||
+              confirmMutation.isPending ||
+              !status ||
+              (status.pending_additions === 0 && status.pending_removals === 0)
+            }
             className="btn-primary"
           >
             {confirmMutation.isPending && <Spinner size="sm" />}
             Start innlesing
           </button>
+        </div>
+      </section>
+
+      <section aria-labelledby="upload-file-types-heading" className="rounded-lg border border-gray-200 p-4">
+        <h2 id="upload-file-types-heading" className="text-sm font-semibold text-gray-900">
+          Hva kan du laste opp?
+        </h2>
+        <div className="mt-2 space-y-2 text-sm text-gray-600">
+          <p>
+            Systemet fungerer best med vanlige dokumenter og tekstbaserte filer, som
+            PDF, Word-dokumenter (.docx), tekstfiler, Markdown og enkle tabellfiler
+            som CSV.
+          </p>
+          <p>
+            Du kan også laste opp en ZIP-fil hvis du vil sende inn flere støttede filer
+            samtidig. Bilder, video og lyd støttes ikke i innlesingen.
+          </p>
         </div>
       </section>
 
@@ -640,7 +709,7 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
 
         {documents.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-gray-200">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="w-10 px-4 py-3">
@@ -653,9 +722,9 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
                     />
                   </th>
                   <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Filnavn</th>
-                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                  <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Dato</th>
-                  <th scope="col" className="px-4 py-3 text-right font-medium text-gray-600">Handling</th>
+                  <th scope="col" className="w-36 px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                  <th scope="col" className="w-24 px-4 py-3 text-left font-medium text-gray-600">Dato</th>
+                  <th scope="col" className="w-24 px-4 py-3 text-right font-medium text-gray-600">Handling</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
@@ -670,7 +739,14 @@ function MaterialsTab({ courseId }: MaterialsTabProps) {
                         className="rounded accent-indigo-600"
                       />
                     </td>
-                    <td className="px-4 py-3 text-gray-900 font-mono text-xs">{doc.original_filename}</td>
+                    <td className="px-4 py-3">
+                      <div
+                        className="block min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-gray-900"
+                        title={doc.original_filename}
+                      >
+                        {truncateFilename(doc.original_filename)}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <DocumentStatusBadge status={doc.status} />
                     </td>
