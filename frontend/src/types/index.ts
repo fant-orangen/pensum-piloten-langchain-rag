@@ -36,7 +36,6 @@ export interface CourseCreate {
   name: string
   code: string
   chroma_collection?: string
-  documents_dir: string
   description?: string
   course_specific_instructions?: string
 }

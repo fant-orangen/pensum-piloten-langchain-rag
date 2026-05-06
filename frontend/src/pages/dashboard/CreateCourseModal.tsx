@@ -21,7 +21,6 @@ export function CreateCourseModal({
   const [code, setCode] = useState('')
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false)
   const [description, setDescription] = useState('')
-  const [documentsDir, setDocumentsDir] = useState('')
   const [formError, setFormError] = useState('')
 
   function handleNameChange(value: string) {
@@ -29,14 +28,12 @@ export function CreateCourseModal({
     if (!codeManuallyEdited) {
       const derived = deriveCourseCode(value)
       setCode(derived)
-      setDocumentsDir(`data/documents/${derived.toLowerCase()}`)
     }
   }
 
   function handleCodeChange(value: string) {
     setCode(value)
     setCodeManuallyEdited(true)
-    setDocumentsDir(`data/documents/${value.toLowerCase()}`)
   }
 
   function handleSubmit(e: FormEvent) {
@@ -44,12 +41,10 @@ export function CreateCourseModal({
     setFormError('')
     if (!name.trim()) { setFormError('Emnenavn er påkrevd.'); return }
     if (!code.trim()) { setFormError('Emnekode er påkrevd.'); return }
-    if (!documentsDir.trim()) { setFormError('Dokumentmappe er påkrevd.'); return }
     onSubmit({
       name: name.trim(),
       code: code.trim(),
       description: description.trim() || undefined,
-      documents_dir: documentsDir.trim(),
     })
   }
 
@@ -120,20 +115,6 @@ export function CreateCourseModal({
               onChange={(e) => setDescription(e.target.value)}
               className="input-field mt-1 resize-none"
               placeholder="Valgfri beskrivelse av emnet"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="course-docs-dir" className="label">
-              Dokumentmappe <span aria-hidden="true">*</span>
-            </label>
-            <input
-              id="course-docs-dir"
-              type="text"
-              required
-              value={documentsDir}
-              onChange={(e) => setDocumentsDir(e.target.value)}
-              className="input-field mt-1 font-mono text-xs"
             />
           </div>
 
