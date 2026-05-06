@@ -1,2 +1,0 @@
-"""Teacher course tab helpers."""
-

@@ -25,9 +25,9 @@ class CourseCreate(BaseModel):
     name: str
     code: str
     chroma_collection: Optional[str] = None
-    documents_dir: str
     description: Optional[str] = None
     course_specific_instructions: Optional[str] = None
+    model_config = {"extra": "ignore"}
 
 
 class CourseInstructionsUpdate(BaseModel):

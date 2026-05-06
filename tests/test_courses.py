@@ -78,9 +78,8 @@ def main() -> None:
         "name": f"Test Course {RUN_ID}",
         "code": course_code,
         "chroma_collection": f"test_col_{RUN_ID}",
-        "documents_dir": f"docs/test_{RUN_ID}",
     }, token=teacher_token)
-    check(code == 201, "Teacher creates course → 201")
+    check(code == 201, "Teacher creates course without documents_dir → 201")
     check(body is not None and body.get("code") == course_code, "Response contains correct course code")
     course = body
 
@@ -91,7 +90,7 @@ def main() -> None:
         "chroma_collection": f"test_col_second_{RUN_ID}",
         "documents_dir": f"docs/test_second_{RUN_ID}",
     }, token=teacher_token)
-    check(code == 201, "Teacher creates second course → 201")
+    check(code == 201, "Teacher creates second course with legacy documents_dir → 201")
     check(body is not None and body.get("code") == second_course_code, "Second course response contains correct code")
     second_course = body
 
@@ -99,7 +98,6 @@ def main() -> None:
         "name": "Forbidden",
         "code": f"FRB{RUN_ID}",
         "chroma_collection": f"forbidden_{RUN_ID}",
-        "documents_dir": "docs/forbidden",
     }, token=student_token)
     check(code == 403, "Student creates course → 403")
 
@@ -107,7 +105,6 @@ def main() -> None:
         "name": "Duplicate",
         "code": course_code,
         "chroma_collection": f"dup_{RUN_ID}",
-        "documents_dir": "docs/dup",
     }, token=teacher_token)
     check(code == 409, "Duplicate course code → 409")
 
@@ -272,7 +269,6 @@ def main() -> None:
         "name": f"Invalid Ingestion Course {RUN_ID}",
         "code": invalid_course_code,
         "chroma_collection": f"invalid_ingest_{RUN_ID}",
-        "documents_dir": f"docs/invalid_ingest_{RUN_ID}",
     }, token=teacher_token)
     check(code == 201, "Teacher creates invalid-ingestion test course → 201")
     invalid_ingestion_course_id = body["id"] if body else None
@@ -296,7 +292,6 @@ def main() -> None:
         "name": f"Empty Ingestion Course {RUN_ID}",
         "code": empty_course_code,
         "chroma_collection": f"empty_ingest_{RUN_ID}",
-        "documents_dir": f"docs/empty_ingest_{RUN_ID}",
     }, token=teacher_token)
     check(code == 201, "Teacher creates empty-ingestion test course → 201")
     empty_ingestion_course_id = body["id"] if body else None

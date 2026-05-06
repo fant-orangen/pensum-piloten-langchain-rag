@@ -128,11 +128,11 @@ squeue -u $USER   # e.g. NODELIST = idun-04-01
 Then from your **local machine**, open an SSH tunnel through the login node:
 
 ```bash
-ssh -L 8000:<compute-node>:8000 -L 7860:<compute-node>:7860 \
+ssh -L 8000:<compute-node>:8000 \
   $IDUN_USERNAME@$IDUN_LOGIN_NODE
 ```
 
-Open http://localhost:7860 in your browser.
+Call http://localhost:8000/health or point the React frontend at http://localhost:8000.
 The start.sh log will also print this exact command when the job starts.
 
 ### Production: External Access for Students
@@ -155,7 +155,7 @@ LibreChat) and can advise on the best approach.
 | `deploy.sh`           | Rsync project from local machine to IDUN         |
 | `setup_env.sh`        | One-time Python venv and dependency setup        |
 | `build_containers.sh` | Build Apptainer images for PostgreSQL and Neo4j  |
-| `serve.slurm`         | Slurm job: start all services (API + UI + DBs)   |
+| `serve.slurm`         | Slurm job: start backend services (API + DBs)    |
 | `ingest.slurm`        | Slurm job: run document ingestion pipeline       |
 | `start.sh`            | Orchestration script called by serve.slurm       |
 | `postgres.def`        | Apptainer definition for PostgreSQL 16           |

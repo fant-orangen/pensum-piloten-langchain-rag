@@ -26,6 +26,9 @@ idun/logs/
 .idea/
 *.swp
 
+# Node
+node_modules/
+
 # SSH
 ssh
 ssh.pub
