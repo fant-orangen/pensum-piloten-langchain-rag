@@ -12,7 +12,7 @@ COMPUTE_HOST="$(hostname)"
 
 cleanup() {
     echo "==> Shutting down services ..."
-    kill "$API_PID" "$UI_PID" 2>/dev/null || true
+    kill "$API_PID" 2>/dev/null || true
     apptainer instance stop neo4j_inst 2>/dev/null || true
     apptainer instance stop postgres_inst 2>/dev/null || true
     echo "==> All services stopped."
@@ -75,23 +75,17 @@ echo "==> Starting FastAPI backend on port 8000 ..."
 python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000 &
 API_PID=$!
 
-# ── Gradio UI ────────────────────────────────────
-echo "==> Starting Gradio UI on port 7860 ..."
-python scripts/app_ui.py &
-UI_PID=$!
-
 # ── Connection info ──────────────────────────────
 echo ""
 echo "============================================="
 echo " Services running on $COMPUTE_HOST"
 echo "   API:  http://$COMPUTE_HOST:8000"
-echo "   UI:   http://$COMPUTE_HOST:7860"
 echo "   Health: http://$COMPUTE_HOST:8000/health"
 echo ""
 echo " To access from your local machine:"
-echo "   ssh -L 8000:$COMPUTE_HOST:8000 -L 7860:$COMPUTE_HOST:7860 ${IDUN_USERNAME}@${IDUN_LOGIN_NODE}"
-echo "   Then open http://localhost:7860 in your browser."
+echo "   ssh -L 8000:$COMPUTE_HOST:8000 ${IDUN_USERNAME}@${IDUN_LOGIN_NODE}"
+echo "   Then call http://localhost:8000/health or point the frontend at http://localhost:8000."
 echo "============================================="
 echo ""
 
-wait $API_PID $UI_PID
+wait $API_PID
