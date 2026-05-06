@@ -45,10 +45,15 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
     },
   })
 
+  function invalidateMaterialQueries() {
+    void queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+    void queryClient.invalidateQueries({ queryKey: courseQueryKeys.documentStatus(courseId) })
+  }
+
   const uploadMutation = useMutation({
     mutationFn: (files: File[]) => uploadDocuments(courseId, files),
     onSuccess: (docs) => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      invalidateMaterialQueries()
       toast.success(`${docs.length} fil(er) lastet opp.`)
     },
     onError: () => toast.error('Filopplasting feilet.'),
@@ -57,7 +62,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
   const uploadZipMutation = useMutation({
     mutationFn: (file: File) => uploadZip(courseId, file),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      invalidateMaterialQueries()
       toast.success(
         `ZIP-import: ${result.staged_count} klargjort${result.skipped_count > 0 ? `, ${result.skipped_count} hoppet over` : ''}.`
       )
@@ -68,7 +73,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
   const deleteDocMutation = useMutation({
     mutationFn: (docId: string) => deleteDocument(courseId, docId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      invalidateMaterialQueries()
       toast.success('Dokument fjernet.')
     },
     onError: () => toast.error('Klarte ikke fjerne dokument.'),
@@ -79,7 +84,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
       await Promise.all(docIds.map((docId) => deleteDocument(courseId, docId)))
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      invalidateMaterialQueries()
       setSelectedDocIds(new Set())
       toast.success('Valgte dokumenter fjernet.')
     },
@@ -89,7 +94,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
   const deleteAllMutation = useMutation({
     mutationFn: () => deleteAllDocuments(courseId),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      invalidateMaterialQueries()
       setSelectedDocIds(new Set())
       toast.success(`${result.removed} dokument(er) fjernet.`)
     },
@@ -99,7 +104,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
   const confirmMutation = useMutation({
     mutationFn: () => confirmIngestion(courseId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documentStatus(courseId) })
+      invalidateMaterialQueries()
       toast.success('Innlesing startet!')
     },
     onError: () => toast.error('Klarte ikke starte innlesing.'),
