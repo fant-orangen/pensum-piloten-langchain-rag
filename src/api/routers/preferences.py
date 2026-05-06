@@ -1,4 +1,4 @@
-"""Preferences endpoints."""
+"""Preferences endpoints — user-configurable tutoring style (system prompt mode)."""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession

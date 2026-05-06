@@ -1,4 +1,8 @@
-"""Course endpoints."""
+"""Course endpoints — course CRUD, enrollment management, and document ingestion.
+
+Includes sub-resources for source documents (upload, stage, rebuild),
+enrollment imports (CSV preview/confirm), and course-specific prompt instructions.
+"""
 
 import uuid
 
