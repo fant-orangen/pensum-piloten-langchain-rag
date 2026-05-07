@@ -32,6 +32,7 @@ from src.api.utils import (
     log_course_material_rebuild_missing_course,
     log_course_material_rebuild_step,
 )
+from src.api.utils.logging_util import ServiceLogger
 from src.config import get_settings
 from src.config.settings import PROJECT_ROOT
 from src.ingestion.chunker import chunk_documents
@@ -599,6 +600,69 @@ async def _set_rebuild_failure(
         await db.commit()
 
 
+def _delete_course_scope(scope: str) -> None:
+    """Delete both persisted retrieval stores for a course material scope."""
+    delete_vectorstore(scope)
+    kg_store = KGStore()
+    try:
+        kg_store.clear(scope)
+    finally:
+        kg_store.close()
+
+
+async def _cleanup_failed_target_scope(
+    target_scope: str | None,
+    rebuild_logger: ServiceLogger,
+) -> None:
+    """Best-effort cleanup for a candidate scope that failed before activation."""
+    if target_scope is None:
+        return
+    try:
+        await asyncio.to_thread(_delete_course_scope, target_scope)
+    except Exception as cleanup_exc:
+        rebuild_logger.warning(
+            "course_material_rebuild_failed_target_cleanup_failed",
+            target_scope=target_scope,
+            error=str(cleanup_exc),
+        )
+
+
+async def _cleanup_after_activation(
+    *,
+    removed_paths: list[Path],
+    old_scope: str | None,
+    target_scope: str | None,
+    rebuild_logger: ServiceLogger,
+) -> None:
+    """Clean old files and retrieval stores after the new scope is active.
+
+    This cleanup runs only after the database has committed the new active
+    scope, so failures here must not trigger deletion of ``target_scope``.
+    """
+    cleanup_errors: list[str] = []
+    for removed_path in removed_paths:
+        if removed_path.exists():
+            try:
+                removed_path.unlink(missing_ok=True)
+            except Exception as exc:
+                cleanup_errors.append(f"failed to remove {removed_path}: {exc}")
+
+    if old_scope and old_scope != target_scope:
+        log_course_material_rebuild_step(
+            rebuild_logger,
+            step="cleanup_old_scope",
+            old_scope=old_scope,
+            target_scope=target_scope,
+        )
+        try:
+            await asyncio.to_thread(_delete_course_scope, old_scope)
+        except Exception as exc:
+            cleanup_errors.append(f"failed to cleanup old scope {old_scope}: {exc}")
+
+    if cleanup_errors:
+        raise RuntimeError("; ".join(cleanup_errors))
+
+
 async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
     """Build a new course-scoped vector/KG partition and swap it in atomically."""
     session_factory = get_session_factory()
@@ -606,6 +670,7 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
     target_scope: str | None = None
     old_scope: str | None = None
     removed_paths: list[Path] = []
+    activated = False
 
     try:
         async with session_factory() as db:
@@ -731,37 +796,22 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             course.rebuild_error = None
             db.add(course)
             await db.commit()
+            activated = True
 
-        for removed_path in removed_paths:
-            if removed_path.exists():
-                removed_path.unlink(missing_ok=True)
-
-        if old_scope and old_scope != target_scope:
-            log_course_material_rebuild_step(
-                rebuild_logger,
-                step="cleanup_old_scope",
+        try:
+            await _cleanup_after_activation(
+                removed_paths=removed_paths,
                 old_scope=old_scope,
                 target_scope=target_scope,
+                rebuild_logger=rebuild_logger,
             )
-            await asyncio.to_thread(delete_vectorstore, old_scope)
-            kg_store = KGStore()
-            try:
-                await asyncio.to_thread(kg_store.clear, old_scope)
-            finally:
-                kg_store.close()
-        elif old_scope and target_scope is None:
-            log_course_material_rebuild_step(
-                rebuild_logger,
-                step="cleanup_old_scope",
+        except Exception as cleanup_exc:
+            rebuild_logger.warning(
+                "course_material_rebuild_cleanup_failed",
                 old_scope=old_scope,
-                target_scope=None,
+                target_scope=target_scope,
+                error=str(cleanup_exc),
             )
-            await asyncio.to_thread(delete_vectorstore, old_scope)
-            kg_store = KGStore()
-            try:
-                await asyncio.to_thread(kg_store.clear, old_scope)
-            finally:
-                kg_store.close()
 
         log_course_material_rebuild(
             rebuild_logger,
@@ -772,13 +822,8 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
         )
     except Exception as exc:
         log_course_material_rebuild_failed(rebuild_logger, error=exc)
-        if target_scope is not None:
-            await asyncio.to_thread(delete_vectorstore, target_scope)
-            kg_store = KGStore()
-            try:
-                await asyncio.to_thread(kg_store.clear, target_scope)
-            finally:
-                kg_store.close()
+        if not activated:
+            await _cleanup_failed_target_scope(target_scope, rebuild_logger)
         await _set_rebuild_failure(course_id, str(exc))
 
 
