@@ -21,6 +21,14 @@ class CourseRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CourseSummaryRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    code: str
+
+    model_config = {"from_attributes": True}
+
+
 class CourseCreate(BaseModel):
     name: str
     code: str
