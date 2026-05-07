@@ -1,9 +1,12 @@
 """Unit tests for ingestion from staged course document files."""
 
+import io
 import uuid
+import zipfile
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 from src.api.models.course import Course
 from src.api.models.course_document import CourseDocument
@@ -74,6 +77,78 @@ class _FakeSessionContext:
         _traceback: object,
     ) -> None:
         return None
+
+
+class _FakeUpload:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def read(self, _size: int = -1) -> bytes:
+        if not self._chunks:
+            return b""
+        return self._chunks.pop(0)
+
+
+def _zip_bytes(files: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for filename, content in files.items():
+            zf.writestr(filename, content)
+    return buffer.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_read_upload_limited_rejects_oversized_payload() -> None:
+    upload = _FakeUpload([b"abc", b"def"])
+
+    with pytest.raises(HTTPException) as exc_info:
+        await course_documents._read_upload_limited(
+            upload,
+            max_bytes=5,
+            label="Uploaded file",
+        )
+
+    assert exc_info.value.status_code == 413
+
+
+def test_extract_zip_files_rejects_excessive_total_expansion() -> None:
+    archive = _zip_bytes({"large.txt": b"a" * 20})
+
+    with pytest.raises(HTTPException) as exc_info:
+        course_documents._extract_zip_files(
+            archive,
+            10,
+            _collected=[],
+            _skipped=[],
+            max_file_bytes=100,
+            max_total_uncompressed_bytes=10,
+            max_archive_bytes=1024,
+            max_compression_ratio=100,
+            _total_uncompressed=[0],
+        )
+
+    assert exc_info.value.status_code == 413
+
+
+def test_extract_zip_files_skips_oversized_member_without_collecting_it() -> None:
+    archive = _zip_bytes({"large.txt": b"a" * 20, "small.txt": b"ok"})
+    collected: list[tuple[str, bytes]] = []
+    skipped: list[str] = []
+
+    course_documents._extract_zip_files(
+        archive,
+        10,
+        _collected=collected,
+        _skipped=skipped,
+        max_file_bytes=10,
+        max_total_uncompressed_bytes=100,
+        max_archive_bytes=1024,
+        max_compression_ratio=100,
+        _total_uncompressed=[0],
+    )
+
+    assert collected == [("small.txt", b"ok")]
+    assert skipped == ["large.txt"]
 
 
 @pytest.mark.asyncio
