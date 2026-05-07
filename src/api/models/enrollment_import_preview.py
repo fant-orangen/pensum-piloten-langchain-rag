@@ -8,6 +8,12 @@ from sqlmodel import Field, SQLModel
 
 
 class EnrollmentImportPreview(SQLModel, table=True):
+    """Staged bulk enrollment import parsed from a CSV upload, pending teacher review.
+
+    Holds candidate emails and a name map as JSON so the teacher can inspect and
+    confirm before the records are committed as real CourseEnrollment rows.
+    """
+
     __tablename__ = "enrollment_import_preview"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

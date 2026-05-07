@@ -1,4 +1,8 @@
-"""Conversation endpoints."""
+"""Conversation endpoints — CRUD for conversations and their messages.
+
+All endpoints are scoped to the authenticated user; only the conversation
+owner may read, write, rename, or delete a conversation and its messages.
+"""
 
 import uuid
 
@@ -70,26 +74,9 @@ async def get_message_sources(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[MessageSourceRead]:
-    """
-    Retrieve the resolved knowledge source chunks (e.g., document excerpts, context sources)
-    that were retrieved and attached to a specific message during AI generation.
+    """Return the RAG source chunks attached to an AI message.
 
-    - Only the conversation owner may access message sources.
-    - Sources correspond to supporting context (from RAG retrieval) for an LLM-generated answer.
-    - Message sources are returned as an ordered list, typically matching the retrieval order.
-
-    Parameters:
-        conversation_id (uuid.UUID): Unique identifier for the conversation.
-        message_id (uuid.UUID): Unique identifier for the message.
-        current_user (User, dependency): Currently authenticated user (owner check enforced).
-        db (AsyncSession, dependency): Async database session.
-
-    Returns:
-        list[MessageSourceRead]: List of resolved source chunk models referenced by this message.
-
-    Raises:
-        HTTPException 404: If the conversation, message, or sources are not found or not owned by the user.
-        HTTPException 403: If the user does not own the conversation.
+    Only the conversation owner may access message sources.
     """
     sources = await get_message_sources_for_user(
         conversation_id,

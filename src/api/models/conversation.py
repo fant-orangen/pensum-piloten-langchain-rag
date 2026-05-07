@@ -8,6 +8,13 @@ from sqlmodel import Field, SQLModel
 
 
 class Conversation(SQLModel, table=True):
+    """A chat session owned by a user and scoped to a single course.
+
+    The course binding determines which ChromaDB collection, documents, and
+    knowledge graph are used during retrieval. The tutoring style is fixed at
+    creation time via ``system_prompt_mode``.
+    """
+
     __tablename__ = "conversation"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

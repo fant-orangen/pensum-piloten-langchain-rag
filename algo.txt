@@ -1,0 +1,29 @@
+\begin{algorithm}[H]
+    \caption{KG-augmented retrieval}\label{alg:retrieval}
+    \begin{algorithmic}[1]
+      \Require User query $q$, course scope $s$, parameters $k$, $h$, $n_{\max}$
+      \Ensure Ordered set of context chunks for answer generation
+      \State Embed $q$ and retrieve top-$k$ nearest chunks $S$ from vector store under scope $s$
+      \State Compute similarity scores $\sigma(c) = \frac{1}{1+d(c)}$ for each $c \in S$
+      \State Extract seed chunk identifiers $I_S$ from $S$
+      \State $E \gets$ all edges reachable within $h$ hops from entities touched by $I_S$ in the graph under scope $s$
+      \State $I_E \gets$ chunk ids referenced by $E$ not already in $I_S$
+      \ForAll{$i \in I_E$}
+        \State Retrieve embedding for $i$ from vector store; compute $\sigma(i)$
+      \EndFor
+      \State Build weighted edge set $W$ from $E$, weighting each edge by $\sigma$ of its chunk id
+      \State Deduplicate $W$: keep highest-weight edge per entity pair
+      \State Decompose $W$ into connected components $\{G_1, \dots, G_m\}$
+      \ForAll{components $G_j$}
+        \State Compute maximum spanning tree $T_j$ of $G_j$
+      \EndFor
+      \State Rank components by mean edge weight (descending)
+      \State Collect ordered chunk ids $I_T$ from ranked MST edges
+      \State Truncate $I_T$ to $n_{\max}$ entries, discarding lowest-scored first
+      \State Append any seed ids from $I_S$ not already in $I_T$
+      \State Fetch documents $C$ from vector store by $I_T$ ordering
+      \State Format $C$ into context string with source annotations
+      \State Construct prompt from context, chat history, and teaching-mode instructions
+      \State Invoke LLM and return answer
+    \end{algorithmic}
+  \end{algorithm}

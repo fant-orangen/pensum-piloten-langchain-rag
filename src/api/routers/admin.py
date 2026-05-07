@@ -1,4 +1,4 @@
-"""Admin endpoints."""
+"""Admin endpoints — user listing and role promotion (admin-only)."""
 
 import uuid
 
