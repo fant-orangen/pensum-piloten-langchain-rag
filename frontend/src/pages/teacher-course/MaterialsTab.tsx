@@ -49,6 +49,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
     mutationFn: (files: File[]) => uploadDocuments(courseId, files),
     onSuccess: (docs) => {
       queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documentStatus(courseId) })
       toast.success(`${docs.length} fil(er) lastet opp.`)
     },
     onError: () => toast.error('Filopplasting feilet.'),
@@ -58,6 +59,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
     mutationFn: (file: File) => uploadZip(courseId, file),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documentStatus(courseId) })
       toast.success(
         `ZIP-import: ${result.staged_count} klargjort${result.skipped_count > 0 ? `, ${result.skipped_count} hoppet over` : ''}.`
       )
@@ -69,6 +71,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
     mutationFn: (docId: string) => deleteDocument(courseId, docId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documentStatus(courseId) })
       toast.success('Dokument fjernet.')
     },
     onError: () => toast.error('Klarte ikke fjerne dokument.'),
@@ -80,6 +83,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documentStatus(courseId) })
       setSelectedDocIds(new Set())
       toast.success('Valgte dokumenter fjernet.')
     },
@@ -90,6 +94,7 @@ export function MaterialsTab({ courseId }: MaterialsTabProps) {
     mutationFn: () => deleteAllDocuments(courseId),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: courseQueryKeys.documents(courseId) })
+      queryClient.invalidateQueries({ queryKey: courseQueryKeys.documentStatus(courseId) })
       setSelectedDocIds(new Set())
       toast.success(`${result.removed} dokument(er) fjernet.`)
     },
