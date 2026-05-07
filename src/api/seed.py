@@ -179,6 +179,19 @@ async def seed(db: AsyncSession) -> None:
         global_role="student",
     )
 
+    # --- Additional test students ---
+    test_students = []
+    for i in range(1, 6):
+        ts = await _get_or_create_user(
+            db,
+            email=f"test{i}@test.com",
+            password="password123",
+            first_name=f"Test{i}",
+            last_name="Student",
+            global_role="student",
+        )
+        test_students.append(ts)
+
     # --- Course ---
     course_result = await db.execute(select(Course).where(Course.code == _COURSE_CODE))
     course = course_result.scalars().first()
@@ -289,6 +302,18 @@ async def seed(db: AsyncSession) -> None:
     if teacher2_second_enrollment_result.scalars().first() is None:
         db.add(CourseEnrollment(user_id=teacher2.id, course_id=second_course.id, role="teacher"))
         logger.info("seed_enrolled_teacher2", email=_TEACHER2_EMAIL, course=_SECOND_COURSE_CODE)
+
+    # Additional test students enrolled in TEST101
+    for ts in test_students:
+        ts_enrollment_result = await db.execute(
+            select(CourseEnrollment).where(
+                CourseEnrollment.user_id == ts.id,
+                CourseEnrollment.course_id == course.id,
+            )
+        )
+        if ts_enrollment_result.scalars().first() is None:
+            db.add(CourseEnrollment(user_id=ts.id, course_id=course.id, role="student"))
+            logger.info("seed_enrolled_test_student", email=ts.email, course=_COURSE_CODE)
 
     # Teacher enrolled in TEST102 as student (for UI/role switching flows)
     second_course_teacher_enrollment_result = await db.execute(
