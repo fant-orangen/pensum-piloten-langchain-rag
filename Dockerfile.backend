@@ -7,13 +7,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy everything needed for the install
+# Install dependencies first (cached unless pyproject.toml changes)
 COPY pyproject.toml ./
+RUN pip install --no-cache-dir --only-deps .
+
+# Copy source code and install the project itself
 COPY src/ src/
 COPY scripts/ scripts/
-
-# Install the project and its dependencies
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --no-deps .
 
 # Copy data directory (chroma, course materials, etc.)
 COPY data/ data/
