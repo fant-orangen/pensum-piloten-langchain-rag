@@ -83,6 +83,12 @@ class Settings(BaseSettings):
 
     # --- Zip import ---
     zip_max_files: int = 500  # Maximum number of files extracted from a single zip upload.
+    document_max_file_bytes: int = 25 * 1024 * 1024  # Maximum bytes per uploaded document.
+    document_max_upload_files: int = 50  # Maximum number of files in a direct upload request.
+    document_max_total_upload_bytes: int = 100 * 1024 * 1024  # Maximum direct upload bytes.
+    zip_max_archive_bytes: int = 50 * 1024 * 1024  # Maximum bytes for the zip itself.
+    zip_max_uncompressed_bytes: int = 100 * 1024 * 1024  # Maximum expanded bytes per zip.
+    zip_max_compression_ratio: float = 100.0  # Maximum declared uncompressed/compressed ratio.
 
     # --- Seeding ---
     # Set to true to insert a test course, teacher, and student on startup.

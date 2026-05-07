@@ -21,7 +21,6 @@ from src.api.schemas.pagination import PaginationParams
 from src.api.utils.exception_util import bad_request_error, not_found_error, stage_error
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
 from src.chain import build_kg_rag_chain
-from src.kg.retriever import get_kg_retriever
 
 logger = get_service_logger(__name__)
 
@@ -43,7 +42,9 @@ def _serialize_source_documents(docs: list[Any]) -> list[dict[str, Any]]:
     """Convert retrieved documents into source references for persistence."""
     serialized: list[dict[str, Any]] = []
     for doc in docs:
-        metadata = doc.metadata if hasattr(doc, "metadata") and isinstance(doc.metadata, dict) else {}
+        metadata = (
+            doc.metadata if hasattr(doc, "metadata") and isinstance(doc.metadata, dict) else {}
+        )
         chunk_id = metadata.get("chunk_id")
         if not isinstance(chunk_id, str) or not chunk_id.strip():
             continue
@@ -55,6 +56,22 @@ def _serialize_source_documents(docs: list[Any]) -> list[dict[str, Any]]:
             }
         )
     return serialized
+
+
+def _unpack_chain_result(result: Any) -> tuple[str, list[Any]]:
+    """Extract the answer and exact retrieved docs from the KG-RAG chain result."""
+    if not isinstance(result, dict):
+        raise TypeError("KG-RAG chain returned an invalid result.")
+
+    answer = result.get("answer")
+    if not isinstance(answer, str):
+        raise TypeError("KG-RAG chain result is missing a string answer.")
+
+    source_documents = result.get("source_documents", [])
+    if not isinstance(source_documents, list):
+        raise TypeError("KG-RAG chain result has invalid source documents.")
+
+    return answer, source_documents
 
 
 async def get_conversation_messages(
@@ -74,9 +91,7 @@ async def get_conversation_messages(
     total: int = count_result.scalar_one()
 
     result = await db.execute(
-        base.order_by(Message.created_at.desc())
-        .offset(params.offset)
-        .limit(params.page_size)
+        base.order_by(Message.created_at.desc()).offset(params.offset).limit(params.page_size)
     )
     items = list(result.scalars().all())
 
@@ -145,23 +160,6 @@ async def create_message(
         ) from exc
 
     try:
-        retriever = get_kg_retriever(
-            collection_name=course.chroma_collection,
-            graph_scope=course.chroma_collection,
-        )
-    except Exception as exc:
-        logger.exception(
-            "message_retriever_initialization_failed",
-            conversation_id=conversation.id,
-            collection=course.chroma_collection,
-        )
-        raise stage_error(
-            "message_retriever_initialization_failed",
-            "Failed to initialize the course retriever.",
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        ) from exc
-
-    try:
         (
             conversation_summary,
             summary_created_at,
@@ -184,7 +182,9 @@ async def create_message(
     # Load conversation history in chronological order for the chain.
     history_query = select(Message).where(Message.conversation_id == conversation.id)
     if summary_created_at is not None:
-        history_query = history_query.where(Message.created_at > summary_created_at)  # Only include messages after the summary was created
+        history_query = history_query.where(
+            Message.created_at > summary_created_at
+        )  # Only include messages after the summary was created
     try:
         history_result = await db.execute(history_query.order_by(Message.created_at.asc()))
     except SQLAlchemyError as exc:
@@ -206,26 +206,8 @@ async def create_message(
             conversation_id=conversation.id,
         )
     )
-    # Get serialised sources for the AI message
     try:
-        source_docs = await retriever.ainvoke(content)
-        serialized_sources = _serialize_source_documents(source_docs)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception(
-            "message_context_retrieval_failed",
-            conversation_id=conversation.id,
-            collection=course.chroma_collection,
-        )
-        raise stage_error(
-            "message_context_retrieval_failed",
-            "Failed to retrieve supporting course context for this message.",
-            status_code=status.HTTP_502_BAD_GATEWAY,
-        ) from exc
-
-    try:
-        answer: str = await chain.ainvoke(
+        chain_result = await chain.ainvoke(
             {
                 "question": content,
                 "chat_history": lc_history,
@@ -234,6 +216,8 @@ async def create_message(
                 "conversation_summary": conversation_summary,
             }
         )
+        answer, source_docs = _unpack_chain_result(chain_result)
+        serialized_sources = _serialize_source_documents(source_docs)
     except HTTPException:
         raise
     except Exception as exc:

@@ -5,6 +5,7 @@ import type {
   CourseInstructionsRead,
   CourseRead,
   CourseStudentRead,
+  CourseSummaryRead,
   EnrollmentImportConfirmRead,
   EnrollmentImportPreviewRead,
   EnrollmentRead,
@@ -13,8 +14,8 @@ import type {
 } from '../types'
 import { apiClient } from './client'
 
-export async function getCourse(courseId: string): Promise<CourseRead> {
-  const { data } = await apiClient.get<CourseRead>(`/courses/${courseId}`)
+export async function getCourse(courseId: string): Promise<CourseSummaryRead> {
+  const { data } = await apiClient.get<CourseSummaryRead>(`/courses/${courseId}`)
   return data
 }
 

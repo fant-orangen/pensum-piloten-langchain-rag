@@ -10,9 +10,13 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.database import get_db
-from src.api.dependencies import get_current_user
+from src.api.dependencies import get_current_app_user
 from src.api.models.user import User
-from src.api.schemas.conversation import ConversationCreate, ConversationRead, ConversationTitleUpdate
+from src.api.schemas.conversation import (
+    ConversationCreate,
+    ConversationRead,
+    ConversationTitleUpdate,
+)
 from src.api.schemas.message import MessageCreate, MessageRead, MessageSourceRead
 from src.api.schemas.pagination import Page, PaginationParams
 from src.api.services.conversations import (
@@ -33,7 +37,7 @@ async def list_conversations(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     course_id: uuid.UUID | None = Query(default=None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> Page[ConversationRead]:
     """Return paginated conversations for the authenticated user.
@@ -42,7 +46,9 @@ async def list_conversations(
     """
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_user_conversations(current_user.id, params, db, course_id=course_id)
-    return Page.create(items=[ConversationRead.model_validate(c) for c in items], total=total, params=params)
+    return Page.create(
+        items=[ConversationRead.model_validate(c) for c in items], total=total, params=params
+    )
 
 
 @router.get("/{conversation_id}/messages", response_model=Page[MessageRead])
@@ -50,7 +56,7 @@ async def list_messages(
     conversation_id: uuid.UUID,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> Page[MessageRead]:
     """Return paginated messages for a conversation, newest first.
@@ -61,7 +67,9 @@ async def list_messages(
     await get_conversation_for_user(conversation_id, current_user.id, db)
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_conversation_messages(conversation_id, params, db)
-    return Page.create(items=[MessageRead.model_validate(m) for m in items], total=total, params=params)
+    return Page.create(
+        items=[MessageRead.model_validate(m) for m in items], total=total, params=params
+    )
 
 
 @router.get(
@@ -71,7 +79,7 @@ async def list_messages(
 async def get_message_sources(
     conversation_id: uuid.UUID,
     message_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[MessageSourceRead]:
     """Return the RAG source chunks attached to an AI message.
@@ -90,7 +98,7 @@ async def get_message_sources(
 @router.post("", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)
 async def new_conversation(
     request: ConversationCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> ConversationRead:
     """Start a new conversation in a course the user is enrolled in."""
@@ -103,11 +111,13 @@ async def new_conversation(
     return ConversationRead.model_validate(conversation)
 
 
-@router.post("/{conversation_id}/messages", response_model=MessageRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{conversation_id}/messages", response_model=MessageRead, status_code=status.HTTP_201_CREATED
+)
 async def new_message(
     conversation_id: uuid.UUID,
     request: MessageCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> MessageRead:
     """Add a message to an existing conversation."""
@@ -127,18 +137,20 @@ async def new_message(
 async def rename_conversation(
     conversation_id: uuid.UUID,
     body: ConversationTitleUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> ConversationRead:
     """Rename a conversation owned by the authenticated user."""
-    conversation = await rename_conversation_for_user(conversation_id, current_user.id, body.title, db)
+    conversation = await rename_conversation_for_user(
+        conversation_id, current_user.id, body.title, db
+    )
     return ConversationRead.model_validate(conversation)
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(
     conversation_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a conversation owned by the authenticated user."""
