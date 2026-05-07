@@ -1,8 +1,9 @@
 import uuid
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import HTTPException
+from langchain_core.documents import Document
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.api.models.conversation import Conversation
@@ -31,7 +32,9 @@ class _ExecuteResult:
 
 
 @pytest.mark.asyncio
-async def test_create_message_returns_stage_specific_error_when_agent_response_fails(monkeypatch) -> None:
+async def test_create_message_returns_stage_specific_error_when_agent_response_fails(
+    monkeypatch,
+) -> None:
     conversation = Conversation(
         id=uuid.uuid4(),
         user_id=uuid.uuid4(),
@@ -52,9 +55,6 @@ async def test_create_message_returns_stage_specific_error_when_agent_response_f
         _ExecuteResult(all_items=[]),
     ]
 
-    retriever = AsyncMock()
-    retriever.ainvoke.return_value = []
-
     chain = AsyncMock()
     chain.ainvoke.side_effect = RuntimeError("llm failed")
 
@@ -62,7 +62,6 @@ async def test_create_message_returns_stage_specific_error_when_agent_response_f
         return None, None, False
 
     monkeypatch.setattr(message_service, "_get_chain", lambda _scope: chain)
-    monkeypatch.setattr(message_service, "get_kg_retriever", lambda **_kwargs: retriever)
     monkeypatch.setattr(
         message_service,
         "maybe_compress_conversation_history",
@@ -103,19 +102,16 @@ async def test_create_message_rolls_back_and_returns_stage_specific_error_on_db_
         _ExecuteResult(first=course),
         _ExecuteResult(all_items=[]),
     ]
+    db.add = Mock()
     db.commit.side_effect = SQLAlchemyError("db down")
 
-    retriever = AsyncMock()
-    retriever.ainvoke.return_value = []
-
     chain = AsyncMock()
-    chain.ainvoke.return_value = "answer"
+    chain.ainvoke.return_value = {"answer": "answer", "source_documents": []}
 
     async def _fake_compress(*_args, **_kwargs):
         return None, None, False
 
     monkeypatch.setattr(message_service, "_get_chain", lambda _scope: chain)
-    monkeypatch.setattr(message_service, "get_kg_retriever", lambda **_kwargs: retriever)
     monkeypatch.setattr(
         message_service,
         "maybe_compress_conversation_history",
@@ -130,3 +126,69 @@ async def test_create_message_rolls_back_and_returns_stage_specific_error_on_db_
         "[message_persistence_failed] Failed to save the generated conversation messages."
     )
     db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_create_message_persists_sources_from_chain_result_documents(monkeypatch) -> None:
+    conversation = Conversation(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        course_id=uuid.uuid4(),
+        system_prompt_mode=1,
+    )
+    course = Course(
+        id=conversation.course_id,
+        name="Test Course",
+        code="TST101",
+        chroma_collection="course_scope",
+        documents_dir="data/documents/test",
+        created_by_id=uuid.uuid4(),
+    )
+    db = AsyncMock()
+    db.execute.side_effect = [
+        _ExecuteResult(first=course),
+        _ExecuteResult(all_items=[]),
+    ]
+    db.add = Mock()
+
+    source_doc = Document(
+        page_content="source content",
+        metadata={
+            "chunk_id": "chunk-1",
+            "source_file": "notes.pdf",
+            "page": 7,
+        },
+    )
+    chain = AsyncMock()
+    chain.ainvoke.return_value = {
+        "answer": "answer",
+        "source_documents": [source_doc],
+    }
+
+    async def _fake_compress(*_args, **_kwargs):
+        return None, None, False
+
+    monkeypatch.setattr(message_service, "_get_chain", lambda _scope: chain)
+    monkeypatch.setattr(
+        message_service,
+        "maybe_compress_conversation_history",
+        _fake_compress,
+    )
+
+    ai_msg, compression_triggered = await message_service.create_message(
+        conversation,
+        "hello",
+        "human",
+        db,
+    )
+
+    assert compression_triggered is False
+    assert ai_msg.content == "answer"
+    assert ai_msg.sources == [
+        {
+            "chunk_id": "chunk-1",
+            "source_file": "notes.pdf",
+            "page": "7",
+        }
+    ]
+    chain.ainvoke.assert_awaited_once()

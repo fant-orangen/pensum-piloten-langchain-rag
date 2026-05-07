@@ -80,6 +80,31 @@ def _get_chain(mode: str):
     return chain
 
 
+def _extract_ask_response(result: Any) -> AskResponse:
+    """Normalize legacy string chains and richer RAG chain results for /ask."""
+    if not isinstance(result, dict):
+        return AskResponse(answer=str(result), sources=[])
+
+    answer = result.get("answer")
+    if not isinstance(answer, str):
+        answer = str(answer or "")
+
+    sources: list[str] = []
+    seen: set[str] = set()
+    source_documents = result.get("source_documents", [])
+    if isinstance(source_documents, list):
+        for doc in source_documents:
+            metadata = getattr(doc, "metadata", {})
+            if not isinstance(metadata, dict):
+                continue
+            source = str(metadata.get("source_file") or "").strip()
+            if source and source not in seen:
+                sources.append(source)
+                seen.add(source)
+
+    return AskResponse(answer=answer, sources=sources)
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -102,7 +127,7 @@ async def ask(request: AskRequest):
             history.append(AIMessage(content=msg.content))
 
     try:
-        answer = await chain.ainvoke(
+        result = await chain.ainvoke(
             {
                 "question": request.question,
                 "chat_history": history,
@@ -113,12 +138,7 @@ async def ask(request: AskRequest):
         logger.error("chain_error", error=str(exc))
         raise HTTPException(status_code=500, detail="Failed to generate response.")
 
-    # Extract source filenames from the retriever step (stored in the
-    # formatted context string).  A more robust approach would capture the
-    # retriever's raw documents; this is a lightweight first pass.
-    sources: list[str] = []
-
-    return AskResponse(answer=answer, sources=sources)
+    return _extract_ask_response(result)
 
 
 def start():
