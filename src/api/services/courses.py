@@ -18,7 +18,6 @@ from src.api.models.enrollment import CourseEnrollment
 from src.api.models.enrollment_import_preview import EnrollmentImportPreview
 from src.api.models.message import Message
 from src.api.models.user import User
-from src.api.schemas.course import CourseCreate, CourseInstructionsUpdate, EnrollmentCreate
 from src.api.services.course_documents import (
     COURSE_REBUILD_BUILDING,
     COURSE_REBUILD_QUEUED,
@@ -323,6 +322,36 @@ def _parse_enrollment_import_csv(content: str) -> ParsedEnrollmentImport:
 async def get_course(course_id: uuid.UUID, db: AsyncSession) -> Course:
     """Return a course by ID or raise HTTP 404."""
     return await _get_course_or_404(course_id, db)
+
+
+async def get_course_summary_for_user(
+    current_user: User,
+    course_id: uuid.UUID,
+    db: AsyncSession,
+) -> Course:
+    """Return safe course metadata for an enrolled user or admin.
+
+    This is used by the chat UI, which only needs display metadata. It
+    deliberately avoids exposing teacher instructions or retrieval internals.
+    """
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalars().first()
+    if course is None:
+        raise not_found_error("Course not found.")
+
+    if current_user.global_role == "admin":
+        return course
+
+    enrollment_result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.user_id == current_user.id,
+            CourseEnrollment.course_id == course_id,
+        )
+    )
+    if enrollment_result.scalars().first() is None:
+        raise forbidden_error("Not enrolled in this course.")
+
+    return course
 
 
 async def _get_course_or_404(course_id: uuid.UUID, db: AsyncSession) -> Course:

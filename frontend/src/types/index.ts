@@ -32,6 +32,12 @@ export interface CourseRead {
   rebuild_error: string | null
 }
 
+export interface CourseSummaryRead {
+  id: string
+  name: string
+  code: string
+}
+
 export interface CourseCreate {
   name: string
   code: string

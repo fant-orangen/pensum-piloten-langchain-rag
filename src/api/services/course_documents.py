@@ -13,7 +13,7 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,7 @@ from src.api.utils import (
     log_course_material_rebuild_missing_course,
     log_course_material_rebuild_step,
 )
+from src.api.utils.logging_util import ServiceLogger
 from src.config import get_settings
 from src.config.settings import PROJECT_ROOT
 from src.ingestion.chunker import chunk_documents
@@ -52,6 +53,7 @@ DOC_STATUS_PENDING_ADD = "pending_add"
 DOC_STATUS_PENDING_REMOVE = "pending_remove"
 COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
 _MAX_ZIP_NESTING_DEPTH = 3
+_UPLOAD_READ_CHUNK_BYTES = 1024 * 1024
 
 
 def build_course_documents_dir(course_code: str) -> Path:
@@ -96,6 +98,37 @@ def _sanitize_filename(filename: str | None) -> str:
 def _build_scope_name(course: Course, index_version: int) -> str:
     """Return the versioned collection scope name for the given course."""
     return build_course_scope_name(course.code, index_version)
+
+
+def _payload_too_large_error(detail: str) -> HTTPException:
+    """Return an HTTP 413 error for uploads that exceed configured limits."""
+    return HTTPException(status_code=413, detail=detail)
+
+
+def _format_bytes(num_bytes: int) -> str:
+    """Format a byte count for concise user-facing validation errors."""
+    if num_bytes >= 1024 * 1024:
+        return f"{num_bytes // (1024 * 1024)} MB"
+    if num_bytes >= 1024:
+        return f"{num_bytes // 1024} KB"
+    return f"{num_bytes} bytes"
+
+
+async def _read_upload_limited(upload: UploadFile, *, max_bytes: int, label: str) -> bytes:
+    """Read an UploadFile in bounded chunks, raising before buffering too much data."""
+    chunks: list[bytes] = []
+    total_bytes = 0
+    while True:
+        chunk = await upload.read(_UPLOAD_READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise _payload_too_large_error(
+                f"{label} exceeds the maximum size of {_format_bytes(max_bytes)}."
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 async def _get_course_for_teacher(
@@ -287,6 +320,11 @@ def _extract_zip_files(
     *,
     _collected: list[tuple[str, bytes]],
     _skipped: list[str],
+    max_file_bytes: int,
+    max_total_uncompressed_bytes: int,
+    max_archive_bytes: int,
+    max_compression_ratio: float,
+    _total_uncompressed: list[int],
     _depth: int = 0,
 ) -> None:
     """Recursively extract supported files from a zip archive.
@@ -298,21 +336,54 @@ def _extract_zip_files(
     if _depth > _MAX_ZIP_NESTING_DEPTH:
         _skipped.append("<zip nested too deeply, skipped>")
         return
+    if len(zip_bytes) > max_archive_bytes:
+        raise _payload_too_large_error(
+            f"Zip archive exceeds the maximum size of {_format_bytes(max_archive_bytes)}."
+        )
     try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-            for info in zf.infolist():
-                if info.is_dir():
-                    continue
+            entries = [info for info in zf.infolist() if not info.is_dir()]
+            declared_uncompressed = sum(info.file_size for info in entries)
+            if declared_uncompressed > max_total_uncompressed_bytes:
+                raise _payload_too_large_error(
+                    "Zip archive expands beyond the maximum total size of "
+                    f"{_format_bytes(max_total_uncompressed_bytes)}."
+                )
+            compression_ratio = declared_uncompressed / max(len(zip_bytes), 1)
+            if zip_bytes and compression_ratio > max_compression_ratio:
+                raise bad_request_error("Zip archive compression ratio is too high.")
+
+            for info in entries:
                 member_path = Path(info.filename)
                 # Skip macOS metadata entries (.__MACOSX dir, ._* resource forks, .DS_Store)
-                if "__MACOSX" in member_path.parts or member_path.name.startswith("._") or member_path.name == ".DS_Store":
+                if (
+                    "__MACOSX" in member_path.parts
+                    or member_path.name.startswith("._")
+                    or member_path.name == ".DS_Store"
+                ):
                     continue
+                if _total_uncompressed[0] + info.file_size > max_total_uncompressed_bytes:
+                    raise _payload_too_large_error(
+                        "Zip archive expands beyond the maximum total size of "
+                        f"{_format_bytes(max_total_uncompressed_bytes)}."
+                    )
                 if member_path.suffix.lower() == ".zip":
+                    if info.file_size > max_archive_bytes:
+                        raise _payload_too_large_error(
+                            "Nested zip archive exceeds the maximum size of "
+                            f"{_format_bytes(max_archive_bytes)}."
+                        )
+                    _total_uncompressed[0] += info.file_size
                     _extract_zip_files(
                         zf.read(info),
                         max_files,
                         _collected=_collected,
                         _skipped=_skipped,
+                        max_file_bytes=max_file_bytes,
+                        max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+                        max_archive_bytes=max_archive_bytes,
+                        max_compression_ratio=max_compression_ratio,
+                        _total_uncompressed=_total_uncompressed,
                         _depth=_depth + 1,
                     )
                 elif info.file_size == 0:
@@ -320,7 +391,10 @@ def _extract_zip_files(
                 elif is_supported_document_path(member_path):
                     if len(_collected) >= max_files:
                         _skipped.append(info.filename)
+                    elif info.file_size > max_file_bytes:
+                        _skipped.append(info.filename)
                     else:
+                        _total_uncompressed[0] += info.file_size
                         _collected.append((info.filename, zf.read(info)))
                 else:
                     _skipped.append(info.filename)
@@ -389,12 +463,36 @@ async def stage_course_documents(
     if not files:
         raise bad_request_error("No files uploaded.")
 
+    settings = get_settings()
+    if len(files) > settings.document_max_upload_files:
+        raise _payload_too_large_error(
+            f"Upload contains more than {settings.document_max_upload_files} files."
+        )
+
     payloads: list[tuple[str, bytes, str | None]] = []
+    total_payload_bytes = 0
     for upload in files:
         safe_name = _sanitize_filename(upload.filename)
         if not is_supported_document_path(Path(safe_name)):
             raise bad_request_error(f"Unsupported file type for '{safe_name}'.")
-        payloads.append((safe_name, await upload.read(), upload.content_type))
+        data = await _read_upload_limited(
+            upload,
+            max_bytes=settings.document_max_file_bytes,
+            label=f"Uploaded file '{safe_name}'",
+        )
+        total_payload_bytes += len(data)
+        if total_payload_bytes > settings.document_max_total_upload_bytes:
+            raise _payload_too_large_error(
+                "Uploaded files exceed the maximum total size of "
+                f"{_format_bytes(settings.document_max_total_upload_bytes)}."
+            )
+        payloads.append(
+            (
+                safe_name,
+                data,
+                upload.content_type,
+            )
+        )
 
     storage_root = _resolve_documents_root(course)
     storage_root.mkdir(parents=True, exist_ok=True)
@@ -426,12 +524,26 @@ async def stage_course_documents_from_zip(
     course = await _get_course_for_teacher(current_user, course_id, db)
     _ensure_not_rebuilding(course)
 
-    zip_bytes = await zip_file.read()
-    max_files = get_settings().zip_max_files
+    settings = get_settings()
+    zip_bytes = await _read_upload_limited(
+        zip_file,
+        max_bytes=settings.zip_max_archive_bytes,
+        label="Zip archive",
+    )
 
     collected: list[tuple[str, bytes]] = []
     skipped: list[str] = []
-    _extract_zip_files(zip_bytes, max_files, _collected=collected, _skipped=skipped)
+    _extract_zip_files(
+        zip_bytes,
+        settings.zip_max_files,
+        _collected=collected,
+        _skipped=skipped,
+        max_file_bytes=settings.document_max_file_bytes,
+        max_total_uncompressed_bytes=settings.zip_max_uncompressed_bytes,
+        max_archive_bytes=settings.zip_max_archive_bytes,
+        max_compression_ratio=settings.zip_max_compression_ratio,
+        _total_uncompressed=[0],
+    )
 
     if not collected:
         raise bad_request_error("The zip archive contains no supported document files.")
@@ -599,6 +711,69 @@ async def _set_rebuild_failure(
         await db.commit()
 
 
+def _delete_course_scope(scope: str) -> None:
+    """Delete both persisted retrieval stores for a course material scope."""
+    delete_vectorstore(scope)
+    kg_store = KGStore()
+    try:
+        kg_store.clear(scope)
+    finally:
+        kg_store.close()
+
+
+async def _cleanup_failed_target_scope(
+    target_scope: str | None,
+    rebuild_logger: ServiceLogger,
+) -> None:
+    """Best-effort cleanup for a candidate scope that failed before activation."""
+    if target_scope is None:
+        return
+    try:
+        await asyncio.to_thread(_delete_course_scope, target_scope)
+    except Exception as cleanup_exc:
+        rebuild_logger.warning(
+            "course_material_rebuild_failed_target_cleanup_failed",
+            target_scope=target_scope,
+            error=str(cleanup_exc),
+        )
+
+
+async def _cleanup_after_activation(
+    *,
+    removed_paths: list[Path],
+    old_scope: str | None,
+    target_scope: str | None,
+    rebuild_logger: ServiceLogger,
+) -> None:
+    """Clean old files and retrieval stores after the new scope is active.
+
+    This cleanup runs only after the database has committed the new active
+    scope, so failures here must not trigger deletion of ``target_scope``.
+    """
+    cleanup_errors: list[str] = []
+    for removed_path in removed_paths:
+        if removed_path.exists():
+            try:
+                removed_path.unlink(missing_ok=True)
+            except Exception as exc:
+                cleanup_errors.append(f"failed to remove {removed_path}: {exc}")
+
+    if old_scope and old_scope != target_scope:
+        log_course_material_rebuild_step(
+            rebuild_logger,
+            step="cleanup_old_scope",
+            old_scope=old_scope,
+            target_scope=target_scope,
+        )
+        try:
+            await asyncio.to_thread(_delete_course_scope, old_scope)
+        except Exception as exc:
+            cleanup_errors.append(f"failed to cleanup old scope {old_scope}: {exc}")
+
+    if cleanup_errors:
+        raise RuntimeError("; ".join(cleanup_errors))
+
+
 async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
     """Build a new course-scoped vector/KG partition and swap it in atomically."""
     session_factory = get_session_factory()
@@ -606,6 +781,7 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
     target_scope: str | None = None
     old_scope: str | None = None
     removed_paths: list[Path] = []
+    activated = False
 
     try:
         async with session_factory() as db:
@@ -731,37 +907,22 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
             course.rebuild_error = None
             db.add(course)
             await db.commit()
+            activated = True
 
-        for removed_path in removed_paths:
-            if removed_path.exists():
-                removed_path.unlink(missing_ok=True)
-
-        if old_scope and old_scope != target_scope:
-            log_course_material_rebuild_step(
-                rebuild_logger,
-                step="cleanup_old_scope",
+        try:
+            await _cleanup_after_activation(
+                removed_paths=removed_paths,
                 old_scope=old_scope,
                 target_scope=target_scope,
+                rebuild_logger=rebuild_logger,
             )
-            await asyncio.to_thread(delete_vectorstore, old_scope)
-            kg_store = KGStore()
-            try:
-                await asyncio.to_thread(kg_store.clear, old_scope)
-            finally:
-                kg_store.close()
-        elif old_scope and target_scope is None:
-            log_course_material_rebuild_step(
-                rebuild_logger,
-                step="cleanup_old_scope",
+        except Exception as cleanup_exc:
+            rebuild_logger.warning(
+                "course_material_rebuild_cleanup_failed",
                 old_scope=old_scope,
-                target_scope=None,
+                target_scope=target_scope,
+                error=str(cleanup_exc),
             )
-            await asyncio.to_thread(delete_vectorstore, old_scope)
-            kg_store = KGStore()
-            try:
-                await asyncio.to_thread(kg_store.clear, old_scope)
-            finally:
-                kg_store.close()
 
         log_course_material_rebuild(
             rebuild_logger,
@@ -772,13 +933,8 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
         )
     except Exception as exc:
         log_course_material_rebuild_failed(rebuild_logger, error=exc)
-        if target_scope is not None:
-            await asyncio.to_thread(delete_vectorstore, target_scope)
-            kg_store = KGStore()
-            try:
-                await asyncio.to_thread(kg_store.clear, target_scope)
-            finally:
-                kg_store.close()
+        if not activated:
+            await _cleanup_failed_target_scope(target_scope, rebuild_logger)
         await _set_rebuild_failure(course_id, str(exc))
 
 

@@ -133,12 +133,6 @@ async def create_tables() -> None:
     logger.info("database_tables_created")
 
 
-def get_session_factory() -> async_sessionmaker[AsyncSession]:
-    """Return the configured async session factory."""
-    assert _session_factory is not None, "Call init_engine() before requesting sessions"
-    return _session_factory
-
-
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency that yields a database session per request."""
     assert _session_factory is not None, "Call init_engine() before get_db()"
