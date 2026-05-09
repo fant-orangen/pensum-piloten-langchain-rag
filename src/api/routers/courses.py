@@ -91,6 +91,16 @@ async def list_responsible_courses(
     return [CourseRead.model_validate(c) for c in courses]
 
 
+@router.get("/all-teachers", response_model=list[CourseStudentRead])
+async def list_all_teachers(
+    current_user: User = Depends(get_current_app_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseStudentRead]:
+    """Return all users with global teacher role. Requires teacher or admin."""
+    teachers = await get_all_teachers(current_user, db)
+    return [CourseStudentRead.model_validate(t) for t in teachers]
+
+
 @router.get("/{course_id}", response_model=CourseSummaryRead)
 async def get_course_by_id(
     course_id: uuid.UUID,
@@ -136,16 +146,6 @@ async def list_course_teachers(
         total=total,
         params=params,
     )
-
-
-@router.get("/all-teachers", response_model=list[CourseStudentRead])
-async def list_all_teachers(
-    current_user: User = Depends(get_current_app_user),
-    db: AsyncSession = Depends(get_db),
-) -> list[CourseStudentRead]:
-    """Return all users with global teacher role. Requires teacher or admin."""
-    teachers = await get_all_teachers(current_user, db)
-    return [CourseStudentRead.model_validate(t) for t in teachers]
 
 
 @router.post("", response_model=CourseRead, status_code=status.HTTP_201_CREATED)

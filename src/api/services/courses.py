@@ -683,7 +683,14 @@ async def enroll_user(
             CourseEnrollment.course_id == course_id,
         )
     )
-    if dup_result.scalars().first() is not None:
+    existing = dup_result.scalars().first()
+    if existing is not None:
+        if existing.role != body.role:
+            existing.role = body.role
+            db.add(existing)
+            await db.commit()
+            await db.refresh(existing)
+            return existing
         raise conflict_error("User is already enrolled in this course.")
 
     enrollment = CourseEnrollment(
