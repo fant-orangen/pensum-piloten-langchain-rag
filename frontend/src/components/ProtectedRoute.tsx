@@ -28,6 +28,11 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/settings" replace />
   }
 
+  // Admin users can only access the admin page
+  if (user.global_role === 'admin' && location.pathname !== '/admin') {
+    return <Navigate to="/admin" replace />
+  }
+
   if (requiredRole) {
     const roleHierarchy: GlobalRole[] = ['student', 'teacher', 'admin']
     const userLevel = roleHierarchy.indexOf(user.global_role)
