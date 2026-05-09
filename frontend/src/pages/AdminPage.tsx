@@ -81,7 +81,7 @@ export function AdminPage() {
     onSuccess: (updatedUsers) => {
       for (const u of updatedUsers) updateUsersCache(u)
       setSelectedStudents(new Set())
-      toast.success(`${updatedUsers.length} bruker(e) promotert til l\u00e6rer.`)
+      toast.success(`${updatedUsers.length} bruker(e) promotert til lærer.`)
     },
     onError: () => toast.error('Klarte ikke promotere bruker(e).'),
   })
@@ -138,7 +138,7 @@ export function AdminPage() {
               onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-users'] })}
               disabled={usersQuery.isFetching}
               className="btn-secondary"
-              aria-label="Last brukerliste p\u00e5 nytt"
+              aria-label="Last brukerliste på nytt"
             >
               <RefreshCw className={`h-4 w-4 ${usersQuery.isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />
               Oppdater
@@ -152,9 +152,9 @@ export function AdminPage() {
               type="text"
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="S\u00f8k etter navn eller e-post..."
+              placeholder="Søk etter navn eller e-post..."
               className="input-field pl-10"
-              aria-label="S\u00f8k brukere"
+              aria-label="Søk brukere"
             />
           </div>
 
@@ -167,7 +167,7 @@ export function AdminPage() {
 
           {usersQuery.isError && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="text-sm text-red-700">Klarte ikke laste brukerlisten. Pr\u00f8v \u00e5 laste siden p\u00e5 nytt.</p>
+              <p className="text-sm text-red-700">Klarte ikke laste brukerlisten. Prøv å laste siden på nytt.</p>
             </div>
           )}
 
@@ -183,7 +183,7 @@ export function AdminPage() {
                 page={studentPage}
                 totalPages={studentTotalPages}
                 onPageChange={setStudentPage}
-                actionLabel="Promoter til l\u00e6rer"
+                actionLabel="Promoter til lærer"
                 actionIcon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
                 actionDisabled={selectedStudents.size === 0 || isBusy}
                 actionLoading={promoteMutation.isPending}
@@ -192,7 +192,7 @@ export function AdminPage() {
 
               {/* Teachers list */}
               <UserList
-                title="L\u00e6rere"
+                title="Lærere"
                 users={pagedTeachers}
                 totalFiltered={filteredTeachers.length}
                 selected={selectedTeachers}
