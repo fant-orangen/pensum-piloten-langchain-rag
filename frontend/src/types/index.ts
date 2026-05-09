@@ -30,6 +30,7 @@ export interface CourseRead {
   index_version: number
   rebuild_status: RebuildStatus
   rebuild_error: string | null
+  created_by_id: string
 }
 
 export interface CourseSummaryRead {

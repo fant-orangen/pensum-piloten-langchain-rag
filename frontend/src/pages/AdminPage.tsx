@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, RefreshCw, Search, ShieldCheck, ShieldMinus } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -226,7 +226,7 @@ interface UserListProps {
   totalPages: number
   onPageChange: (p: number) => void
   actionLabel: string
-  actionIcon: React.ReactNode
+  actionIcon: ReactNode
   actionDisabled: boolean
   actionLoading: boolean
   onAction: () => void

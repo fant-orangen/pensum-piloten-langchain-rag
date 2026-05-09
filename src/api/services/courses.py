@@ -137,6 +137,57 @@ async def get_course_students(
     return items, total
 
 
+async def get_course_teachers(
+    current_user: User,
+    course_id: uuid.UUID,
+    params: PaginationParams,
+    db: AsyncSession,
+) -> tuple[list[User], int]:
+    """Return a page of users enrolled in the course as teachers. Requires course owner or admin."""
+    course_result = await db.execute(select(Course).where(Course.id == course_id))
+    course = course_result.scalars().first()
+    if course is None:
+        raise not_found_error("Course not found.")
+
+    require_course_owner_or_admin(current_user, course.created_by_id)
+
+    base = (
+        select(User)
+        .join(CourseEnrollment, CourseEnrollment.user_id == User.id)
+        .where(
+            CourseEnrollment.course_id == course_id,
+            CourseEnrollment.role == "teacher",
+        )
+    )
+
+    count_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total: int = count_result.scalar_one()
+
+    result = await db.execute(
+        base.order_by(User.last_name.asc(), User.first_name.asc(), User.email.asc())
+        .offset(params.offset)
+        .limit(params.page_size)
+    )
+    items = list(result.scalars().all())
+
+    return items, total
+
+
+async def get_all_teachers(
+    current_user: User,
+    db: AsyncSession,
+) -> list[User]:
+    """Return all users with global_role 'teacher'. Requires teacher or admin."""
+    require_teacher_or_admin(current_user)
+
+    result = await db.execute(
+        select(User)
+        .where(User.global_role == "teacher")
+        .order_by(User.last_name.asc(), User.first_name.asc(), User.email.asc())
+    )
+    return list(result.scalars().all())
+
+
 async def create_course(current_user: User, body: CourseCreate, db: AsyncSession) -> Course:
     """Create a new course and enroll the creating user as a teacher.
 
