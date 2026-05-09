@@ -20,8 +20,13 @@ async def get_users(
     db: AsyncSession = Depends(get_db),
 ) -> list[AdminUserRead]:
     """Return all users. Requires admin."""
-    users = await list_users(current_user, db)
-    return [AdminUserRead.model_validate(user) for user in users]
+    users, course_owner_ids = await list_users(current_user, db)
+    result = []
+    for user in users:
+        entry = AdminUserRead.model_validate(user)
+        entry.is_course_owner = user.id in course_owner_ids
+        result.append(entry)
+    return result
 
 
 @router.post("/users/{user_id}/promote-teacher", response_model=AdminUserRead)

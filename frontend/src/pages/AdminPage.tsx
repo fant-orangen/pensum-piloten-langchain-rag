@@ -111,7 +111,13 @@ export function AdminPage() {
     })
   }
 
+  const courseOwnerIds = useMemo(
+    () => new Set(users.filter((u) => u.is_course_owner).map((u) => u.id)),
+    [users]
+  )
+
   const toggleTeacher = (id: string) => {
+    if (courseOwnerIds.has(id)) return
     setSelectedTeachers((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -205,6 +211,8 @@ export function AdminPage() {
                 actionDisabled={selectedTeachers.size === 0 || isBusy}
                 actionLoading={demoteMutation.isPending}
                 onAction={() => demoteMutation.mutate([...selectedTeachers])}
+                disabledIds={courseOwnerIds}
+                disabledReason="Kurseier kan ikke degraderes"
               />
             </div>
           )}
@@ -230,6 +238,8 @@ interface UserListProps {
   actionDisabled: boolean
   actionLoading: boolean
   onAction: () => void
+  disabledIds?: Set<string>
+  disabledReason?: string
 }
 
 function UserList({
@@ -246,6 +256,8 @@ function UserList({
   actionDisabled,
   actionLoading,
   onAction,
+  disabledIds,
+  disabledReason,
 }: UserListProps) {
   return (
     <div className="flex flex-col">
@@ -271,31 +283,49 @@ function UserList({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map((user) => (
-                  <tr
-                    key={user.id}
-                    className={`cursor-pointer transition-colors ${selected.has(user.id) ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
-                    onClick={() => onToggle(user.id)}
-                  >
-                    <td className="px-4 py-3 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(user.id)}
-                        onChange={() => onToggle(user.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        aria-label={`Velg ${user.first_name} ${user.last_name}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {user.first_name} {user.last_name}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{user.email}</td>
-                    <td className="px-4 py-3">
-                      <RoleBadge role={user.global_role} />
-                    </td>
-                  </tr>
-                ))}
+                {users.map((user) => {
+                  const isDisabled = disabledIds?.has(user.id) ?? false
+                  return (
+                    <tr
+                      key={user.id}
+                      className={`transition-colors ${
+                        isDisabled
+                          ? 'bg-gray-50 cursor-default'
+                          : selected.has(user.id)
+                            ? 'bg-indigo-50 cursor-pointer'
+                            : 'hover:bg-gray-50 cursor-pointer'
+                      }`}
+                      onClick={() => !isDisabled && onToggle(user.id)}
+                    >
+                      <td className="px-4 py-3 text-center">
+                        {isDisabled ? (
+                          <span className="text-xs text-gray-400" title={disabledReason}>—</span>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={selected.has(user.id)}
+                            onChange={() => onToggle(user.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            aria-label={`Velg ${user.first_name} ${user.last_name}`}
+                          />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {user.first_name} {user.last_name}
+                        {isDisabled && disabledReason && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            {disabledReason}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{user.email}</td>
+                      <td className="px-4 py-3">
+                        <RoleBadge role={user.global_role} />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

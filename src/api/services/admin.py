@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.models.course import Course
 from src.api.models.enrollment import CourseEnrollment
 from src.api.models.user import User
 from src.api.services.auth import hash_password
@@ -56,12 +57,17 @@ async def ensure_admin_user(
         await db.commit()
 
 
-async def list_users(current_user: User, db: AsyncSession) -> list[User]:
-    """Return all users, sorted by email. Requires admin."""
+async def list_users(current_user: User, db: AsyncSession) -> tuple[list[User], set[uuid.UUID]]:
+    """Return all users (sorted by email) and the set of user IDs that own at least one course."""
     require_admin(current_user)
     _require_primary_admin(current_user)
     result = await db.execute(select(User).order_by(User.email))
-    return list(result.scalars().all())
+    users = list(result.scalars().all())
+
+    owner_result = await db.execute(select(Course.created_by_id).distinct())
+    course_owner_ids = set(owner_result.scalars().all())
+
+    return users, course_owner_ids
 
 
 async def promote_user_to_teacher(

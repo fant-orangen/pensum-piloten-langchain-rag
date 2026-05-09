@@ -13,5 +13,6 @@ class AdminUserRead(BaseModel):
     first_name: str
     last_name: str
     global_role: str
+    is_course_owner: bool = False
 
     model_config = {"from_attributes": True}
