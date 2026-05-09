@@ -106,7 +106,7 @@ export function DashboardPage() {
                 isError={responsibleQuery.isError}
                 errorMessage="Klarte ikke laste emner. Prøv å laste siden på nytt."
                 emptyMessage="Du har ingen emner ennå. Opprett et nytt emne for å komme i gang."
-                onCourseClick={(course) => navigate(`/courses/${course.id}`)}
+                onCourseClick={(course) => navigate(`/manage/${course.id}`)}
               />
 
               <CourseSection

@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import toast from 'react-hot-toast'
 import { Spinner } from '../../components/Spinner'
 import { getCourseInstructions, updateCourseInstructions } from '../../api/courses'
-import { courseQueryKeys } from './queryKeys'
+import { courseQueryKeys, invalidateAllCourseQueries } from './queryKeys'
 
 interface InstructionsTabProps {
   courseId: string
@@ -28,7 +28,7 @@ export function InstructionsTab({ courseId }: InstructionsTabProps) {
   const saveMutation = useMutation({
     mutationFn: (text: string) => updateCourseInstructions(courseId, text),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.instructions(courseId) })
+      invalidateAllCourseQueries(queryClient, courseId)
       toast.success('Instruksjoner lagret!')
     },
     onError: () => toast.error('Klarte ikke lagre instruksjoner.'),

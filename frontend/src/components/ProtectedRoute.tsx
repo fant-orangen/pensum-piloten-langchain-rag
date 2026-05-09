@@ -21,11 +21,16 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />
+    return <Navigate to="/login" replace />
   }
 
   if (user.must_change_password && location.pathname !== '/settings') {
     return <Navigate to="/settings" replace />
+  }
+
+  // Admin users can only access the admin page
+  if (user.global_role === 'admin' && location.pathname !== '/dashboard/admin') {
+    return <Navigate to="/dashboard/admin" replace />
   }
 
   if (requiredRole) {

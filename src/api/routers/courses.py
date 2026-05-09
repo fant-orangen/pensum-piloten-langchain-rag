@@ -44,10 +44,12 @@ from src.api.services.courses import (
     create_course,
     delete_course,
     enroll_user,
+    get_all_teachers,
     get_course_summary_for_user,
     get_course_specific_instructions,
     get_available_courses,
     get_course_students,
+    get_course_teachers,
     get_enrolled_courses,
     preview_enrollment_import,
     get_responsible_courses,
@@ -89,6 +91,16 @@ async def list_responsible_courses(
     return [CourseRead.model_validate(c) for c in courses]
 
 
+@router.get("/all-teachers", response_model=list[CourseStudentRead])
+async def list_all_teachers(
+    current_user: User = Depends(get_current_app_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CourseStudentRead]:
+    """Return all users with global teacher role. Requires teacher or admin."""
+    teachers = await get_all_teachers(current_user, db)
+    return [CourseStudentRead.model_validate(t) for t in teachers]
+
+
 @router.get("/{course_id}", response_model=CourseSummaryRead)
 async def get_course_by_id(
     course_id: uuid.UUID,
@@ -113,6 +125,24 @@ async def list_course_students(
     items, total = await get_course_students(current_user, course_id, params, db)
     return Page.create(
         items=[CourseStudentRead.model_validate(student) for student in items],
+        total=total,
+        params=params,
+    )
+
+
+@router.get("/{course_id}/teachers", response_model=Page[CourseStudentRead])
+async def list_course_teachers(
+    course_id: uuid.UUID,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(get_current_app_user),
+    db: AsyncSession = Depends(get_db),
+) -> Page[CourseStudentRead]:
+    """Return paginated teacher enrollments for a course. Requires course owner or admin."""
+    params = PaginationParams(page=page, page_size=page_size)
+    items, total = await get_course_teachers(current_user, course_id, params, db)
+    return Page.create(
+        items=[CourseStudentRead.model_validate(teacher) for teacher in items],
         total=total,
         params=params,
     )

@@ -1,18 +1,21 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Eye } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { getResponsibleCourses } from '../api/courses'
 import { Layout } from '../components/Layout'
 import { InstructionsTab } from './teacher-course/InstructionsTab'
 import { MaterialsTab } from './teacher-course/MaterialsTab'
 import { StudentsTab } from './teacher-course/StudentsTab'
+import { TeachersTab } from './teacher-course/TeachersTab'
 import { courseQueryKeys } from './teacher-course/queryKeys'
-import { TEACHER_COURSE_TABS, type TeacherCourseTab } from './teacher-course/types'
+import { TEACHER_COURSE_TABS, TEACHERS_TAB, type TeacherCourseTab } from './teacher-course/types'
 
 export function TeacherCoursePage() {
   const { courseId } = useParams<{ courseId: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TeacherCourseTab>('students')
 
   const coursesQuery = useQuery({
@@ -21,6 +24,12 @@ export function TeacherCoursePage() {
   })
 
   const course = coursesQuery.data?.find((c) => c.id === courseId)
+  const isCreator = !!(course && user && course.created_by_id === user.id)
+
+  const visibleTabs = useMemo(
+    () => (isCreator ? [...TEACHER_COURSE_TABS, TEACHERS_TAB] : TEACHER_COURSE_TABS),
+    [isCreator]
+  )
 
   if (!courseId) return null
 
@@ -58,7 +67,7 @@ export function TeacherCoursePage() {
             aria-label="Emneadministrasjon"
             className="mb-6 flex border-b border-gray-200"
           >
-            {TEACHER_COURSE_TABS.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
                 role="tab"
@@ -97,6 +106,18 @@ export function TeacherCoursePage() {
           >
             {activeTab === 'instructions' && <InstructionsTab courseId={courseId} />}
           </div>
+          {isCreator && user && (
+            <div
+              role="tabpanel"
+              id="teachers-panel"
+              aria-labelledby="teachers-tab"
+              hidden={activeTab !== 'teachers'}
+            >
+              {activeTab === 'teachers' && (
+                <TeachersTab courseId={courseId} creatorId={course!.created_by_id} />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Layout>

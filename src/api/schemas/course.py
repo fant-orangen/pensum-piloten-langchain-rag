@@ -17,6 +17,7 @@ class CourseRead(BaseModel):
     index_version: int
     rebuild_status: str
     rebuild_error: Optional[str] = None
+    created_by_id: uuid.UUID
 
     model_config = {"from_attributes": True}
 

@@ -2,9 +2,11 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.models.course import Course
+from src.api.models.enrollment import CourseEnrollment
 from src.api.models.user import User
 from src.api.services.auth import hash_password
 from src.api.utils.exception_util import bad_request_error, conflict_error, forbidden_error, not_found_error
@@ -55,12 +57,17 @@ async def ensure_admin_user(
         await db.commit()
 
 
-async def list_users(current_user: User, db: AsyncSession) -> list[User]:
-    """Return all users, sorted by email. Requires admin."""
+async def list_users(current_user: User, db: AsyncSession) -> tuple[list[User], set[uuid.UUID]]:
+    """Return all users (sorted by email) and the set of user IDs that own at least one course."""
     require_admin(current_user)
     _require_primary_admin(current_user)
     result = await db.execute(select(User).order_by(User.email))
-    return list(result.scalars().all())
+    users = list(result.scalars().all())
+
+    owner_result = await db.execute(select(Course.created_by_id).distinct())
+    course_owner_ids = set(owner_result.scalars().all())
+
+    return users, course_owner_ids
 
 
 async def promote_user_to_teacher(
@@ -87,6 +94,53 @@ async def promote_user_to_teacher(
     await db.commit()
     await db.refresh(target_user)
     return target_user
+
+
+async def demote_teacher_to_student(
+    current_user: User,
+    target_user_id: uuid.UUID,
+    db: AsyncSession,
+) -> User:
+    """Demote a teacher to student: reset global role and remove all teacher enrollments."""
+    require_admin(current_user)
+    _require_primary_admin(current_user)
+
+    result = await db.execute(select(User).where(User.id == target_user_id))
+    target_user = result.scalars().first()
+    if target_user is None:
+        raise not_found_error("User not found.")
+
+    if target_user.global_role == "admin":
+        raise bad_request_error("Cannot modify an admin user.")
+    if target_user.global_role == "student":
+        raise conflict_error("User is already a student.")
+
+    await _require_not_course_owner(target_user_id, db)
+
+    target_user.global_role = "student"
+    db.add(target_user)
+
+    await db.execute(
+        delete(CourseEnrollment).where(
+            CourseEnrollment.user_id == target_user_id,
+            CourseEnrollment.role == "teacher",
+        )
+    )
+
+    await db.commit()
+    await db.refresh(target_user)
+    return target_user
+
+
+async def _require_not_course_owner(user_id: uuid.UUID, db: AsyncSession) -> None:
+    """Raise 409 if the user is the creator of any course."""
+    result = await db.execute(
+        select(Course.id).where(Course.created_by_id == user_id).limit(1)
+    )
+    if result.scalars().first() is not None:
+        raise conflict_error(
+            "Cannot demote a teacher who is the creator of a course."
+        )
 
 
 def _require_primary_admin(current_user: User) -> None:

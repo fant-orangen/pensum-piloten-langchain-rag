@@ -25,7 +25,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/login" element={<AuthPage />} />
 
             <Route
               path="/"
@@ -55,7 +55,7 @@ export default function App() {
             />
 
             <Route
-              path="/courses/:courseId"
+              path="/manage/:courseId"
               element={
                 <ProtectedRoute requiredRole="teacher">
                   <TeacherCoursePage />
@@ -64,7 +64,7 @@ export default function App() {
             />
 
             <Route
-              path="/admin"
+              path="/dashboard/admin"
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminPage />

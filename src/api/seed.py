@@ -27,6 +27,7 @@ This function is safe to call multiple times or on every startup. It will provis
 """
 
 import json
+import re
 from pathlib import Path
 
 import structlog
@@ -43,6 +44,7 @@ from src.api.services.course_documents import (
     build_course_scope_name,
     sync_course_documents_from_directory,
 )
+from src.vectorstore.store import _get_client as _get_chroma_client
 
 logger = structlog.get_logger(__name__)
 
@@ -61,6 +63,27 @@ _COURSE_SPECIFIC_INSTRUCTIONS = (
 )
 _COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
 _REBUILD_MANIFEST_NAME = "rebuild_manifest.json"
+
+
+def _find_latest_chroma_collection(course_code: str) -> tuple[str, int] | None:
+    """Find the highest-versioned Chroma collection for *course_code*.
+
+    Returns (collection_name, version) or None if no matching collection exists.
+    """
+    try:
+        client = _get_chroma_client()
+        pattern = re.compile(rf"^{re.escape(course_code)}_v(\d+)$")
+        best: tuple[str, int] | None = None
+        for col in client.list_collections():
+            m = pattern.match(col.name)
+            if m:
+                version = int(m.group(1))
+                if best is None or version > best[1]:
+                    best = (col.name, version)
+        return best
+    except Exception:
+        logger.warning("seed_chroma_lookup_failed", course=course_code)
+        return None
 
 
 def _load_seed_scope_from_manifest(course_code: str) -> tuple[str, int]:
@@ -156,6 +179,19 @@ async def seed(db: AsyncSession) -> None:
         global_role="student",
     )
 
+    # --- Additional test students ---
+    test_students = []
+    for i in range(1, 6):
+        ts = await _get_or_create_user(
+            db,
+            email=f"test{i}@test.com",
+            password="password123",
+            first_name=f"Test{i}",
+            last_name="Student",
+            global_role="student",
+        )
+        test_students.append(ts)
+
     # --- Course ---
     course_result = await db.execute(select(Course).where(Course.code == _COURSE_CODE))
     course = course_result.scalars().first()
@@ -174,10 +210,19 @@ async def seed(db: AsyncSession) -> None:
         await db.flush()  # populate course.id before using it below
         logger.info("seed_created_course", code=_COURSE_CODE)
     else:
-        course.chroma_collection = test_course_scope
         course.documents_dir = str(test_course_dir)
         course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
-        course.index_version = max(course.index_version, test_course_version)
+        # Reconcile chroma_collection with what actually exists in Chroma
+        latest = _find_latest_chroma_collection(_COURSE_CODE)
+        if latest and latest[0] != course.chroma_collection:
+            logger.info(
+                "seed_reconcile_chroma",
+                code=_COURSE_CODE,
+                old=course.chroma_collection,
+                new=latest[0],
+            )
+            course.chroma_collection = latest[0]
+            course.index_version = max(course.index_version, latest[1])
         db.add(course)
         logger.info("seed_course_exists", code=_COURSE_CODE)
 
@@ -199,8 +244,17 @@ async def seed(db: AsyncSession) -> None:
         logger.info("seed_created_course", code=_SECOND_COURSE_CODE)
     else:
         second_course.documents_dir = str(second_course_dir)
-        second_course.chroma_collection = second_course_scope
-        second_course.index_version = max(second_course.index_version, second_course_version)
+        # Reconcile chroma_collection with what actually exists in Chroma
+        latest = _find_latest_chroma_collection(_SECOND_COURSE_CODE)
+        if latest and latest[0] != second_course.chroma_collection:
+            logger.info(
+                "seed_reconcile_chroma",
+                code=_SECOND_COURSE_CODE,
+                old=second_course.chroma_collection,
+                new=latest[0],
+            )
+            second_course.chroma_collection = latest[0]
+            second_course.index_version = max(second_course.index_version, latest[1])
         db.add(second_course)
         logger.info("seed_course_exists", code=_SECOND_COURSE_CODE)
 
@@ -248,6 +302,18 @@ async def seed(db: AsyncSession) -> None:
     if teacher2_second_enrollment_result.scalars().first() is None:
         db.add(CourseEnrollment(user_id=teacher2.id, course_id=second_course.id, role="teacher"))
         logger.info("seed_enrolled_teacher2", email=_TEACHER2_EMAIL, course=_SECOND_COURSE_CODE)
+
+    # Additional test students enrolled in TEST101
+    for ts in test_students:
+        ts_enrollment_result = await db.execute(
+            select(CourseEnrollment).where(
+                CourseEnrollment.user_id == ts.id,
+                CourseEnrollment.course_id == course.id,
+            )
+        )
+        if ts_enrollment_result.scalars().first() is None:
+            db.add(CourseEnrollment(user_id=ts.id, course_id=course.id, role="student"))
+            logger.info("seed_enrolled_test_student", email=ts.email, course=_COURSE_CODE)
 
     # Teacher enrolled in TEST102 as student (for UI/role switching flows)
     second_course_teacher_enrollment_result = await db.execute(

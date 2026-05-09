@@ -24,7 +24,7 @@ apiClient.interceptors.response.use(
     const isLoginRequest = error.config?.url?.includes('/auth/login')
     if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('access_token')
-      window.location.href = '/auth'
+      window.location.href = '/login'
     }
     return Promise.reject(error)
   }

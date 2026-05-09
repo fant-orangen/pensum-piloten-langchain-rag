@@ -15,7 +15,7 @@ export function Layout({ children }: LayoutProps) {
 
   function handleLogout() {
     logout()
-    navigate('/auth')
+    navigate('/login')
   }
 
   return (
@@ -39,7 +39,7 @@ export function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-4">
               {user.global_role === 'admin' && (
                 <Link
-                  to="/admin"
+                  to="/dashboard/admin"
                   className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-indigo-600 focus-visible:rounded focus-visible:outline"
                 >
                   <Shield className="h-4 w-4" aria-hidden="true" />

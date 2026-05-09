@@ -55,6 +55,23 @@ export async function getCourseStudents(
   return data
 }
 
+export async function getAllTeachers(): Promise<CourseStudentRead[]> {
+  const { data } = await apiClient.get<CourseStudentRead[]>('/courses/all-teachers')
+  return data
+}
+
+export async function getCourseTeachers(
+  courseId: string,
+  page = 1,
+  pageSize = 20
+): Promise<PaginatedResponse<CourseStudentRead>> {
+  const { data } = await apiClient.get<PaginatedResponse<CourseStudentRead>>(
+    `/courses/${courseId}/teachers`,
+    { params: { page, page_size: pageSize } }
+  )
+  return data
+}
+
 export async function getCourseDocuments(courseId: string): Promise<CourseDocumentRead[]> {
   const { data } = await apiClient.get<CourseDocumentRead[]>(`/courses/${courseId}/documents`)
   return data
