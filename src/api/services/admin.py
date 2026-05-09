@@ -115,6 +115,8 @@ async def demote_teacher_to_student(
     if target_user.global_role == "student":
         raise conflict_error("User is already a student.")
 
+    await _require_not_course_owner(target_user_id, db)
+
     target_user.global_role = "student"
     db.add(target_user)
 
@@ -128,6 +130,17 @@ async def demote_teacher_to_student(
     await db.commit()
     await db.refresh(target_user)
     return target_user
+
+
+async def _require_not_course_owner(user_id: uuid.UUID, db: AsyncSession) -> None:
+    """Raise 409 if the user is the creator of any course."""
+    result = await db.execute(
+        select(Course.id).where(Course.created_by_id == user_id).limit(1)
+    )
+    if result.scalars().first() is not None:
+        raise conflict_error(
+            "Cannot demote a teacher who is the creator of a course."
+        )
 
 
 def _require_primary_admin(current_user: User) -> None:
