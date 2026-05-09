@@ -13,7 +13,7 @@ import {
   unenrollStudent,
 } from '../../api/courses'
 import type { CourseStudentRead, EnrollmentImportPreviewRead } from '../../types'
-import { courseQueryKeys } from './queryKeys'
+import { courseQueryKeys, invalidateAllCourseQueries } from './queryKeys'
 
 interface StudentsTabProps {
   courseId: string
@@ -38,7 +38,7 @@ export function StudentsTab({ courseId }: StudentsTabProps) {
   const enrollMutation = useMutation({
     mutationFn: (email: string) => enrollStudent(courseId, email),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.students(courseId) })
+      invalidateAllCourseQueries(queryClient, courseId)
       setEnrollEmail('')
       setEnrollError('')
       toast.success('Student lagt til!')
@@ -51,7 +51,7 @@ export function StudentsTab({ courseId }: StudentsTabProps) {
   const unenrollMutation = useMutation({
     mutationFn: (userId: string) => unenrollStudent(courseId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.students(courseId) })
+      invalidateAllCourseQueries(queryClient, courseId)
       toast.success('Student fjernet.')
     },
     onError: () => toast.error('Klarte ikke fjerne student.'),
@@ -69,7 +69,7 @@ export function StudentsTab({ courseId }: StudentsTabProps) {
       return confirmEnrollmentImport(courseId, preview.preview_id)
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: courseQueryKeys.students(courseId) })
+      invalidateAllCourseQueries(queryClient, courseId)
       setPreview(null)
       setCsvFile(null)
       toast.success(

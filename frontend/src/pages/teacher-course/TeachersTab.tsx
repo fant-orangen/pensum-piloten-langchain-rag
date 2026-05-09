@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Search, UserPlus, UserMinus } from 'lucide-r
 import toast from 'react-hot-toast'
 import { Spinner } from '../../components/Spinner'
 import { getAllTeachers, getCourseTeachers, enrollStudent, unenrollStudent } from '../../api/courses'
-import { courseQueryKeys } from './queryKeys'
+import { courseQueryKeys, invalidateAllCourseQueries } from './queryKeys'
 import type { CourseStudentRead } from '../../types'
 
 const PAGE_SIZE = 20
@@ -82,10 +82,7 @@ export function TeachersTab({ courseId, creatorId }: TeachersTabProps) {
   const handleAllSearch = (v: string) => { setAllSearch(v); setAllPage(1) }
   const handleCourseSearch = (v: string) => { setCourseSearch(v); setCoursePage(1) }
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: courseQueryKeys.teachers(courseId) })
-    queryClient.invalidateQueries({ queryKey: courseQueryKeys.allTeachers })
-  }
+  const invalidate = () => invalidateAllCourseQueries(queryClient, courseId)
 
   const addMutation = useMutation({
     mutationFn: async (userIds: string[]) => {
