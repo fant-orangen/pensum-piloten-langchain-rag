@@ -2,9 +2,10 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.models.enrollment import CourseEnrollment
 from src.api.models.user import User
 from src.api.services.auth import hash_password
 from src.api.utils.exception_util import bad_request_error, conflict_error, forbidden_error, not_found_error
@@ -84,6 +85,40 @@ async def promote_user_to_teacher(
 
     target_user.global_role = "teacher"
     db.add(target_user)
+    await db.commit()
+    await db.refresh(target_user)
+    return target_user
+
+
+async def demote_teacher_to_student(
+    current_user: User,
+    target_user_id: uuid.UUID,
+    db: AsyncSession,
+) -> User:
+    """Demote a teacher to student: reset global role and remove all teacher enrollments."""
+    require_admin(current_user)
+    _require_primary_admin(current_user)
+
+    result = await db.execute(select(User).where(User.id == target_user_id))
+    target_user = result.scalars().first()
+    if target_user is None:
+        raise not_found_error("User not found.")
+
+    if target_user.global_role == "admin":
+        raise bad_request_error("Cannot modify an admin user.")
+    if target_user.global_role == "student":
+        raise conflict_error("User is already a student.")
+
+    target_user.global_role = "student"
+    db.add(target_user)
+
+    await db.execute(
+        delete(CourseEnrollment).where(
+            CourseEnrollment.user_id == target_user_id,
+            CourseEnrollment.role == "teacher",
+        )
+    )
+
     await db.commit()
     await db.refresh(target_user)
     return target_user

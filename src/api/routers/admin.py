@@ -9,7 +9,7 @@ from src.api.database import get_db
 from src.api.dependencies import get_current_app_user
 from src.api.models.user import User
 from src.api.schemas.admin import AdminUserRead
-from src.api.services.admin import list_users, promote_user_to_teacher
+from src.api.services.admin import demote_teacher_to_student, list_users, promote_user_to_teacher
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -32,4 +32,15 @@ async def promote_to_teacher(
 ) -> AdminUserRead:
     """Promote a user to global teacher role. Requires admin."""
     user = await promote_user_to_teacher(current_user, user_id, db)
+    return AdminUserRead.model_validate(user)
+
+
+@router.post("/users/{user_id}/demote-student", response_model=AdminUserRead)
+async def demote_to_student(
+    user_id: uuid.UUID,
+    current_user: User = Depends(get_current_app_user),
+    db: AsyncSession = Depends(get_db),
+) -> AdminUserRead:
+    """Demote a teacher to student and remove all teacher course enrollments. Requires admin."""
+    user = await demote_teacher_to_student(current_user, user_id, db)
     return AdminUserRead.model_validate(user)
