@@ -20,6 +20,7 @@ import re
 import sys
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -236,6 +237,7 @@ def build_reviews(
     chroma_collection: str,
     graph_scope: str | None,
     seed: int | None,
+    final_top_k: int,
     skip_generation: bool,
 ) -> list[MethodReview]:
     """Build anonymized method reviews for every question."""
@@ -250,6 +252,7 @@ def build_reviews(
                 chroma_collection=chroma_collection,
                 graph_scope=graph_scope,
             )
+            docs = docs[:final_top_k]
             if skip_generation:
                 answer = "[Answer generation skipped]"
                 generation_latency = None
@@ -284,6 +287,7 @@ def write_review_markdown(
         "# Anonymized Retrieval Review",
         "",
         "Method identities are hidden in this document. Use the separate key file after review.",
+        "Each method is normalized to the same final chunk count before answer generation.",
         "",
     ]
     for query_id in [question.query_id for question in questions]:
@@ -384,6 +388,21 @@ def _format_optional_score(score: float | None) -> str:
     return f"{score:.6g}"
 
 
+def resolve_run_output_dir(base_output_dir: Path, *, run_id: str | None) -> Path:
+    """Return a unique output directory for this review run."""
+    resolved_run_id = run_id or datetime.now().strftime("run_%Y%m%d_%H%M%S")
+    candidate = base_output_dir / resolved_run_id
+    if not candidate.exists():
+        return candidate
+
+    suffix = 2
+    while True:
+        suffixed_candidate = base_output_dir / f"{resolved_run_id}_{suffix}"
+        if not suffixed_candidate.exists():
+            return suffixed_candidate
+        suffix += 1
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate anonymized answer/chunk review material for retrieval methods."
@@ -408,7 +427,24 @@ def _parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=Path("data/retrieval_review"),
-        help="Directory for review.md, review_records.jsonl, and review_key.csv.",
+        help="Base directory where a new per-run output folder will be created.",
+    )
+    parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Optional output run folder name. Defaults to run_YYYYMMDD_HHMMSS.",
+    )
+    parser.add_argument(
+        "--final-top-k",
+        type=int,
+        default=5,
+        help="Number of retrieved chunks each method may send to answer generation/review.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Process only the first N questions.",
     )
     parser.add_argument("--seed", type=int, default=123, help="Seed for method anonymization.")
     parser.add_argument(
@@ -421,21 +457,30 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
+    if args.final_top_k <= 0:
+        raise SystemExit("--final-top-k must be greater than zero.")
+    if args.limit is not None and args.limit <= 0:
+        raise SystemExit("--limit must be greater than zero when provided.")
+
     questions = parse_questions(args.input)
+    if args.limit is not None:
+        questions = questions[: args.limit]
     methods = parse_methods(args.methods)
     graph_scope = args.graph_scope or args.chroma_collection
+    run_output_dir = resolve_run_output_dir(args.output_dir, run_id=args.run_id)
     reviews = build_reviews(
         questions,
         methods=methods,
         chroma_collection=args.chroma_collection,
         graph_scope=graph_scope,
         seed=args.seed,
+        final_top_k=args.final_top_k,
         skip_generation=args.skip_generation,
     )
 
-    review_path = args.output_dir / "review.md"
-    jsonl_path = args.output_dir / "review_records.jsonl"
-    key_path = args.output_dir / "review_key.csv"
+    review_path = run_output_dir / "review.md"
+    jsonl_path = run_output_dir / "review_records.jsonl"
+    key_path = run_output_dir / "review_key.csv"
     write_review_markdown(questions, reviews, review_path)
     write_anonymized_jsonl(questions, reviews, jsonl_path)
     write_answer_key(reviews, key_path)

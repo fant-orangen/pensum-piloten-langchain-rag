@@ -2,9 +2,7 @@
 
 Usage:
     python -m scripts.analyze_retrieval_speed \
-        --records data/retrieval_review/review_records.jsonl \
-        --key data/retrieval_review/review_key.csv \
-        --output data/retrieval_review/retrieval_speed_report.md
+        --run-dir data/retrieval_review/run_20260510_120000
 """
 
 from __future__ import annotations
@@ -218,32 +216,62 @@ def _format_seconds(value: float) -> str:
     return f"{value:.3f}s"
 
 
+def resolve_input_paths(
+    *,
+    run_dir: Path | None,
+    records: Path | None,
+    key: Path | None,
+    output: Path | None,
+    json_output: Path | None,
+) -> tuple[Path, Path, Path, Path]:
+    """Resolve input and output paths from a run directory or explicit files."""
+    if run_dir is not None:
+        return (
+            records or run_dir / "review_records.jsonl",
+            key or run_dir / "review_key.csv",
+            output or run_dir / "retrieval_speed_report.md",
+            json_output or run_dir / "retrieval_speed_summary.json",
+        )
+    return (
+        records or Path("data/retrieval_review/review_records.jsonl"),
+        key or Path("data/retrieval_review/review_key.csv"),
+        output or Path("data/retrieval_review/retrieval_speed_report.md"),
+        json_output or Path("data/retrieval_review/retrieval_speed_summary.json"),
+    )
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Analyze retrieval latency by method from anonymized review outputs."
     )
     parser.add_argument(
+        "--run-dir",
+        type=Path,
+        default=None,
+        help="Per-run output directory containing review_records.jsonl and review_key.csv.",
+    )
+    parser.add_argument(
         "--records",
         type=Path,
-        default=Path("data/retrieval_review/review_records.jsonl"),
+        default=None,
         help="Anonymized review_records.jsonl file.",
     )
     parser.add_argument(
         "--key",
         type=Path,
-        default=Path("data/retrieval_review/review_key.csv"),
+        default=None,
         help="De-anonymization review_key.csv file.",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/retrieval_review/retrieval_speed_report.md"),
+        default=None,
         help="Markdown report output path.",
     )
     parser.add_argument(
         "--json-output",
         type=Path,
-        default=Path("data/retrieval_review/retrieval_speed_summary.json"),
+        default=None,
         help="Machine-readable JSON summary output path.",
     )
     return parser.parse_args()
@@ -251,12 +279,19 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    records = load_latency_records(args.records, args.key)
+    records_path, key_path, output_path, json_output_path = resolve_input_paths(
+        run_dir=args.run_dir,
+        records=args.records,
+        key=args.key,
+        output=args.output,
+        json_output=args.json_output,
+    )
+    records = load_latency_records(records_path, key_path)
     summaries = summarize_latency(records)
-    write_markdown_report(summaries, records, args.output)
-    write_json_summary(summaries, args.json_output)
-    print(f"Wrote retrieval speed report to {args.output}")
-    print(f"Wrote retrieval speed JSON summary to {args.json_output}")
+    write_markdown_report(summaries, records, output_path)
+    write_json_summary(summaries, json_output_path)
+    print(f"Wrote retrieval speed report to {output_path}")
+    print(f"Wrote retrieval speed JSON summary to {json_output_path}")
 
 
 if __name__ == "__main__":

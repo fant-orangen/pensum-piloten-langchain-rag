@@ -7,6 +7,7 @@ from scripts.generate_anonymized_retrieval_review import (
     build_anonymous_labels,
     parse_methods,
     parse_questions,
+    resolve_run_output_dir,
     write_anonymized_jsonl,
     write_answer_key,
     write_review_markdown,
@@ -94,3 +95,22 @@ def test_outputs_are_anonymized_and_key_contains_mapping(tmp_path) -> None:
         "method_label": "Method A",
         "actual_method": "kg_rag",
     }
+
+
+def test_resolve_run_output_dir_uses_new_folder_and_avoids_overwrite(tmp_path) -> None:
+    first = resolve_run_output_dir(tmp_path, run_id="run_fixed")
+    first.mkdir()
+
+    second = resolve_run_output_dir(tmp_path, run_id="run_fixed")
+
+    assert first == tmp_path / "run_fixed"
+    assert second == tmp_path / "run_fixed_2"
+
+
+def test_question_limit_can_be_applied_before_building_reviews(tmp_path) -> None:
+    path = tmp_path / "questions.txt"
+    path.write_text("1. First?\n\n2. Second?\n\n3. Third?", encoding="utf-8")
+
+    questions = parse_questions(path)[:2]
+
+    assert [question.query_id for question in questions] == ["q1", "q2"]

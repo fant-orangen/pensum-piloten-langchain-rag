@@ -3,6 +3,7 @@ import json
 
 from scripts.analyze_retrieval_speed import (
     load_latency_records,
+    resolve_input_paths,
     summarize_latency,
     write_json_summary,
     write_markdown_report,
@@ -85,6 +86,23 @@ def test_write_reports(tmp_path) -> None:
     assert "Retrieval Speed Analysis" in markdown_path.read_text(encoding="utf-8")
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     assert payload[0]["method"] == "vector_rag"
+
+
+def test_resolve_input_paths_from_run_dir(tmp_path) -> None:
+    run_dir = tmp_path / "run_20260510_120000"
+
+    records, key, output, json_output = resolve_input_paths(
+        run_dir=run_dir,
+        records=None,
+        key=None,
+        output=None,
+        json_output=None,
+    )
+
+    assert records == run_dir / "review_records.jsonl"
+    assert key == run_dir / "review_key.csv"
+    assert output == run_dir / "retrieval_speed_report.md"
+    assert json_output == run_dir / "retrieval_speed_summary.json"
 
 
 def _record(method: str, latency: float):
