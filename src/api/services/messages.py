@@ -19,7 +19,12 @@ from src.api.services.conversation_context_summaries import (
 from src.api.schemas.pagination import PaginationParams
 from src.api.utils.exception_util import bad_request_error, not_found_error, stage_error
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
-from src.chain import build_kg_rag_chain, build_no_rag_chain
+from src.chain import (
+    build_kg_rag_chain,
+    build_no_rag_chain,
+    build_rag_chain,
+    build_reranked_rag_chain,
+)
 
 logger = get_service_logger(__name__)
 
@@ -40,8 +45,8 @@ def _experiment_strategy_for_course(course: Course) -> tuple[str, str]:
         return "no_rag", "default"
     if course_code == _CONTROL_COURSE_CODE:
         return "no_rag", "control"
-    if course.rag_mode == "no_rag":
-        return "no_rag", "default"
+    if course.rag_mode in {"rag", "reranked_rag", "no_rag"}:
+        return course.rag_mode, "default"
     return "kg_rag", "default"
 
 
@@ -57,12 +62,23 @@ def _get_chain(
     if chain is not None:
         return chain
 
-    if chain_kind == "kg_rag":
+    if chain_kind in {"kg_rag", "rag", "reranked_rag"}:
         if not scope:
             raise ValueError("This course does not currently have ingested materials.")
+    if chain_kind == "kg_rag":
         chain = build_kg_rag_chain(
             chroma_collection=scope,
             graph_scope=scope,
+            prompt_variant=prompt_variant,
+        )
+    elif chain_kind == "rag":
+        chain = build_rag_chain(
+            chroma_collection=scope,
+            prompt_variant=prompt_variant,
+        )
+    elif chain_kind == "reranked_rag":
+        chain = build_reranked_rag_chain(
+            chroma_collection=scope,
             prompt_variant=prompt_variant,
         )
     elif chain_kind == "no_rag":

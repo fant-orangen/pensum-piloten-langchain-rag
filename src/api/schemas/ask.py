@@ -15,7 +15,7 @@ class ChatMessage(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
     chat_history: list[ChatMessage] = Field(default_factory=list)
-    mode: Literal["rag", "no_rag"] = "rag"
+    mode: Literal["rag", "reranked_rag", "no_rag"] = "rag"
     system_prompt_mode: SystemPromptMode = SystemPromptMode.SOCRATIC
 
 

@@ -43,6 +43,9 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retriever_top_k: int = 5
+    reranker_candidate_k: int = 30
+    reranker_top_k: int = 5
+    cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     kg_max_final_chunks: int = 20
     temperature: float = 0.3
     conversation_compression_token_limit: int = 30000

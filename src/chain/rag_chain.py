@@ -44,14 +44,18 @@ def _format_docs(docs: list[Document]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-def build_rag_chain():
+def build_rag_chain(
+    chroma_collection: str | None = None,
+    *,
+    prompt_variant: str = "default",
+):
     """Construct and return the full Socratic-tutor RAG chain.
 
     Returns an LCEL Runnable that accepts ``{"question": str, "chat_history": list}``
     and yields the tutor's response as a string.
     """
-    retriever = get_retriever()
-    prompt = build_tutor_prompt()
+    retriever = get_retriever(chroma_collection)
+    prompt = build_tutor_prompt(template_variant=prompt_variant)
     llm = get_llm(temperature=0.3)
 
     # The chain:

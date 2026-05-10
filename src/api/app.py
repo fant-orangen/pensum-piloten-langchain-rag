@@ -1,5 +1,7 @@
 """FastAPI application — thin HTTP layer over the RAG chain."""
 
+# ruff: noqa: E402
+
 import sys
 from pathlib import Path
 
@@ -22,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage, AIMessage
 
 from src.config import get_settings
-from src.chain import build_kg_rag_chain, build_no_rag_chain
+from src.chain import build_kg_rag_chain, build_no_rag_chain, build_reranked_rag_chain
 from src.api.schemas import AskRequest, AskResponse
 from src.api.database import init_engine, create_tables, get_db
 from src.api.routers import admin, auth, conversations, courses, preferences
@@ -83,6 +85,7 @@ app.include_router(preferences.router)
 _chain_cache: dict[str, Any] = {}
 _CHAIN_BUILDERS = {
     "rag": build_kg_rag_chain,
+    "reranked_rag": build_reranked_rag_chain,
     "no_rag": build_no_rag_chain,
 }
 

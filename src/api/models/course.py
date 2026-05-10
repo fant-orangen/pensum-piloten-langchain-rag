@@ -21,7 +21,7 @@ class Course(SQLModel, table=True):
     # Relative path (from project root) to this course's source documents.
     documents_dir: str
     # Default RAG chain to use for conversations in this course.
-    rag_mode: str = Field(default="kg_rag")  # "rag" | "kg_rag" | "no_rag"
+    rag_mode: str = Field(default="kg_rag")  # "rag" | "reranked_rag" | "kg_rag" | "no_rag"
     # Optional teacher-authored instructions appended to the fixed tutor prompt.
     course_specific_instructions: Optional[str] = None
     # Monotonic version used to name new course-scoped vector/KG partitions.

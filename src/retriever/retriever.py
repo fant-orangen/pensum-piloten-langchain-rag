@@ -16,13 +16,13 @@ from src.vectorstore.store import get_vectorstore
 logger = structlog.get_logger(__name__)
 
 
-def get_retriever() -> BaseRetriever:
+def get_retriever(collection_name: str | None = None) -> BaseRetriever:
     """Return a retriever backed by the persisted Chroma vector store.
 
     Retrieval strategy can be switched here without changing downstream code.
     """
     settings = get_settings()
-    vectorstore = get_vectorstore()
+    vectorstore = get_vectorstore(collection_name)
 
     # --- Default: similarity search ---
     retriever = vectorstore.as_retriever(
@@ -36,5 +36,5 @@ def get_retriever() -> BaseRetriever:
     #     search_kwargs={"k": settings.retriever_top_k, "fetch_k": 20},
     # )
 
-    logger.info("retriever_ready", top_k=settings.retriever_top_k)
+    logger.info("retriever_ready", top_k=settings.retriever_top_k, collection=collection_name)
     return retriever

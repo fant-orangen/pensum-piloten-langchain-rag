@@ -3,7 +3,7 @@ export type SystemPromptMode = 1 | 2 | 3
 export type DocumentStatus = 'pending_add' | 'active' | 'pending_remove'
 export type RebuildStatus = 'idle' | 'queued' | 'building' | 'failed'
 export type MessageRole = 'human' | 'ai'
-export type RagMode = 'kg_rag' | 'rag' | 'no_rag'
+export type RagMode = 'kg_rag' | 'rag' | 'reranked_rag' | 'no_rag'
 
 export interface UserResponse {
   id: string
@@ -144,4 +144,3 @@ export interface PaginatedResponse<T> {
   items: T[]
   total: number
 }
-
