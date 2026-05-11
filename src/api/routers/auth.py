@@ -20,7 +20,13 @@ async def register(
 ) -> UserResponse:
     """Register a new student account.
 
-    Raises 409 when the email already exists and 422 for invalid payloads.
+    Args:
+        request: Email, password, first name, and last name for the new account.
+        db: Request-scoped database session.
+
+    Raises:
+        409: Email already exists.
+        422: Payload validation failed.
     """
     user = await register_user(request, db)
     return UserResponse.model_validate(user)
@@ -33,7 +39,13 @@ async def login(
 ) -> TokenResponse:
     """Authenticate and return a JWT access token.
 
-    Raises 401 for invalid credentials.
+    Args:
+        request: Login email and plaintext password.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Invalid credentials.
+        422: Payload validation failed.
     """
     user = await authenticate_user(request.email, request.password, db)
     token = create_access_token(str(user.id))
@@ -42,7 +54,14 @@ async def login(
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
-    """Return the authenticated user's profile."""
+    """Return the authenticated user's profile.
+
+    Args:
+        current_user: User resolved from the bearer token.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+    """
     return UserResponse.model_validate(current_user)
 
 
@@ -54,7 +73,14 @@ async def change_password_endpoint(
 ) -> None:
     """Change the authenticated user's password.
 
-    Raises 400 for invalid old password, weak new password, or missing old
-    password when the user is not in forced-change mode.
+    Args:
+        request: Old password, if required, and new password.
+        current_user: User resolved from the bearer token.
+        db: Request-scoped database session.
+
+    Raises:
+        400: Invalid old password, weak new password, or missing old password
+            when not in forced-change mode.
+        401: Missing, expired, or invalid bearer token.
     """
     await change_password(current_user, request.old_password, request.new_password, db)

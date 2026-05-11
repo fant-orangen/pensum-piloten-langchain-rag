@@ -19,7 +19,15 @@ async def get_users(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AdminUserRead]:
-    """Return all users. Requires admin; otherwise raises 403."""
+    """Return all users with course-owner protection metadata.
+
+    Args:
+        current_user: Authenticated caller; must be an admin.
+        db: Request-scoped database session.
+
+    Raises:
+        403: Caller is not an admin.
+    """
     users, course_owner_ids = await list_users(current_user, db)
     result = []
     for user in users:
@@ -37,7 +45,14 @@ async def promote_to_teacher(
 ) -> AdminUserRead:
     """Promote a user to global teacher role.
 
-    Raises 403 when caller is not admin and 404 when the user does not exist.
+    Args:
+        user_id: User to promote.
+        current_user: Authenticated caller; must be an admin.
+        db: Request-scoped database session.
+
+    Raises:
+        403: Caller is not an admin.
+        404: User does not exist.
     """
     user = await promote_user_to_teacher(current_user, user_id, db)
     return AdminUserRead.model_validate(user)
@@ -51,7 +66,15 @@ async def demote_to_student(
 ) -> AdminUserRead:
     """Demote a teacher to student and remove teacher course enrollments.
 
-    Raises 409 if the teacher owns courses that must be reassigned first.
+    Args:
+        user_id: Teacher to demote.
+        current_user: Authenticated caller; must be an admin.
+        db: Request-scoped database session.
+
+    Raises:
+        403: Caller is not an admin.
+        404: User does not exist.
+        409: Teacher owns courses that must be reassigned first.
     """
     user = await demote_teacher_to_student(current_user, user_id, db)
     return AdminUserRead.model_validate(user)

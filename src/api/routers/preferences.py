@@ -21,7 +21,17 @@ async def set_system_prompt_mode(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> SystemPromptPreferenceUpdateResponse:
-    """Update the active system prompt mode for the authenticated user."""
+    """Update the active system prompt mode for the authenticated user.
+
+    Args:
+        request: Prompt mode enum value to persist on the user.
+        current_user: User resolved from the bearer token.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        422: Unsupported prompt mode.
+    """
     success = await update_system_prompt_mode(current_user, request.mode, db)
     message = (
         "System prompt mode updated successfully."
