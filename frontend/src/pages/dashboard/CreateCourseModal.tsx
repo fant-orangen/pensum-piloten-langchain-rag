@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { Spinner } from '../../components/Spinner'
-import type { CourseCreate } from '../../types'
+import type { CourseCreate, RagMode } from '../../types'
 import { deriveCourseCode } from './courseCode'
 
 interface CreateCourseModalProps {
@@ -23,6 +23,7 @@ export function CreateCourseModal({
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false)
   const [description, setDescription] = useState('')
   const [documentsDir, setDocumentsDir] = useState('')
+  const [ragMode, setRagMode] = useState<RagMode>('kg_rag')
   const [formError, setFormError] = useState('')
 
   function handleNameChange(value: string) {
@@ -51,6 +52,7 @@ export function CreateCourseModal({
       code: code.trim(),
       description: description.trim() || undefined,
       documents_dir: documentsDir.trim(),
+      rag_mode: ragMode,
     })
   }
 
@@ -123,6 +125,42 @@ export function CreateCourseModal({
               placeholder="Valgfri beskrivelse av emnet"
             />
           </div>
+
+          <fieldset>
+            <legend className="label">
+              RAG-modus <span aria-hidden="true">*</span>
+            </legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <label className="cursor-pointer rounded-lg border border-gray-200 p-3 text-sm transition hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="rag-mode"
+                  value="kg_rag"
+                  checked={ragMode === 'kg_rag'}
+                  onChange={() => setRagMode('kg_rag')}
+                  className="mr-2 accent-indigo-600"
+                />
+                <span className="font-medium text-gray-900">KG-RAG</span>
+                <span className="mt-1 block text-xs text-gray-500">
+                  Bruker kunnskapsgraf og vektorsøk.
+                </span>
+              </label>
+              <label className="cursor-pointer rounded-lg border border-gray-200 p-3 text-sm transition hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="rag-mode"
+                  value="naive_rag"
+                  checked={ragMode === 'naive_rag'}
+                  onChange={() => setRagMode('naive_rag')}
+                  className="mr-2 accent-indigo-600"
+                />
+                <span className="font-medium text-gray-900">Naive RAG</span>
+                <span className="mt-1 block text-xs text-gray-500">
+                  Bruker vanlig vektorsøk uten kunnskapsgraf.
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
           <div>
             <label htmlFor="course-docs-dir" className="label">

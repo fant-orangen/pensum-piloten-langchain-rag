@@ -28,8 +28,8 @@ class Course(SQLModel, table=True):
     chroma_collection: Optional[str] = None
     # Relative path (from project root) to this course's source documents.
     documents_dir: str
-    # Default RAG chain to use for conversations in this course.
-    rag_mode: str = Field(default="kg_rag")  # "rag" | "kg_rag" | "no_rag"
+    # RAG chain to use for conversations in this course: "kg_rag" or "naive_rag".
+    rag_mode: str = Field(default="kg_rag")
     # Optional teacher-authored instructions appended to the fixed tutor prompt.
     course_specific_instructions: Optional[str] = None
     # Monotonic version used to name new course-scoped vector/KG partitions.

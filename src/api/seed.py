@@ -56,6 +56,8 @@ _STUDENT_EMAIL = "student@test.com"
 _ADMIN_EMAIL = "admin@test.com"
 _COURSE_CODE = "TEST101"
 _SECOND_COURSE_CODE = "TEST102"
+_COURSE_RAG_MODE = "kg_rag"
+_SECOND_COURSE_RAG_MODE = "naive_rag"
 _COURSE_SPECIFIC_INSTRUCTIONS = (
     "This course is specifically about understanding NTFS when discussing file systems. "
     "When file-system concepts are explained, always describe them with reference to NTFS."
@@ -180,6 +182,20 @@ def _reconcile_course_scope(
     course.index_version = version
 
 
+def _reconcile_course_rag_mode(course: Course, expected_rag_mode: str) -> None:
+    """Keep canonical seeded courses aligned with their intended RAG mode."""
+    if course.rag_mode == expected_rag_mode:
+        return
+
+    logger.info(
+        "seed_reconcile_rag_mode",
+        code=course.code,
+        old=course.rag_mode,
+        new=expected_rag_mode,
+    )
+    course.rag_mode = expected_rag_mode
+
+
 async def seed(db: AsyncSession) -> None:
     """
     Populate canonical test users, courses, and their relationships in the database for dev/test/demo.
@@ -263,7 +279,7 @@ async def seed(db: AsyncSession) -> None:
             code=_COURSE_CODE,
             chroma_collection=test_course_scope,
             documents_dir=str(test_course_dir),
-            rag_mode="kg_rag",
+            rag_mode=_COURSE_RAG_MODE,
             course_specific_instructions=_COURSE_SPECIFIC_INSTRUCTIONS,
             index_version=test_course_version,
             created_by_id=teacher.id,
@@ -274,6 +290,7 @@ async def seed(db: AsyncSession) -> None:
     else:
         course.documents_dir = str(test_course_dir)
         course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
+        _reconcile_course_rag_mode(course, _COURSE_RAG_MODE)
         _reconcile_course_scope(course, collection_names=collection_names)
         db.add(course)
         logger.info("seed_course_exists", code=_COURSE_CODE)
@@ -287,7 +304,7 @@ async def seed(db: AsyncSession) -> None:
             code=_SECOND_COURSE_CODE,
             chroma_collection=second_course_scope,
             documents_dir=str(second_course_dir),
-            rag_mode="kg_rag",
+            rag_mode=_SECOND_COURSE_RAG_MODE,
             index_version=second_course_version,
             created_by_id=admin.id,
         )
@@ -296,6 +313,7 @@ async def seed(db: AsyncSession) -> None:
         logger.info("seed_created_course", code=_SECOND_COURSE_CODE)
     else:
         second_course.documents_dir = str(second_course_dir)
+        _reconcile_course_rag_mode(second_course, _SECOND_COURSE_RAG_MODE)
         _reconcile_course_scope(second_course, collection_names=collection_names)
         db.add(second_course)
         logger.info("seed_course_exists", code=_SECOND_COURSE_CODE)

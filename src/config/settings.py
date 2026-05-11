@@ -44,6 +44,7 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retriever_top_k: int = 5
+    naive_rag_top_k: int = 20
     kg_max_final_chunks: int = 20
     temperature: float = 0.3
     conversation_compression_token_limit: int = 1000

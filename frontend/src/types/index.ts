@@ -8,8 +8,8 @@ export type DocumentStatus = 'pending_add' | 'active' | 'pending_remove'
 export type RebuildStatus = 'idle' | 'queued' | 'building' | 'failed'
 /** Persisted chat message author. */
 export type MessageRole = 'human' | 'ai'
-/** Retrieval mode supported by backend chains. */
-export type RagMode = 'kg_rag' | 'rag' | 'no_rag'
+/** Retrieval mode supported for course conversations. */
+export type RagMode = 'kg_rag' | 'naive_rag'
 
 /** Safe user profile returned by auth endpoints. */
 export interface UserResponse {
@@ -56,6 +56,7 @@ export interface CourseCreate {
   chroma_collection?: string
   documents_dir: string
   description?: string
+  rag_mode: RagMode
   course_specific_instructions?: string
 }
 

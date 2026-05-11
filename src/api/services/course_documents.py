@@ -852,24 +852,33 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                         replace=True,
                     )
                 )
-                log_course_material_rebuild_step(
-                    rebuild_logger,
-                    step="extract_triplets",
-                    target_scope=target_scope,
-                    chunk_count=len(chunks),
-                )
-                triplets = await asyncio.to_thread(extract_triplets, chunks)
-                log_course_material_rebuild_step(
-                    rebuild_logger,
-                    step="build_knowledge_graph",
-                    target_scope=target_scope,
-                    triplet_count=len(triplets),
-                )
-                kg_store = KGStore()
-                try:
-                    await asyncio.to_thread(kg_store.build_kg, triplets, target_scope)
-                finally:
-                    kg_store.close()
+                triplets = []
+                if course.rag_mode == "kg_rag":
+                    log_course_material_rebuild_step(
+                        rebuild_logger,
+                        step="extract_triplets",
+                        target_scope=target_scope,
+                        chunk_count=len(chunks),
+                    )
+                    triplets = await asyncio.to_thread(extract_triplets, chunks)
+                    log_course_material_rebuild_step(
+                        rebuild_logger,
+                        step="build_knowledge_graph",
+                        target_scope=target_scope,
+                        triplet_count=len(triplets),
+                    )
+                    kg_store = KGStore()
+                    try:
+                        await asyncio.to_thread(kg_store.build_kg, triplets, target_scope)
+                    finally:
+                        kg_store.close()
+                else:
+                    log_course_material_rebuild_step(
+                        rebuild_logger,
+                        step="skip_knowledge_graph",
+                        target_scope=target_scope,
+                        rag_mode=course.rag_mode,
+                    )
                 log_course_material_rebuild_step(
                     rebuild_logger,
                     step="write_course_artifacts",

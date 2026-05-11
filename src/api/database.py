@@ -82,6 +82,19 @@ async def create_tables() -> None:
         await conn.execute(
             text(
                 "ALTER TABLE course "
+                "ADD COLUMN IF NOT EXISTS rag_mode VARCHAR NOT NULL DEFAULT 'kg_rag'"
+            )
+        )
+        await conn.execute(
+            text(
+                "UPDATE course "
+                "SET rag_mode = 'naive_rag' "
+                "WHERE rag_mode = 'rag'"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE course "
                 "ADD COLUMN IF NOT EXISTS index_version INTEGER NOT NULL DEFAULT 0"
             )
         )

@@ -2,9 +2,12 @@
 
 import uuid
 from datetime import datetime
+from typing import Literal
 from typing import Optional
 
 from pydantic import BaseModel
+
+CourseRagMode = Literal["kg_rag", "naive_rag"]
 
 
 class CourseRead(BaseModel):
@@ -17,7 +20,7 @@ class CourseRead(BaseModel):
     id: uuid.UUID
     name: str
     code: str
-    rag_mode: str
+    rag_mode: CourseRagMode
     chroma_collection: Optional[str] = None
     course_specific_instructions: Optional[str] = None
     index_version: int
@@ -50,6 +53,7 @@ class CourseCreate(BaseModel):
     chroma_collection: Optional[str] = None
     documents_dir: str
     description: Optional[str] = None
+    rag_mode: CourseRagMode = "kg_rag"
     course_specific_instructions: Optional[str] = None
 
 
