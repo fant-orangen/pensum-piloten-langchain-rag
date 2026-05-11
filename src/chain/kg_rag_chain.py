@@ -1,8 +1,4 @@
-"""KG-RAG chain — wires the KG-expanded retriever with prompt and LLM using LCEL.
-
-Same architecture as rag_chain.py but uses KG-guided retrieval instead of
-plain similarity search.
-"""
+"""KG-RAG chain — wires the KG-expanded retriever with prompt and LLM using LCEL."""
 
 import structlog
 from typing import Any, cast
@@ -11,7 +7,7 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnableLambda
 
-from src.chain.rag_chain import _format_docs
+from src.chain.formatting import format_docs
 from src.kg.retriever import get_kg_retriever
 from src.models import get_llm
 from src.prompts import build_tutor_prompt
@@ -30,7 +26,7 @@ def _build_prompt_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
     """Format retrieved documents for the tutor prompt while preserving raw docs."""
     source_documents = cast(list[Document], inputs["source_documents"])
     return {
-        "context": _format_docs(source_documents),
+        "context": format_docs(source_documents),
         "question": inputs["question"],
         "chat_history": inputs.get("chat_history", []),
         "mode": inputs["mode"],

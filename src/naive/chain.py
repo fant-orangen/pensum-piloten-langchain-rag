@@ -7,7 +7,7 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda, RunnableParallel
 
-from src.chain.rag_chain import _format_docs
+from src.chain.formatting import format_docs
 from src.config import get_settings
 from src.models import get_llm
 from src.naive.retriever import get_naive_retriever
@@ -25,7 +25,7 @@ def _build_prompt_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
     """Format retrieved chunks for the tutor prompt while preserving sources."""
     source_documents = cast(list[Document], inputs["source_documents"])
     return {
-        "context": _format_docs(source_documents),
+        "context": format_docs(source_documents),
         "question": inputs["question"],
         "chat_history": inputs.get("chat_history", []),
         "mode": inputs["mode"],
