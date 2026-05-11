@@ -8,6 +8,8 @@ from sqlalchemy import Column, ForeignKey, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class Message(SQLModel, table=True):
     """A single human or AI turn within a conversation.
@@ -33,4 +35,4 @@ class Message(SQLModel, table=True):
     # (filename, chunk_id) are indexable without a separate join table.
     # Example: [{"filename": "memory.pdf", "chunk_id": "abc123"}]
     sources: Optional[Any] = Field(default=None, sa_column=Column(JSONB, nullable=True))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = utc_timestamp_field()

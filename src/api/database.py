@@ -13,6 +13,18 @@ logger = structlog.get_logger(__name__)
 
 _engine = None
 _session_factory = None
+_UTC_TIMESTAMP_COLUMNS = (
+    ("app_user", "created_at"),
+    ("course", "created_at"),
+    ("course_enrollment", "enrolled_at"),
+    ("enrollment_import_preview", "created_at"),
+    ("conversation", "created_at"),
+    ("conversation", "updated_at"),
+    ("conversation_context_summary", "created_at"),
+    ("course_document", "created_at"),
+    ("course_document", "updated_at"),
+    ("message", "created_at"),
+)
 
 
 def init_engine() -> None:
@@ -57,7 +69,7 @@ async def create_tables() -> None:
         await conn.execute(
             text(
                 "ALTER TABLE conversation_context_summary "
-                "ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE "
+                "ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE "
                 "NOT NULL DEFAULT NOW()"
             )
         )
@@ -130,6 +142,28 @@ async def create_tables() -> None:
                 "ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE"
             )
         )
+        for table_name, column_name in _UTC_TIMESTAMP_COLUMNS:
+            await conn.execute(
+                text(
+                    f"""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1
+                            FROM information_schema.columns
+                            WHERE table_name = '{table_name}'
+                              AND column_name = '{column_name}'
+                              AND data_type = 'timestamp without time zone'
+                        ) THEN
+                            ALTER TABLE {table_name}
+                            ALTER COLUMN {column_name}
+                            TYPE TIMESTAMP WITH TIME ZONE
+                            USING {column_name} AT TIME ZONE 'UTC';
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
     logger.info("database_tables_created")
 
 

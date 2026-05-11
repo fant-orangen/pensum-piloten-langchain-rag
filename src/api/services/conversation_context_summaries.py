@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.models.conversation import Conversation
 from src.api.models.conversation_context_summary import ConversationContextSummary
 from src.api.models.message import Message
+from src.api.models.time import utc_now
 from src.api.utils.logging_util import get_service_logger, log_conversation_compression
 from src.config import get_settings
 from src.models import get_llm
@@ -117,7 +118,7 @@ async def maybe_compress_conversation_history(
         new_summary = await chain.ainvoke({"conversation_history": transcript})
 
     cleaned_summary = new_summary.strip()
-    compressed_at = datetime.utcnow()
+    compressed_at = utc_now()
     if summary_row is None:
         summary_row = ConversationContextSummary(
             conversation_id=conversation.id,

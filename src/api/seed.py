@@ -16,7 +16,8 @@ When enabled, the `seed()` function should be called once on startup (typically 
     - The student is enrolled in the main test course as a student.
     - The teacher is enrolled as a teacher in TEST101 and (for UI flows) as a *student* in TEST102.
 - **Directories**: Document directories are created if missing. Course documents may be synced from their directory.
-- **RAG/KG index**: Course metadata (chroma_collection, index_version) is loaded from a local manifest if present (see `.pensum_piloten/rebuild_manifest.json`).
+- **RAG/KG index**: Course metadata is reconciled against the ChromaDB collections
+  that actually exist on disk. The newest `<COURSE>_vN` collection wins.
 
 Idempotency is enforced: if the objects exist, nothing is duplicated or changed except for (instructive) metadata updates and roles.
 
@@ -40,7 +41,6 @@ from src.api.models.user import User
 from src.api.services.auth import hash_password
 from src.api.services.course_documents import (
     build_course_documents_dir,
-    build_course_scope_name,
     sync_course_documents_from_directory,
 )
 from src.vectorstore.store import _get_client as _get_chroma_client
@@ -64,61 +64,120 @@ _COURSE_ARTIFACTS_DIRNAME = ".pensum_piloten"
 _REBUILD_MANIFEST_NAME = "rebuild_manifest.json"
 
 
-def _find_latest_chroma_collection(course_code: str) -> tuple[str, int] | None:
+def _list_chroma_collection_names() -> set[str]:
+    """Return all persisted Chroma collection names, or an empty set on lookup failure."""
+
+    try:
+        client = _get_chroma_client()
+        return {col.name for col in client.list_collections()}
+    except Exception:
+        logger.warning("seed_chroma_lookup_failed")
+        return set()
+
+
+def _find_latest_chroma_collection(
+    course_code: str,
+    collection_names: set[str] | None = None,
+) -> tuple[str, int] | None:
     """Find the highest-versioned Chroma collection for *course_code*.
 
     Returns (collection_name, version) or None if no matching collection exists.
     """
-    try:
-        client = _get_chroma_client()
-        pattern = re.compile(rf"^{re.escape(course_code)}_v(\d+)$")
-        best: tuple[str, int] | None = None
-        for col in client.list_collections():
-            m = pattern.match(col.name)
-            if m:
-                version = int(m.group(1))
-                if best is None or version > best[1]:
-                    best = (col.name, version)
-        return best
-    except Exception:
-        logger.warning("seed_chroma_lookup_failed", course=course_code)
-        return None
+    names = collection_names if collection_names is not None else _list_chroma_collection_names()
+    pattern = re.compile(rf"^{re.escape(course_code)}_v(\d+)$")
+    best: tuple[str, int] | None = None
+    for name in names:
+        m = pattern.match(name)
+        if m:
+            version = int(m.group(1))
+            if best is None or version > best[1]:
+                best = (name, version)
+    return best
 
 
-def _load_seed_scope_from_manifest(course_code: str) -> tuple[str, int]:
-    """Return (chroma_collection, index_version) for the given course code, using a manifest if present.
-
-    This function is used to align the course's document indexing state (version/scope)
-    with the actual ChromaDB/materialized index on disk. If the manifest file does not exist,
-    a fallback default scope and index_version (1) is used.
+def _load_seed_scope_from_manifest(course_code: str) -> tuple[str, int] | None:
+    """Return manifest-declared (chroma_collection, index_version), if valid.
 
     Args:
         course_code: The course code (e.g., 'TEST101').
 
     Returns:
-        Tuple of (chroma_collection: str, index_version: int).
+        Tuple of (chroma_collection, index_version), or None if no usable manifest exists.
     """
     course_dir = build_course_documents_dir(course_code)
     manifest_path = course_dir / _COURSE_ARTIFACTS_DIRNAME / _REBUILD_MANIFEST_NAME
-    fallback_scope = build_course_scope_name(course_code, 1)
-    fallback_version = 1
 
     if not manifest_path.exists():
-        return fallback_scope, fallback_version
+        return None
 
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
         logger.warning("seed_manifest_unreadable", course=course_code, path=str(manifest_path))
-        return fallback_scope, fallback_version
+        return None
 
     scope = payload.get("scope")
     index_version = payload.get("index_version")
     if not isinstance(scope, str) or not scope.strip():
-        return fallback_scope, fallback_version
+        return None
     if not isinstance(index_version, int) or index_version < 1:
-        return scope.strip(), fallback_version
+        index_version = _version_from_scope(course_code, scope.strip()) or 0
+    if index_version < 1:
+        return None
     return scope.strip(), index_version
+
+
+def _version_from_scope(course_code: str, scope: str | None) -> int | None:
+    """Extract the numeric `<course>_vN` suffix from a scope name."""
+    if not scope:
+        return None
+    match = re.match(rf"^{re.escape(course_code)}_v(\d+)$", scope)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def _resolve_seed_scope(
+    course_code: str,
+    collection_names: set[str],
+) -> tuple[str | None, int]:
+    """Resolve the course scope that should be written to the DB during seeding.
+
+    The persisted Chroma collections are the source of truth. If no matching
+    collection exists, return `(None, 0)` so chat fails as "not ingested" rather
+    than pointing at a stale `<COURSE>_v1` value.
+    """
+    latest = _find_latest_chroma_collection(course_code, collection_names)
+    if latest is not None:
+        return latest
+
+    manifest_scope = _load_seed_scope_from_manifest(course_code)
+    if manifest_scope is not None and manifest_scope[0] in collection_names:
+        return manifest_scope
+
+    return None, 0
+
+
+def _reconcile_course_scope(
+    course: Course,
+    *,
+    collection_names: set[str],
+) -> None:
+    """Update a seeded course to the newest Chroma collection that exists."""
+    scope, version = _resolve_seed_scope(course.code, collection_names)
+    if scope == course.chroma_collection and version == course.index_version:
+        return
+
+    logger.info(
+        "seed_reconcile_chroma",
+        code=course.code,
+        old=course.chroma_collection,
+        old_version=course.index_version,
+        new=scope,
+        new_version=version,
+    )
+    course.chroma_collection = scope
+    course.index_version = version
 
 
 async def seed(db: AsyncSession) -> None:
@@ -133,8 +192,12 @@ async def seed(db: AsyncSession) -> None:
     """
     test_course_dir = build_course_documents_dir(_COURSE_CODE)
     second_course_dir = build_course_documents_dir(_SECOND_COURSE_CODE)
-    test_course_scope, test_course_version = _load_seed_scope_from_manifest(_COURSE_CODE)
-    second_course_scope, second_course_version = _load_seed_scope_from_manifest(_SECOND_COURSE_CODE)
+    collection_names = _list_chroma_collection_names()
+    test_course_scope, test_course_version = _resolve_seed_scope(_COURSE_CODE, collection_names)
+    second_course_scope, second_course_version = _resolve_seed_scope(
+        _SECOND_COURSE_CODE,
+        collection_names,
+    )
     test_course_dir.mkdir(parents=True, exist_ok=True)
     second_course_dir.mkdir(parents=True, exist_ok=True)
 
@@ -211,17 +274,7 @@ async def seed(db: AsyncSession) -> None:
     else:
         course.documents_dir = str(test_course_dir)
         course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
-        # Reconcile chroma_collection with what actually exists in Chroma
-        latest = _find_latest_chroma_collection(_COURSE_CODE)
-        if latest and latest[0] != course.chroma_collection:
-            logger.info(
-                "seed_reconcile_chroma",
-                code=_COURSE_CODE,
-                old=course.chroma_collection,
-                new=latest[0],
-            )
-            course.chroma_collection = latest[0]
-            course.index_version = max(course.index_version, latest[1])
+        _reconcile_course_scope(course, collection_names=collection_names)
         db.add(course)
         logger.info("seed_course_exists", code=_COURSE_CODE)
 
@@ -243,17 +296,7 @@ async def seed(db: AsyncSession) -> None:
         logger.info("seed_created_course", code=_SECOND_COURSE_CODE)
     else:
         second_course.documents_dir = str(second_course_dir)
-        # Reconcile chroma_collection with what actually exists in Chroma
-        latest = _find_latest_chroma_collection(_SECOND_COURSE_CODE)
-        if latest and latest[0] != second_course.chroma_collection:
-            logger.info(
-                "seed_reconcile_chroma",
-                code=_SECOND_COURSE_CODE,
-                old=second_course.chroma_collection,
-                new=latest[0],
-            )
-            second_course.chroma_collection = latest[0]
-            second_course.index_version = max(second_course.index_version, latest[1])
+        _reconcile_course_scope(second_course, collection_names=collection_names)
         db.add(second_course)
         logger.info("seed_course_exists", code=_SECOND_COURSE_CODE)
 

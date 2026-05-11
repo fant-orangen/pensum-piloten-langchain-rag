@@ -1,7 +1,6 @@
 """Message business logic and database queries."""
 
 import uuid
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -13,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.models.conversation import Conversation
 from src.api.models.course import Course
 from src.api.models.message import Message
+from src.api.models.time import utc_now
 from src.api.services.conversation_context_summaries import (
     maybe_compress_conversation_history,
 )
@@ -113,7 +113,7 @@ async def create_message(
     """
     if role != "human":
         message = Message(conversation_id=conversation.id, role=role, content=content)
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = utc_now()
         db.add(message)
         db.add(conversation)
         try:
@@ -240,7 +240,7 @@ async def create_message(
         content=answer,
         sources=serialized_sources,
     )
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = utc_now()
 
     try:
         db.add(human_msg)

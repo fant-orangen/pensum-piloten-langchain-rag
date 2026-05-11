@@ -7,6 +7,8 @@ from datetime import datetime
 from sqlalchemy import Column, ForeignKey, Uuid
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class ConversationContextSummary(SQLModel, table=True):
     """One-to-one rolling summary of a conversation, appended to the system prompt.
@@ -26,4 +28,4 @@ class ConversationContextSummary(SQLModel, table=True):
         )
     )
     context_summary: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = utc_timestamp_field()

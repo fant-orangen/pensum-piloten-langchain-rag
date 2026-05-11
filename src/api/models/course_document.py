@@ -6,6 +6,8 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class CourseDocument(SQLModel, table=True):
     """Tracks an uploaded source document for a course with its ingestion lifecycle status.
@@ -22,5 +24,5 @@ class CourseDocument(SQLModel, table=True):
     storage_path: str
     content_type: Optional[str] = None
     status: str = Field(default="active")  # "active" | "pending_add" | "pending_remove"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = utc_timestamp_field()
+    updated_at: datetime = utc_timestamp_field()
