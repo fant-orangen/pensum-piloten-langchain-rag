@@ -6,6 +6,10 @@ Set ``MODEL_PROVIDER`` in .env to select the backend:
     anthropic — ChatAnthropic + OpenAIEmbeddings (requires ANTHROPIC_API_KEY)
     local   — IDUN LLM gateway (Kimi K2.5 etc.) + HuggingFace sentence-transformers
               Requires IDUN_API_KEY and NTNU network / VPN access.
+
+Ingestion KG extraction uses ``OPENAI_INGESTION_MODEL`` when the OpenAI provider
+is active. Other providers use the normal local model so ingestion remains
+available without adding another provider-specific setting.
 """
 
 from functools import lru_cache
@@ -43,6 +47,26 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
         )
     raise ValueError(
         f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'anthropic', 'local'"
+    )
+
+
+def get_ingestion_llm(temperature: float = 0.0) -> BaseChatModel:
+    """Return the model used only for ingestion-time KG extraction."""
+    settings = get_settings()
+    from langchain_openai import ChatOpenAI
+
+    if settings.model_provider == "openai":
+        return ChatOpenAI(
+            model=settings.openai_ingestion_model,
+            openai_api_key=settings.openai_api_key,
+            temperature=temperature,
+        )
+
+    return ChatOpenAI(
+        model=settings.local_llm_model,
+        openai_api_key=settings.idun_api_key,
+        base_url=settings.idun_base_url,
+        temperature=temperature,
     )
 
 

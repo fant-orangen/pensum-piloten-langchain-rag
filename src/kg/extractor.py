@@ -12,7 +12,7 @@ import structlog
 from langchain_core.documents import Document
 from langchain_core.language_models import BaseChatModel
 
-from src.models import get_llm
+from src.models import get_ingestion_llm
 
 logger = structlog.get_logger(__name__)
 
@@ -111,7 +111,7 @@ def extract_triplets(chunks: list[Document], batch_size: int = 10) -> list[Tripl
     Processes chunks in batches of `batch_size` with async concurrency within each batch.
     Each chunk gets a stable chunk_id added to its metadata.
     """
-    llm = get_llm(temperature=0.0)
+    llm = get_ingestion_llm(temperature=0.0)
 
     all_triplets: list[Triplet] = []
 
