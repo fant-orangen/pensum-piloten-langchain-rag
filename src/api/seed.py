@@ -28,7 +28,6 @@ This function is safe to call multiple times or on every startup. It will provis
 
 import json
 import re
-from pathlib import Path
 
 import structlog
 from sqlalchemy import select

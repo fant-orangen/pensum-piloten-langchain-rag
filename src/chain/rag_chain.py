@@ -52,7 +52,6 @@ def build_rag_chain():
     """
     retriever = get_retriever()
     prompt = build_tutor_prompt()
-    print(prompt) # TODO: remove
     llm = get_llm(temperature=0.3)
 
     # The chain:
