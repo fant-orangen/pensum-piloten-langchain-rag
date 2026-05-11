@@ -25,6 +25,8 @@ logger = structlog.get_logger(__name__)
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Parse CLI args and run the async course rebuild workflow."""
+
     parser = argparse.ArgumentParser(
         description="Rebuild a course-scoped vector store and knowledge graph."
     )
@@ -40,6 +42,8 @@ def main(argv: list[str] | None = None) -> None:
 
 
 async def _main_async(course_code: str) -> None:
+    """Synchronize course files, rebuild vector/KG indexes, and report final status."""
+
     init_engine()
     await create_tables()
 

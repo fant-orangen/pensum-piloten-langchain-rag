@@ -73,7 +73,11 @@ class _E5Embeddings(Embeddings):
         self._model = HuggingFaceEmbeddings(model_name=model_name)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed passages with the prefix expected by multilingual-e5."""
+
         return self._model.embed_documents([f"passage: {t}" for t in texts])
 
     def embed_query(self, text: str) -> list[float]:
+        """Embed a search query with the prefix expected by multilingual-e5."""
+
         return self._model.embed_query(f"query: {text}")

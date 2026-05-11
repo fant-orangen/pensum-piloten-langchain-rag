@@ -32,6 +32,8 @@ class _ChunkDebugHandler(BaseCallbackHandler):
     """Callback that prints retrieved chunks to stdout."""
 
     def on_retriever_end(self, documents: list[Document], **kwargs: Any) -> None:
+        """Print retrieved documents after a retriever run in debug mode."""
+
         print(f"\n{_YELLOW}{_BOLD}[DEBUG] Retrieved {len(documents)} chunk(s):{_RESET}")
         for i, doc in enumerate(documents, 1):
             source = doc.metadata.get("source_path") or doc.metadata.get("source_file", "unknown")
@@ -46,6 +48,8 @@ class _ChunkDebugHandler(BaseCallbackHandler):
 
 
 def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
+    """Write the KG chat transcript to data/chat_logs if it is non-empty."""
+
     if not chat_history:
         return
     _LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -56,6 +60,8 @@ def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
 
 
 def main() -> None:
+    """Run an interactive terminal chat session against the KG-RAG chain."""
+
     debug = "--debug" in sys.argv
 
     print(f"\n{_BOLD}Pensum Piloten — Socratic Tutor (KG-RAG){_RESET}")

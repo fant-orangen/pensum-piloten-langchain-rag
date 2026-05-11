@@ -6,6 +6,7 @@ import { Spinner } from '../components/Spinner'
 
 type Tab = 'login' | 'register'
 
+/** Extract a concise user-facing message from FastAPI/validation errors. */
 function getApiErrorMessage(error: unknown): string {
   if (
     error &&
@@ -27,6 +28,7 @@ function getApiErrorMessage(error: unknown): string {
   return 'En uventet feil oppstod. Prøv igjen.'
 }
 
+/** Login/register page that creates the session through AuthContext. */
 export function AuthPage() {
   const [activeTab, setActiveTab] = useState<Tab>('login')
   const navigate = useNavigate()

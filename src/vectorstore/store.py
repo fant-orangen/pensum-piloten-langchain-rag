@@ -17,6 +17,8 @@ logger = structlog.get_logger(__name__)
 
 
 def _get_client() -> chromadb.PersistentClient:
+    """Return a persistent Chroma client rooted at the configured data directory."""
+
     settings = get_settings()
     return chromadb.PersistentClient(path=settings.chroma_persist_dir)
 

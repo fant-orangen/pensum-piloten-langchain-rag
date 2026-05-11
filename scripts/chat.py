@@ -23,6 +23,8 @@ _BOLD = "\033[1m"
 
 
 def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
+    """Write the terminal chat transcript to data/chat_logs if it is non-empty."""
+
     if not chat_history:
         return
     _LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -33,6 +35,8 @@ def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
 
 
 def main() -> None:
+    """Run an interactive terminal chat session against the default RAG chain."""
+
     print(f"\n{_BOLD}Pensum Piloten — Socratic Tutor{_RESET}")
     print("Type your question and press Enter. Type 'quit' or 'exit' to stop.\n")
 

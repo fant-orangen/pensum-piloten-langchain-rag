@@ -22,6 +22,8 @@ logger = structlog.get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Initialize database state and optional seed data for the FastAPI app."""
+
     init_engine()
     await create_tables()
     settings = get_settings()
@@ -70,6 +72,8 @@ _CHAIN_BUILDERS = {
 
 
 def _get_chain(mode: str):
+    """Return a cached legacy /ask chain for the requested mode."""
+
     chain = _chain_cache.get(mode)
     if chain is None:
         builder = _CHAIN_BUILDERS.get(mode)
@@ -107,6 +111,8 @@ def _extract_ask_response(result: Any) -> AskResponse:
 
 @app.get("/health")
 async def health():
+    """Return a minimal liveness response for deployment health checks."""
+
     return {"status": "ok"}
 
 

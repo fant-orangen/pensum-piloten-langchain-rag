@@ -10,6 +10,7 @@ import type { AdminUserRead } from '../types'
 
 const PAGE_SIZE = 20
 
+/** Admin dashboard for promoting students and demoting teachers. */
 export function AdminPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -242,6 +243,7 @@ interface UserListProps {
   disabledReason?: string
 }
 
+/** Reusable selectable user table used for student and teacher role changes. */
 function UserList({
   title,
   users,

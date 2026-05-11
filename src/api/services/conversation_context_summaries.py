@@ -33,8 +33,10 @@ def _format_messages_for_summary(messages: list[Message]) -> str:
 
 
 def _estimate_token_count(text: str) -> int:
-    # Approximate token count used only for triggering provider-agnostic compression.
+    """Return a rough provider-agnostic token estimate for compression thresholds."""
+
     return len(re.findall(r"\w+|[^\w\s]", text, flags=re.UNICODE))
+
 
 def _estimate_history_tokens(
     summary: str | None,

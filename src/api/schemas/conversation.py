@@ -8,10 +8,14 @@ from pydantic import BaseModel, Field
 
 
 class ConversationCreate(BaseModel):
+    """Request to create a conversation scoped to one course."""
+
     course_id: uuid.UUID
 
 
 class ConversationTitleUpdate(BaseModel):
+    """Request to rename a conversation in the sidebar."""
+
     title: str = Field(..., min_length=1, max_length=200)
 
 

@@ -230,7 +230,11 @@ async def remove_document(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Stage removal of a source document from a course."""
+    """Stage removal of a source document from a course.
+
+    Active documents move to pending_remove; pending-add documents are deleted
+    immediately. Requires course teacher or admin.
+    """
     await stage_course_document_removal(current_user, course_id, document_id, db)
 
 
@@ -255,7 +259,11 @@ async def confirm_document_changes(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseMaterialsStatusRead:
-    """Confirm all staged add/remove changes and start a versioned rebuild."""
+    """Confirm all staged add/remove changes and start a versioned rebuild.
+
+    Returns 202 with the queued status. Raises 409 if another rebuild is
+    already queued/running or there are no staged changes.
+    """
     course_status = await queue_course_material_rebuild(current_user, course_id, db)
     background_tasks.add_task(run_course_material_rebuild, course_id)
     return course_status
@@ -267,7 +275,10 @@ async def remove_course(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete a course."""
+    """Delete a course and its conversations, enrollments, and material indexes.
+
+    Requires course owner or admin. Raises 409 while materials are rebuilding.
+    """
     await delete_course(current_user, course_id, db)
 
 
@@ -304,7 +315,10 @@ async def preview_enrollment_csv(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> EnrollmentImportPreviewRead:
-    """Parse a CSV of student emails and stage a preview for confirmation."""
+    """Parse a CSV of student emails and stage a preview for confirmation.
+
+    Does not mutate enrollments. Raises 400 for invalid/empty CSV input.
+    """
     return await preview_enrollment_import(current_user, course_id, file, db)
 
 
@@ -318,7 +332,11 @@ async def confirm_enrollment_csv(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> EnrollmentImportConfirmRead:
-    """Confirm a staged enrollment import and delete the preview entry."""
+    """Confirm a staged enrollment import and delete the preview entry.
+
+    Creates placeholder user accounts for missing candidates and enrolls all
+    eligible addresses from the preview.
+    """
     return await confirm_enrollment_import(current_user, course_id, preview_id, db)
 
 
@@ -347,7 +365,11 @@ async def add_enrollment(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> EnrollmentRead:
-    """Enroll a user in a course by email."""
+    """Enroll a user in a course by email.
+
+    Requires teacher/admin access to the course. Raises 404 for unknown users
+    and 409 when the enrollment already exists.
+    """
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
 
@@ -370,5 +392,9 @@ async def remove_enrollment(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Remove a user from a course."""
+    """Remove a user from a course.
+
+    Teachers can remove students. Course owners/admins can also remove course
+    teachers, except the course owner.
+    """
     await unenroll_user(current_user, course_id, user_id, db)

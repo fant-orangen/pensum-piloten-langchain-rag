@@ -5,6 +5,7 @@ interface SpinnerProps {
   className?: string
 }
 
+/** Accessible loading indicator with size variants. */
 export function Spinner({ size = 'md', className }: SpinnerProps) {
   return (
     <span

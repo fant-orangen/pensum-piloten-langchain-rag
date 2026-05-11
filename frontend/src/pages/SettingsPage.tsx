@@ -8,6 +8,7 @@ import { Spinner } from '../components/Spinner'
 import { changePassword } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
 
+/** User settings page, currently focused on normal and forced password changes. */
 export function SettingsPage() {
   const navigate = useNavigate()
   const { user, refreshUser } = useAuth()

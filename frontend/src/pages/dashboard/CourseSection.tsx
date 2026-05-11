@@ -15,6 +15,7 @@ interface CourseSectionProps {
   onCourseClick: (course: CourseRead) => void
 }
 
+/** Dashboard section grouping courses under a heading with loading/empty states. */
 export function CourseSection({
   headingId,
   title,

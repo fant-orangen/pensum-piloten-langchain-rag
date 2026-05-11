@@ -17,6 +17,7 @@ import { CourseSection } from './dashboard/CourseSection'
 import { CreateCourseModal } from './dashboard/CreateCourseModal'
 import { dashboardQueryKeys } from './dashboard/queryKeys'
 
+/** Home dashboard showing student courses and teacher course-management entry points. */
 export function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()

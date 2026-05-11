@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 
 class MessageCreate(BaseModel):
+    """Student-authored message submitted to a conversation."""
+
     content: str = Field(..., min_length=1, max_length=10000)
 
 

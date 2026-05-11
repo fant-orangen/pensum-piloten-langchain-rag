@@ -24,6 +24,12 @@ interface ChatSidebarProps {
   onRenameConversation: (conversationId: string, title: string) => void
 }
 
+/**
+ * Conversation navigation and tutor-mode selector for the chat workspace.
+ *
+ * Mutations are delegated to the parent so this component only renders sidebar
+ * state and forwards user intents.
+ */
 export function ChatSidebar({
   courseCode,
   courseId,

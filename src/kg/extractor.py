@@ -49,6 +49,8 @@ _TRIPLET_PATTERN = re.compile(r"<\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^>]+?)\s*>")
 
 @dataclass
 class Triplet:
+    """Knowledge graph edge extracted from one source chunk."""
+
     head: str
     relation: str
     tail: str
@@ -78,7 +80,6 @@ def _parse_triplets(text: str, chunk_id: str) -> list[Triplet]:
 
 _MAX_RETRIES = 5
 
-"""Asynchronous process which extracts triplets from a single chunk"""
 async def _process_one(
     llm: BaseChatModel,
     doc: Document,
@@ -119,6 +120,8 @@ def extract_triplets(chunks: list[Document], batch_size: int = 10) -> list[Tripl
         logger.info("extracting_triplets", batch=f"{i+1}-{i+len(batch)}/{len(chunks)}")
 
         async def _run_batch(b: list[Document] = batch) -> list[Triplet]:
+            """Extract one batch concurrently and flatten per-document results."""
+
             results = await asyncio.gather(*[_process_one(llm, doc) for doc in b])
             flat: list[Triplet] = []
             for r in results:

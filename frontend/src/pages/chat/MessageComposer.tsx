@@ -9,6 +9,7 @@ interface MessageComposerProps {
   onSend: () => void
 }
 
+/** Textarea composer that submits on Enter and allows Shift+Enter newlines. */
 export function MessageComposer({
   inputValue,
   isSendingMessage,

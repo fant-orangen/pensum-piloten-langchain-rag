@@ -109,14 +109,20 @@ def _log_event(
     level: LogLevel = "info",
     **fields: object,
 ) -> None:
+    """Normalize log fields and emit an event at the requested level."""
+
     getattr(logger, level)(event, **_normalize_fields(fields))
 
 
 def _normalize_fields(fields: Mapping[str, object]) -> dict[str, object]:
+    """Return a copy of log fields converted to structlog-friendly primitives."""
+
     return {key: _normalize_value(value) for key, value in fields.items()}
 
 
 def _normalize_value(value: object) -> object:
+    """Normalize UUIDs, paths, mappings, and sequences recursively for JSON logs."""
+
     if isinstance(value, uuid.UUID):
         return str(value)
     if isinstance(value, Path):

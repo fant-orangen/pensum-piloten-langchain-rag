@@ -12,6 +12,11 @@ interface ConfirmDialogProps {
   onCancel: () => void
 }
 
+/**
+ * Modal confirmation dialog for destructive or consequential actions.
+ *
+ * Focus moves to cancel when opened and Escape/backdrop clicks cancel.
+ */
 export function ConfirmDialog({
   open,
   title,

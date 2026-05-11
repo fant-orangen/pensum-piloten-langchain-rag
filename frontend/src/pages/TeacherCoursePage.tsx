@@ -12,6 +12,7 @@ import { TeachersTab } from './teacher-course/TeachersTab'
 import { courseQueryKeys } from './teacher-course/queryKeys'
 import { TEACHER_COURSE_TABS, TEACHERS_TAB, type TeacherCourseTab } from './teacher-course/types'
 
+/** Teacher course administration page with students, materials, instructions, and teacher tabs. */
 export function TeacherCoursePage() {
   const { courseId } = useParams<{ courseId: string }>()
   const navigate = useNavigate()

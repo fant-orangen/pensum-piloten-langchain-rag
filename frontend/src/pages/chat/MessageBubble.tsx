@@ -11,6 +11,7 @@ interface MessageBubbleProps {
   activeSourceMessageId: string | null
 }
 
+/** Render one chat message with markdown formatting and optional source toggle. */
 export function MessageBubble({ message, onShowSources, activeSourceMessageId }: MessageBubbleProps) {
   const isHuman = message.role === 'human'
   const isSourcesActive = activeSourceMessageId === message.id

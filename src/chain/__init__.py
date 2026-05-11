@@ -1,3 +1,5 @@
+"""Chain builders for RAG, KG-RAG, and no-RAG tutor modes."""
+
 from src.chain.rag_chain import build_rag_chain
 from src.chain.kg_rag_chain import build_kg_rag_chain
 from src.chain.no_rag_chain import build_no_rag_chain

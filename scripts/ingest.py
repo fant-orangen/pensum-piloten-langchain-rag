@@ -17,6 +17,8 @@ logger = structlog.get_logger(__name__)
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Load source documents, chunk them, and persist embeddings to Chroma."""
+
     parser = argparse.ArgumentParser(description="Ingest documents into the vector store.")
     parser.add_argument(
         "--dir",

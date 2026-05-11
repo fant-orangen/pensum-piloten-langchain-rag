@@ -26,6 +26,12 @@ import { SourcesPanel } from './chat/SourcesPanel'
 import { formatConversationDate } from './chat/format'
 import { chatQueryKeys } from './chat/queryKeys'
 
+/**
+ * Course-scoped chat workspace.
+ *
+ * Coordinates conversation selection, message sending, source-panel display,
+ * and persisted system-prompt mode changes.
+ */
 export function ChatPage() {
   const { courseId } = useParams<{ courseId?: string }>()
   const navigate = useNavigate()

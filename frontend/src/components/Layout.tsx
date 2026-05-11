@@ -8,6 +8,7 @@ interface LayoutProps {
   children: React.ReactNode
 }
 
+/** Authenticated application shell with top navigation, theme toggle, and logout. */
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()

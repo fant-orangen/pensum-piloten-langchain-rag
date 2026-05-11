@@ -22,6 +22,8 @@ _LOC_PAGE_KEYS = (
 
 
 def _coerce_text(value: Any) -> str:
+    """Convert arbitrary metadata values to stripped display text."""
+
     if value is None:
         return ""
     text = str(value).strip()
@@ -29,6 +31,8 @@ def _coerce_text(value: Any) -> str:
 
 
 def _page_from_mapping(mapping: Mapping[str, Any] | None) -> str:
+    """Extract a page-like value from flat, nested metadata, or loader loc fields."""
+
     if mapping is None:
         return ""
 

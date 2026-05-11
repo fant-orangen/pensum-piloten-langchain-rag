@@ -11,6 +11,7 @@ interface CreateCourseModalProps {
   onSubmit: (payload: CourseCreate) => void
 }
 
+/** Modal form for creating a course and deriving a default course code from its name. */
 export function CreateCourseModal({
   isSubmitting,
   errorMessage,

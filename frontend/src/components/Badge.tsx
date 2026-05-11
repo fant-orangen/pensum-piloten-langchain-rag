@@ -9,6 +9,7 @@ interface BadgeProps {
   className?: string
 }
 
+/** Small status label used to keep role and workflow states visually consistent. */
 export function Badge({ variant, children, className }: BadgeProps) {
   return (
     <span
@@ -28,6 +29,7 @@ export function Badge({ variant, children, className }: BadgeProps) {
   )
 }
 
+/** Render the course-document staging state in teacher material lists. */
 export function DocumentStatusBadge({ status }: { status: DocumentStatus }) {
   const map: Record<DocumentStatus, { variant: BadgeVariant; label: string }> = {
     active: { variant: 'green', label: 'Aktiv' },
@@ -38,6 +40,7 @@ export function DocumentStatusBadge({ status }: { status: DocumentStatus }) {
   return <Badge variant={variant}>{label}</Badge>
 }
 
+/** Render the material-index rebuild state returned by the backend. */
 export function RebuildStatusBadge({ status }: { status: RebuildStatus }) {
   const map: Record<RebuildStatus, { variant: BadgeVariant; label: string }> = {
     idle: { variant: 'gray', label: 'Inaktiv' },
@@ -49,6 +52,7 @@ export function RebuildStatusBadge({ status }: { status: RebuildStatus }) {
   return <Badge variant={variant}>{label}</Badge>
 }
 
+/** Render a user's global authorization role. */
 export function RoleBadge({ role }: { role: GlobalRole }) {
   const map: Record<GlobalRole, { variant: BadgeVariant; label: string }> = {
     student: { variant: 'gray', label: 'Student' },

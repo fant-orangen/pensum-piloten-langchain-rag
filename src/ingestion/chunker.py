@@ -15,6 +15,8 @@ logger = structlog.get_logger(__name__)
 
 
 def _build_splitter() -> RecursiveCharacterTextSplitter:
+    """Build the configured recursive splitter used for all ingested documents."""
+
     settings = get_settings()
     return RecursiveCharacterTextSplitter(
         chunk_size=settings.chunk_size,

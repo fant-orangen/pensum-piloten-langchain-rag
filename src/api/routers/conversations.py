@@ -120,7 +120,11 @@ async def new_message(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> MessageRead:
-    """Add a message to an existing conversation."""
+    """Add a human message and return the generated AI response.
+
+    Raises 400 when the course has no ingested material, 404 when the
+    conversation/course is missing, and 502 when the tutor chain fails.
+    """
     conversation = await get_conversation_for_user(conversation_id, current_user.id, db)
     message, compression_triggered = await create_message(
         conversation,

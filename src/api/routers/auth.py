@@ -18,7 +18,10 @@ async def register(
     request: RegisterRequest,
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
-    """Register a new user account."""
+    """Register a new student account.
+
+    Raises 409 when the email already exists and 422 for invalid payloads.
+    """
     user = await register_user(request, db)
     return UserResponse.model_validate(user)
 
@@ -28,7 +31,10 @@ async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Authenticate and return a JWT access token."""
+    """Authenticate and return a JWT access token.
+
+    Raises 401 for invalid credentials.
+    """
     user = await authenticate_user(request.email, request.password, db)
     token = create_access_token(str(user.id))
     return TokenResponse(access_token=token)
@@ -46,5 +52,9 @@ async def change_password_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Change the authenticated user's password."""
+    """Change the authenticated user's password.
+
+    Raises 400 for invalid old password, weak new password, or missing old
+    password when the user is not in forced-change mode.
+    """
     await change_password(current_user, request.old_password, request.new_password, db)

@@ -21,6 +21,12 @@ interface StudentsTabProps {
 
 const PAGE_SIZE = 20
 
+/**
+ * Teacher tab for student enrollment management.
+ *
+ * Supports single-email enrollment, CSV preview/confirm import, and per-student
+ * removal with confirmation.
+ */
 export function StudentsTab({ courseId }: StudentsTabProps) {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)

@@ -3,6 +3,12 @@ import axios from 'axios'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? ''
 
+/**
+ * Shared Axios client for all backend calls.
+ *
+ * Request interceptors attach the JWT from localStorage. Response interceptors
+ * clear invalid sessions on 401 responses outside the login flow.
+ */
 export const apiClient = axios.create({
   baseURL,
   headers: {
