@@ -8,8 +8,8 @@ build/
 
 # Environment
 .env
-
 idun/.env.idun
+
 # Data / vector store
 data/chroma/
 data/kg_triplets.json
