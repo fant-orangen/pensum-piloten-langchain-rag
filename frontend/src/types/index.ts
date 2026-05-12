@@ -185,6 +185,9 @@ export interface AdminUserRead {
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
+  page: number
+  page_size: number
+  pages: number
 }
 
 /** Response from updating the user's prompt mode preference. */

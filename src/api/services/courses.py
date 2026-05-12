@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from fastapi import UploadFile
 from pydantic import EmailStr, TypeAdapter, ValidationError
-from sqlalchemy import delete as sa_delete, func, select
+from sqlalchemy import delete as sa_delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,6 +107,7 @@ async def get_course_students(
     course_id: uuid.UUID,
     params: PaginationParams,
     db: AsyncSession,
+    search: str | None = None,
 ) -> tuple[list[User], int]:
     """Return a page of users enrolled in the course as students."""
     course_result = await db.execute(select(Course).where(Course.id == course_id))
@@ -123,6 +124,15 @@ async def get_course_students(
             CourseEnrollment.role == "student",
         )
     )
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        base = base.where(
+            or_(
+                User.first_name.ilike(pattern),
+                User.last_name.ilike(pattern),
+                User.email.ilike(pattern),
+            )
+        )
 
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()

@@ -3,7 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 export const courseQueryKeys = {
   responsibleCourses: ['responsible-courses'] as const,
   students: (courseId: string) => ['course-students', courseId] as const,
-  studentsPage: (courseId: string, page: number) => ['course-students', courseId, page] as const,
+  studentsPage: (courseId: string, search = '') => ['course-students', courseId, search] as const,
   allTeachers: ['all-teachers'] as const,
   teachers: (courseId: string) => ['course-teachers', courseId] as const,
   teachersPage: (courseId: string, page: number) => ['course-teachers', courseId, page] as const,

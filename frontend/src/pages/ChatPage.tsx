@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   BookOpen,
@@ -56,15 +56,23 @@ export function ChatPage() {
   })
   usePageTitle(courseQuery.data?.code ? `${courseQuery.data.code} Chat` : 'Chat')
 
-  const conversationsQuery = useQuery({
+  const conversationsQuery = useInfiniteQuery({
     queryKey: chatQueryKeys.conversations(courseId),
-    queryFn: () => getConversations(1, 50, courseId),
+    queryFn: ({ pageParam }) => getConversations(pageParam, 50, courseId),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (
+      lastPage.page < lastPage.pages ? lastPage.page + 1 : undefined
+    ),
   })
 
-  const messagesQuery = useQuery({
+  const messagesQuery = useInfiniteQuery({
     queryKey: chatQueryKeys.messages(selectedConversationId),
-    queryFn: () => getMessages(selectedConversationId!, 1, 100),
+    queryFn: ({ pageParam }) => getMessages(selectedConversationId!, pageParam, 100),
     enabled: !!selectedConversationId,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (
+      lastPage.page < lastPage.pages ? lastPage.page + 1 : undefined
+    ),
   })
 
   const createConversationMutation = useMutation({
@@ -119,15 +127,16 @@ export function ChatPage() {
   })
 
   const persistedMessages = messagesQuery.data
-    ? [...messagesQuery.data.items].reverse()
+    ? messagesQuery.data.pages.flatMap((page) => page.items).reverse()
     : []
   const displayMessages = pendingUserMessage?.conversation_id === selectedConversationId
     ? [...persistedMessages, pendingUserMessage]
     : persistedMessages
+  const lastMessageId = displayMessages[displayMessages.length - 1]?.id
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [displayMessages.length])
+  }, [lastMessageId, sendMessageMutation.isPending, selectedConversationId])
 
   const handleSend = useCallback(() => {
     const content = inputValue.trim()
@@ -154,7 +163,7 @@ export function ChatPage() {
     setActiveSourceMessageId((prev) => (prev === messageId ? null : messageId))
   }
 
-  const conversations = conversationsQuery.data?.items ?? []
+  const conversations = conversationsQuery.data?.pages.flatMap((page) => page.items) ?? []
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
 
   return (
@@ -164,8 +173,10 @@ export function ChatPage() {
           courseCode={courseQuery.data?.code}
           courseId={courseId}
           conversations={conversations}
-          totalConversations={conversationsQuery.data?.total}
+          totalConversations={conversationsQuery.data?.pages[0]?.total}
           isLoadingConversations={conversationsQuery.isLoading}
+          isLoadingMoreConversations={conversationsQuery.isFetchingNextPage}
+          hasMoreConversations={conversationsQuery.hasNextPage}
           selectedConversationId={selectedConversationId}
           promptMode={promptMode}
           sidebarCollapsed={sidebarCollapsed}
@@ -182,6 +193,7 @@ export function ChatPage() {
           onRenameConversation={(conversationId, title) => (
             renameConversationMutation.mutate({ id: conversationId, title })
           )}
+          onLoadMoreConversations={() => conversationsQuery.fetchNextPage()}
         />
 
         {/* Main chat area */}
@@ -214,9 +226,12 @@ export function ChatPage() {
             selectedConversationId={selectedConversationId}
             messages={displayMessages}
             isLoadingMessages={messagesQuery.isLoading}
+            isLoadingMoreMessages={messagesQuery.isFetchingNextPage}
+            hasMoreMessages={messagesQuery.hasNextPage}
             isSendingMessage={sendMessageMutation.isPending}
             activeSourceMessageId={activeSourceMessageId}
             messagesEndRef={messagesEndRef}
+            onLoadMoreMessages={() => messagesQuery.fetchNextPage()}
             onShowSources={handleShowSources}
           />
 

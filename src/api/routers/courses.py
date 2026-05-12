@@ -163,6 +163,7 @@ async def list_course_students(
     course_id: uuid.UUID,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    search: str | None = Query(default=None),
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> Page[CourseStudentRead]:
@@ -172,6 +173,7 @@ async def list_course_students(
         course_id: Course whose students should be listed.
         page: One-based page number.
         page_size: Number of students per page, capped at 100.
+        search: Optional case-insensitive filter for name or email.
         current_user: User resolved from the bearer token; must teach the course or be admin.
         db: Request-scoped database session.
 
@@ -182,7 +184,7 @@ async def list_course_students(
         422: Invalid UUID or pagination query value.
     """
     params = PaginationParams(page=page, page_size=page_size)
-    items, total = await get_course_students(current_user, course_id, params, db)
+    items, total = await get_course_students(current_user, course_id, params, db, search)
     return Page.create(
         items=[CourseStudentRead.model_validate(student) for student in items],
         total=total,
