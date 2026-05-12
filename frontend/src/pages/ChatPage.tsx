@@ -18,7 +18,7 @@ import {
 } from '../api/conversations'
 import { getCourse } from '../api/courses'
 import { updateSystemPromptMode } from '../api/preferences'
-import type { SystemPromptMode } from '../types'
+import type { MessageRead, SystemPromptMode } from '../types'
 import { ChatSidebar } from './chat/ChatSidebar'
 import { MessageComposer } from './chat/MessageComposer'
 import { MessageList } from './chat/MessageList'
@@ -44,6 +44,7 @@ export function ChatPage() {
   const [activeSourceMessageId, setActiveSourceMessageId] = useState<string | null>(null)
   const [promptMode, setPromptMode] = useState<SystemPromptMode>(user?.system_prompt_mode ?? 1)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [pendingUserMessage, setPendingUserMessage] = useState<MessageRead | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -95,12 +96,21 @@ export function ChatPage() {
   })
 
   const sendMessageMutation = useMutation({
-    mutationFn: (content: string) => sendMessage(selectedConversationId!, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(selectedConversationId) })
-      queryClient.invalidateQueries({ queryKey: chatQueryKeys.conversations(courseId) })
+    mutationFn: ({ conversationId, content }: { conversationId: string; content: string }) => (
+      sendMessage(conversationId, content)
+    ),
+    onSuccess: async (_message, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(variables.conversationId) }),
+        queryClient.invalidateQueries({ queryKey: chatQueryKeys.conversations(courseId) }),
+      ])
+      setPendingUserMessage(null)
     },
-    onError: () => toast.error('Klarte ikke sende melding.'),
+    onError: (_error, variables) => {
+      setPendingUserMessage(null)
+      setInputValue(variables.content)
+      toast.error('Klarte ikke sende melding.')
+    },
   })
 
   const promptModeMutation = useMutation({
@@ -108,9 +118,12 @@ export function ChatPage() {
     onError: () => toast.error('Klarte ikke oppdatere modus.'),
   })
 
-  const displayMessages = messagesQuery.data
+  const persistedMessages = messagesQuery.data
     ? [...messagesQuery.data.items].reverse()
     : []
+  const displayMessages = pendingUserMessage?.conversation_id === selectedConversationId
+    ? [...persistedMessages, pendingUserMessage]
+    : persistedMessages
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -119,8 +132,17 @@ export function ChatPage() {
   const handleSend = useCallback(() => {
     const content = inputValue.trim()
     if (!content || !selectedConversationId || sendMessageMutation.isPending) return
+    setPendingUserMessage({
+      id: `pending-${selectedConversationId}-${Date.now()}`,
+      conversation_id: selectedConversationId,
+      role: 'human',
+      content,
+      sources: null,
+      created_at: new Date().toISOString(),
+      conversation_compression_triggered: false,
+    })
     setInputValue('')
-    sendMessageMutation.mutate(content)
+    sendMessageMutation.mutate({ conversationId: selectedConversationId, content })
   }, [inputValue, selectedConversationId, sendMessageMutation])
 
   function handlePromptModeChange(mode: SystemPromptMode) {
