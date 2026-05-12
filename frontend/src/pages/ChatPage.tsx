@@ -25,6 +25,7 @@ import { MessageList } from './chat/MessageList'
 import { SourcesPanel } from './chat/SourcesPanel'
 import { formatConversationDate } from './chat/format'
 import { chatQueryKeys } from './chat/queryKeys'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 /**
  * Course-scoped chat workspace.
@@ -52,6 +53,7 @@ export function ChatPage() {
     queryFn: () => getCourse(courseId!),
     enabled: !!courseId,
   })
+  usePageTitle(courseQuery.data?.code ? `${courseQuery.data.code} Chat` : 'Chat')
 
   const conversationsQuery = useQuery({
     queryKey: chatQueryKeys.conversations(courseId),

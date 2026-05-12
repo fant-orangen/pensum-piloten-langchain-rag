@@ -32,7 +32,7 @@ export function Layout({ children }: LayoutProps) {
               className="flex items-center gap-2 text-lg font-bold text-indigo-600 hover:text-indigo-700 focus-visible:rounded focus-visible:outline"
             >
               <BookOpen className="h-6 w-6" aria-hidden="true" />
-              <span>Pensum Piloten</span>
+              <span>PensumPiloten</span>
             </Link>
           </div>
 

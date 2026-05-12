@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { BookOpen } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Spinner } from '../components/Spinner'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 type Tab = 'login' | 'register'
 
@@ -31,6 +32,7 @@ function getApiErrorMessage(error: unknown): string {
 /** Login/register page that creates the session through AuthContext. */
 export function AuthPage() {
   const [activeTab, setActiveTab] = useState<Tab>('login')
+  usePageTitle(activeTab === 'login' ? 'Logg inn' : 'Registrer deg')
   const navigate = useNavigate()
   const { login, register } = useAuth()
 
@@ -88,7 +90,7 @@ export function AuthPage() {
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600">
             <BookOpen className="h-8 w-8 text-white" aria-hidden="true" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Pensum Piloten</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">PensumPiloten</h1>
           <p className="mt-2 text-sm text-gray-500">Din AI-baserte studieassistent</p>
         </div>
 

@@ -16,9 +16,11 @@ import type { CourseCreate } from '../types'
 import { CourseSection } from './dashboard/CourseSection'
 import { CreateCourseModal } from './dashboard/CreateCourseModal'
 import { dashboardQueryKeys } from './dashboard/queryKeys'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 /** Home dashboard showing student courses and teacher course-management entry points. */
 export function DashboardPage() {
+  usePageTitle('Dashboard')
   const { user } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()

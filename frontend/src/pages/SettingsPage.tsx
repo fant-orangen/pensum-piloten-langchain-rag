@@ -7,9 +7,11 @@ import { Layout } from '../components/Layout'
 import { Spinner } from '../components/Spinner'
 import { changePassword } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 /** User settings page, currently focused on normal and forced password changes. */
 export function SettingsPage() {
+  usePageTitle('Innstillinger')
   const navigate = useNavigate()
   const { user, refreshUser } = useAuth()
 

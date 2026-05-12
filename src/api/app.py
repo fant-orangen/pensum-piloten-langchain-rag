@@ -1,17 +1,13 @@
-"""FastAPI application — thin HTTP layer over the RAG chain."""
+"""FastAPI application entry point."""
 
 from contextlib import asynccontextmanager
-from typing import Any
 
 import uvicorn
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_core.messages import HumanMessage, AIMessage
 
 from src.config import get_settings
-from src.chain import build_kg_rag_chain, build_no_rag_chain
-from src.api.schemas import AskRequest, AskResponse
 from src.api.database import init_engine, create_tables, get_db
 from src.api.routers import admin, auth, conversations, courses, preferences
 from src.api.services.admin import ensure_admin_user
@@ -63,88 +59,12 @@ app.include_router(courses.router)
 app.include_router(conversations.router)
 app.include_router(preferences.router)
 
-# Build chains lazily and reuse them across requests.
-_chain_cache: dict[str, Any] = {}
-_CHAIN_BUILDERS = {
-    "rag": build_kg_rag_chain,
-    "no_rag": build_no_rag_chain,
-}
-
-
-def _get_chain(mode: str):
-    """Return a cached legacy /ask chain for the requested mode."""
-
-    chain = _chain_cache.get(mode)
-    if chain is None:
-        builder = _CHAIN_BUILDERS.get(mode)
-        if builder is None:
-            raise ValueError(f"Unsupported mode: {mode}")
-        chain = builder()
-        _chain_cache[mode] = chain
-    return chain
-
-
-def _extract_ask_response(result: Any) -> AskResponse:
-    """Normalize legacy string chains and richer RAG chain results for /ask."""
-    if not isinstance(result, dict):
-        return AskResponse(answer=str(result), sources=[])
-
-    answer = result.get("answer")
-    if not isinstance(answer, str):
-        answer = str(answer or "")
-
-    sources: list[str] = []
-    seen: set[str] = set()
-    source_documents = result.get("source_documents", [])
-    if isinstance(source_documents, list):
-        for doc in source_documents:
-            metadata = getattr(doc, "metadata", {})
-            if not isinstance(metadata, dict):
-                continue
-            source = str(metadata.get("source_file") or "").strip()
-            if source and source not in seen:
-                sources.append(source)
-                seen.add(source)
-
-    return AskResponse(answer=answer, sources=sources)
-
 
 @app.get("/health")
 async def health():
     """Return a minimal liveness response for deployment health checks."""
 
     return {"status": "ok"}
-
-
-@app.post("/ask", response_model=AskResponse)
-async def ask(request: AskRequest):
-    """Submit a student question and receive Socratic guidance."""
-    try:
-        chain = _get_chain(request.mode)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # Convert the flat chat history into LangChain message objects.
-    history = []
-    for msg in request.chat_history:
-        if msg.role == "human":
-            history.append(HumanMessage(content=msg.content))
-        else:
-            history.append(AIMessage(content=msg.content))
-
-    try:
-        result = await chain.ainvoke(
-            {
-                "question": request.question,
-                "chat_history": history,
-                "system_prompt_mode": request.system_prompt_mode,
-            }
-        )
-    except Exception as exc:
-        logger.error("chain_error", error=str(exc))
-        raise HTTPException(status_code=500, detail="Failed to generate response.")
-
-    return _extract_ask_response(result)
 
 
 def start():
