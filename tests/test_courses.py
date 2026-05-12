@@ -111,201 +111,99 @@ def main() -> None:
     }, token=teacher_token)
     check(code == 409, "Duplicate course code → 409")
 
-    # ------------------------------------------------------------------
-    section("POST/GET/DELETE /courses/{course_id}/materials")
-    # ------------------------------------------------------------------
-
     course_id = course["id"]
-    material_content = b"Course notes for integration test."
-    code, body = post_multipart(
-        f"/courses/{course_id}/materials",
-        files=[("file", "notes.txt", material_content, "text/plain")],
-        token=teacher_token,
-    )
-    check(code == 201, "Teacher uploads material → 201")
-    check(body is not None and body.get("original_filename") == "notes.txt", "Upload returns file metadata")
-    material_id = body["id"] if body else None
-
-    code, body = get(f"/courses/{course_id}/materials", token=teacher_token)
-    check(code == 200, "Teacher lists materials → 200")
-    check(
-        isinstance(body, list) and any(item.get("id") == material_id for item in body),
-        "Uploaded material appears in teacher listing",
-    )
-
-    code, body = get(f"/courses/{course_id}/materials", token=admin_token)
-    check(code == 200, "Admin lists materials → 200")
-    check(isinstance(body, list), "Admin receives materials list")
-
-    code, _ = post_multipart(
-        f"/courses/{course_id}/materials",
-        files=[("file", "blocked.txt", b"forbidden", "text/plain")],
-        token=student_token,
-    )
-    check(code == 403, "Student uploads material → 403")
-
-    code, _ = get(f"/courses/{course_id}/materials", token=student_token)
-    check(code == 403, "Student lists materials → 403")
-
-    code, _ = delete(f"/courses/{course_id}/materials/{material_id}", token=student_token)
-    check(code == 403, "Student deletes material → 403")
-
-    code, _ = delete(f"/courses/{course_id}/materials/{material_id}", token=teacher_token)
-    check(code == 204, "Teacher deletes material → 204")
-
-    code, _ = delete(f"/courses/{course_id}/materials/{material_id}", token=teacher_token)
-    check(code == 404, "Delete already-deleted material → 404")
-
-    code, _ = get(f"/courses/{str(uuid.uuid4())}/materials", token=teacher_token)
-    check(code == 404, "List materials for nonexistent course → 404")
-
-    code, _ = post_multipart(
-        f"/courses/{str(uuid.uuid4())}/materials",
-        files=[("file", "missing-course.txt", b"x", "text/plain")],
-        token=teacher_token,
-    )
-    check(code == 404, "Upload material to nonexistent course → 404")
-
-    code, _ = post_multipart(
-        f"/courses/{course_id}/materials",
-        files=[("file", "empty.txt", b"", "text/plain")],
-        token=teacher_token,
-    )
-    check(code == 400, "Upload empty material file → 400")
-
-    code, _ = get(f"/courses/{course_id}/materials")
-    check(code == 401, "Unauthenticated list materials → 401")
-
-    # ------------------------------------------------------------------
-    section("POST/GET /courses/{course_id}/ingestions")
-    # ------------------------------------------------------------------
-
-    code, body = post_multipart(
-        f"/courses/{course_id}/materials",
-        files=[("file", "subset_a.txt", b"alpha", "text/plain")],
-        token=teacher_token,
-    )
-    check(code == 201, "Upload ingestion material A for first course → 201")
-    subset_material_id = body["id"] if body else None
-
-    code, _ = post_multipart(
-        f"/courses/{course_id}/materials",
-        files=[("file", "subset_b.txt", b"beta", "text/plain")],
-        token=teacher_token,
-    )
-    check(code == 201, "Upload ingestion material B for first course → 201")
-
-    code, body = post(f"/courses/{course_id}/ingestions", token=teacher_token)
-    check(code == 201, "Teacher starts ingestion job → 201")
-    check(body is not None and body.get("status") == "queued", "Ingestion job starts in queued status")
-    ingestion_job_id = body["id"] if body else None
-
-    code, _ = post(
-        f"/courses/{course_id}/ingestions",
-        {"material_ids": [subset_material_id]},
-        token=teacher_token,
-    )
-    check(
-        code in (201, 409, 400),
-        "Ingestion start accepts optional material_ids payload for subset ingestion",
-    )
-
-    code, _ = post(f"/courses/{course_id}/ingestions", token=teacher_token)
-    check(code in (201, 409), "Second ingestion start is allowed only if previous job already reached a terminal state")
-
-    code, body = get(f"/courses/{course_id}/ingestions", token=teacher_token)
-    check(code == 200, "Teacher lists ingestion jobs → 200")
-    check(
-        isinstance(body, list) and any(item.get("id") == ingestion_job_id for item in body),
-        "Teacher sees created ingestion job in list",
-    )
-
-    code, body = get(f"/courses/{course_id}/ingestions", token=admin_token)
-    check(code == 200, "Admin lists ingestion jobs → 200")
-    check(isinstance(body, list), "Admin receives ingestion job list")
-
-    code, body = get(f"/courses/{course_id}/ingestions/{ingestion_job_id}", token=teacher_token)
-    check(code == 200, "Teacher gets ingestion job by id → 200")
-    check(body is not None and body.get("id") == ingestion_job_id, "Teacher gets the correct ingestion job")
-
     second_course_id = second_course["id"]
 
-    code, _ = post_multipart(
-        f"/courses/{second_course_id}/materials",
-        files=[("file", "all_materials.txt", b"all", "text/plain")],
+    # ------------------------------------------------------------------
+    section("POST/GET/DELETE /courses/{course_id}/documents")
+    # ------------------------------------------------------------------
+
+    document_content = b"Course notes for integration test."
+    code, body = post_multipart(
+        f"/courses/{course_id}/documents",
+        files=[("files", "notes.txt", document_content, "text/plain")],
         token=teacher_token,
     )
-    check(code == 201, "Upload ingestion material for second course → 201")
-
-    code, body = post(f"/courses/{second_course_id}/ingestions", token=teacher_token)
-    check(code == 201, "Teacher starts ingestion job for second course → 201")
-    second_ingestion_job_id = body["id"] if body else None
-
-    code, body = get(f"/courses/{course_id}/ingestions", token=teacher_token)
-    first_ids = [item.get("id") for item in body] if isinstance(body, list) else []
-    check(second_ingestion_job_id not in first_ids, "First course ingestion list excludes second course jobs")
-
-    code, body = get(f"/courses/{second_course_id}/ingestions", token=teacher_token)
-    second_ids = [item.get("id") for item in body] if isinstance(body, list) else []
-    check(ingestion_job_id not in second_ids, "Second course ingestion list excludes first course jobs")
-
-    code, _ = get(f"/courses/{course_id}/ingestions/{ingestion_job_id}", token=student_token)
-    check(code == 403, "Student gets ingestion job → 403")
-
-    code, _ = post(f"/courses/{course_id}/ingestions", token=student_token)
-    check(code == 403, "Student starts ingestion job → 403")
-
-    code, _ = get(f"/courses/{str(uuid.uuid4())}/ingestions", token=teacher_token)
-    check(code == 404, "List ingestion jobs for nonexistent course → 404")
-
-    code, _ = get(
-        f"/courses/{course_id}/ingestions/{str(uuid.uuid4())}",
-        token=teacher_token,
+    check(code == 201, "Teacher uploads document → 201")
+    check(
+        isinstance(body, list)
+        and len(body) == 1
+        and body[0].get("original_filename") == "notes.txt",
+        "Upload returns document metadata",
     )
-    check(code == 404, "Get nonexistent ingestion job → 404")
+    document_id = body[0]["id"] if isinstance(body, list) and body else None
 
-    code, _ = post(f"/courses/{str(uuid.uuid4())}/ingestions", token=teacher_token)
-    check(code == 404, "Start ingestion for nonexistent course → 404")
+    code, body = get(f"/courses/{course_id}/documents", token=teacher_token)
+    check(code == 200, "Teacher lists documents → 200")
+    check(
+        isinstance(body, list) and any(item.get("id") == document_id for item in body),
+        "Uploaded document appears in teacher listing",
+    )
 
-    invalid_course_code = f"TSI{RUN_ID}"
-    code, body = post("/courses", {
-        "name": f"Invalid Ingestion Course {RUN_ID}",
-        "code": invalid_course_code,
-        "chroma_collection": f"invalid_ingest_{RUN_ID}",
-        "documents_dir": f"docs/invalid_ingest_{RUN_ID}",
-    }, token=teacher_token)
-    check(code == 201, "Teacher creates invalid-ingestion test course → 201")
-    invalid_ingestion_course_id = body["id"] if body else None
+    code, body = get(f"/courses/{course_id}/documents", token=admin_token)
+    check(code == 200, "Admin lists documents → 200")
+    check(isinstance(body, list), "Admin receives document list")
 
     code, _ = post_multipart(
-        f"/courses/{invalid_ingestion_course_id}/materials",
-        files=[("file", "valid.txt", b"valid", "text/plain")],
+        f"/courses/{course_id}/documents",
+        files=[("files", "blocked.txt", b"forbidden", "text/plain")],
+        token=student_token,
+    )
+    check(code == 403, "Student uploads document → 403")
+
+    code, _ = get(f"/courses/{course_id}/documents", token=student_token)
+    check(code == 403, "Student lists documents → 403")
+
+    code, _ = delete(f"/courses/{course_id}/documents/{document_id}", token=student_token)
+    check(code == 403, "Student deletes document → 403")
+
+    code, _ = delete(f"/courses/{course_id}/documents/{document_id}", token=teacher_token)
+    check(code == 204, "Teacher deletes pending-add document → 204")
+
+    code, _ = delete(f"/courses/{course_id}/documents/{document_id}", token=teacher_token)
+    check(code == 404, "Delete already-deleted document → 404")
+
+    code, _ = get(f"/courses/{str(uuid.uuid4())}/documents", token=teacher_token)
+    check(code == 404, "List documents for nonexistent course → 404")
+
+    code, _ = post_multipart(
+        f"/courses/{str(uuid.uuid4())}/documents",
+        files=[("files", "missing-course.txt", b"x", "text/plain")],
         token=teacher_token,
     )
-    check(code == 201, "Upload material for invalid-selection test → 201")
+    check(code == 404, "Upload document to nonexistent course → 404")
 
-    code, _ = post(
-        f"/courses/{invalid_ingestion_course_id}/ingestions",
-        {"material_ids": [str(uuid.uuid4())]},
+    code, _ = post_multipart(
+        f"/courses/{course_id}/documents",
+        files=[("files", "unsupported.exe", b"not a document", "application/octet-stream")],
         token=teacher_token,
     )
-    check(code == 400, "Ingestion with invalid material_ids → 400")
+    check(code == 400, "Upload unsupported document type → 400")
 
-    empty_course_code = f"TSE{RUN_ID}"
-    code, body = post("/courses", {
-        "name": f"Empty Ingestion Course {RUN_ID}",
-        "code": empty_course_code,
-        "chroma_collection": f"empty_ingest_{RUN_ID}",
-        "documents_dir": f"docs/empty_ingest_{RUN_ID}",
-    }, token=teacher_token)
-    check(code == 201, "Teacher creates empty-ingestion test course → 201")
-    empty_ingestion_course_id = body["id"] if body else None
+    code, _ = get(f"/courses/{course_id}/documents")
+    check(code == 401, "Unauthenticated list documents → 401")
 
-    code, _ = post(f"/courses/{empty_ingestion_course_id}/ingestions", token=teacher_token)
-    check(code == 400, "Ingestion with no uploaded materials → 400")
+    # ------------------------------------------------------------------
+    section("GET/POST /courses/{course_id}/documents/status and confirm")
+    # ------------------------------------------------------------------
 
-    code, _ = get(f"/courses/{course_id}/ingestions")
-    check(code == 401, "Unauthenticated list ingestion jobs → 401")
+    code, body = get(f"/courses/{course_id}/documents/status", token=teacher_token)
+    check(code == 200, "Teacher gets document status → 200")
+    check(
+        isinstance(body, dict)
+        and "pending_additions" in body
+        and "pending_removals" in body,
+        "Document status includes pending counts",
+    )
+
+    code, _ = get(f"/courses/{course_id}/documents/status", token=student_token)
+    check(code == 403, "Student gets document status → 403")
+
+    code, _ = post(f"/courses/{second_course_id}/documents/confirm", token=teacher_token)
+    check(code == 400, "Confirm with no staged document changes → 400")
+
+    code, _ = get(f"/courses/{course_id}/documents/status")
+    check(code == 401, "Unauthenticated document status → 401")
 
     # ------------------------------------------------------------------
     section("POST /courses/{course_id}/enrollments")
@@ -412,12 +310,6 @@ def main() -> None:
 
     code, _ = delete(f"/courses/{second_course_id}", token=teacher_token)
     check(code == 204, "Owner deletes second course → 204")
-
-    code, _ = delete(f"/courses/{invalid_ingestion_course_id}", token=teacher_token)
-    check(code == 204, "Owner deletes invalid-ingestion test course → 204")
-
-    code, _ = delete(f"/courses/{empty_ingestion_course_id}", token=teacher_token)
-    check(code == 204, "Owner deletes empty-ingestion test course → 204")
 
     summarise()
 

@@ -57,7 +57,6 @@ class Settings(BaseSettings):
     kg_max_expanded_chunks: int = 10
     # kg_min_chunk_score: float = 0.5
 
-
     # --- Database ---
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten"
 
