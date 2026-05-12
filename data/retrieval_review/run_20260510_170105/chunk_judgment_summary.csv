@@ -1,0 +1,4 @@
+method,count,direct_relevance,support_relevance,marginal,irrelevant,redundant,useful_rate,include_rate,mean_usefulness_score
+kg_rag,250,86,74,74,16,0,0.64,0.6,1.84
+reranked_rag,250,86,79,69,16,0,0.66,0.612,1.86
+vector_rag,250,89,79,68,14,0,0.672,0.636,1.896

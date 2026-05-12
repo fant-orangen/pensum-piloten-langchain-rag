@@ -1,0 +1,4 @@
+method,count,correctness,relevance,clarity,pedagogical_usefulness,faithfulness_to_chunks,overall
+kg_rag,5,4.800,5.000,5.000,5.000,4.000,4.800
+reranked_rag,5,5.000,5.000,5.000,5.000,3.800,4.800
+vector_rag,5,5.000,5.000,5.000,5.000,4.200,5.000

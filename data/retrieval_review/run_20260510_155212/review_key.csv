@@ -1,0 +1,16 @@
+query_id,method_label,actual_method
+q1,Method A,kg_rag
+q1,Method B,reranked_rag
+q1,Method C,vector_rag
+q2,Method A,vector_rag
+q2,Method B,reranked_rag
+q2,Method C,kg_rag
+q3,Method A,kg_rag
+q3,Method B,vector_rag
+q3,Method C,reranked_rag
+q4,Method A,kg_rag
+q4,Method B,reranked_rag
+q4,Method C,vector_rag
+q5,Method A,vector_rag
+q5,Method B,reranked_rag
+q5,Method C,kg_rag

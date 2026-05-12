@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="520" viewBox="0 0 980 520">
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#1f2933}
+.title{font-size:22px;font-weight:700}
+.label{font-size:14px}
+.tick{font-size:12px}
+.value{font-size:13px;font-weight:700}
+.legend{font-size:12px}
+</style>
+<rect width="980" height="520" fill="#ffffff" />
+<text x="20" y="36" class="title">Mean Answer Rubric Scores</text>
+<text x="250.0" y="422" class="tick" text-anchor="middle">kg_rag</text>
+<rect x="138.6" y="102.0" width="26.7" height="288.0" fill="#2f7d7e" />
+<rect x="175.7" y="90.0" width="26.7" height="300.0" fill="#805b9b" />
+<rect x="212.9" y="90.0" width="26.7" height="300.0" fill="#b35f45" />
+<rect x="250.0" y="90.0" width="26.7" height="300.0" fill="#526c2d" />
+<rect x="287.1" y="150.0" width="26.7" height="240.0" fill="#4c6f9f" />
+<rect x="324.3" y="102.0" width="26.7" height="288.0" fill="#8a6d2c" />
+<text x="510.0" y="422" class="tick" text-anchor="middle">reranked_rag</text>
+<rect x="398.6" y="90.0" width="26.7" height="300.0" fill="#2f7d7e" />
+<rect x="435.7" y="90.0" width="26.7" height="300.0" fill="#805b9b" />
+<rect x="472.9" y="90.0" width="26.7" height="300.0" fill="#b35f45" />
+<rect x="510.0" y="90.0" width="26.7" height="300.0" fill="#526c2d" />
+<rect x="547.1" y="162.0" width="26.7" height="228.0" fill="#4c6f9f" />
+<rect x="584.3" y="102.0" width="26.7" height="288.0" fill="#8a6d2c" />
+<text x="770.0" y="422" class="tick" text-anchor="middle">vector_rag</text>
+<rect x="658.6" y="90.0" width="26.7" height="300.0" fill="#2f7d7e" />
+<rect x="695.7" y="90.0" width="26.7" height="300.0" fill="#805b9b" />
+<rect x="732.9" y="90.0" width="26.7" height="300.0" fill="#b35f45" />
+<rect x="770.0" y="90.0" width="26.7" height="300.0" fill="#526c2d" />
+<rect x="807.1" y="138.0" width="26.7" height="252.0" fill="#4c6f9f" />
+<rect x="844.3" y="90.0" width="26.7" height="300.0" fill="#8a6d2c" />
+<rect x="120" y="460" width="14" height="14" fill="#2f7d7e" />
+<text x="142" y="472" class="legend">correctness</text>
+<rect x="270" y="460" width="14" height="14" fill="#805b9b" />
+<text x="292" y="472" class="legend">relevance</text>
+<rect x="420" y="460" width="14" height="14" fill="#b35f45" />
+<text x="442" y="472" class="legend">clarity</text>
+<rect x="570" y="460" width="14" height="14" fill="#526c2d" />
+<text x="592" y="472" class="legend">pedagogical_usefulness</text>
+<rect x="720" y="460" width="14" height="14" fill="#4c6f9f" />
+<text x="742" y="472" class="legend">faithfulness_to_chunks</text>
+<rect x="870" y="460" width="14" height="14" fill="#8a6d2c" />
+<text x="892" y="472" class="legend">overall</text>
+</svg>
