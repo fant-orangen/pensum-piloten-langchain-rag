@@ -30,6 +30,8 @@ import { usePageTitle } from '../hooks/usePageTitle'
 
 const NO_COURSE_SOURCES_MESSAGE = 'Kunne ikke sende melding. Dette faget har ingen kilder.'
 const NO_COURSE_SOURCES_DETAIL = 'This course does not currently have ingested materials.'
+const COURSE_REBUILDING_MESSAGE = 'Kunne ikke sende melding. Kurset prosesserer kildematerialer. Prøv igjen senere.'
+const COURSE_REBUILDING_DETAIL = 'Course materials are currently being rebuilt.'
 
 /**
  * Course-scoped chat workspace.
@@ -122,7 +124,13 @@ export function ChatPage() {
       setPendingUserMessage(null)
       setInputValue(variables.content)
       const detail = error instanceof AxiosError ? error.response?.data?.detail : undefined
-      toast.error(detail === NO_COURSE_SOURCES_DETAIL ? NO_COURSE_SOURCES_MESSAGE : 'Klarte ikke sende melding.')
+      if (detail === NO_COURSE_SOURCES_DETAIL) {
+        toast.error(NO_COURSE_SOURCES_MESSAGE)
+      } else if (detail === COURSE_REBUILDING_DETAIL) {
+        toast.error(COURSE_REBUILDING_MESSAGE)
+      } else {
+        toast.error('Klarte ikke sende melding.')
+      }
     },
   })
 

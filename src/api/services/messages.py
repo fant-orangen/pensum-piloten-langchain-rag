@@ -16,9 +16,10 @@ from src.api.models.time import utc_now
 from src.api.services.conversation_context_summaries import (
     maybe_compress_conversation_history,
 )
+from src.api.services.course_documents import COURSE_REBUILD_BUILDING, COURSE_REBUILD_QUEUED
 from src.api.services.source_metadata import extract_source_page
 from src.api.schemas.pagination import PaginationParams
-from src.api.utils.exception_util import bad_request_error, not_found_error, stage_error
+from src.api.utils.exception_util import bad_request_error, conflict_error, not_found_error, stage_error
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
 from src.chain import build_kg_rag_chain, build_naive_rag_chain
 
@@ -140,6 +141,9 @@ async def create_message(
     course = course_result.scalars().first()
     if course is None:
         raise not_found_error("Course not found.")
+
+    if course.rebuild_status in {COURSE_REBUILD_QUEUED, COURSE_REBUILD_BUILDING}:
+        raise conflict_error("Course materials are currently being rebuilt.")
 
     if not course.chroma_collection:
         raise bad_request_error("This course does not currently have ingested materials.")
