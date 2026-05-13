@@ -1,7 +1,6 @@
 """Message business logic and database queries."""
 
 import uuid
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -13,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.models.conversation import Conversation
 from src.api.models.course import Course
 from src.api.models.message import Message
+from src.api.models.time import utc_now
 from src.api.services.conversation_context_summaries import (
     maybe_compress_conversation_history,
 )
@@ -20,22 +20,28 @@ from src.api.services.source_metadata import extract_source_page
 from src.api.schemas.pagination import PaginationParams
 from src.api.utils.exception_util import bad_request_error, not_found_error, stage_error
 from src.api.utils import bind_log_context, get_service_logger, log_chain_invocation
-from src.chain import build_kg_rag_chain
+from src.chain import build_kg_rag_chain, build_naive_rag_chain
 
 logger = get_service_logger(__name__)
 
 # Chains are expensive to build — cache by active course scope.
-_chain_cache: dict[str, Any] = {}
+_chain_cache: dict[tuple[str, str], Any] = {}
 
 
-def _get_chain(scope: str) -> Any:
-    """Return a cached KG-RAG chain for the given collection scope, building it on first access."""
-    if scope not in _chain_cache:
-        _chain_cache[scope] = build_kg_rag_chain(
-            chroma_collection=scope,
-            graph_scope=scope,
-        )
-    return _chain_cache[scope]
+def _get_chain(scope: str, rag_mode: str) -> Any:
+    """Return a cached course RAG chain for the given mode and collection scope."""
+    cache_key = (rag_mode, scope)
+    if cache_key not in _chain_cache:
+        if rag_mode == "kg_rag":
+            _chain_cache[cache_key] = build_kg_rag_chain(
+                chroma_collection=scope,
+                graph_scope=scope,
+            )
+        elif rag_mode == "naive_rag":
+            _chain_cache[cache_key] = build_naive_rag_chain(chroma_collection=scope)
+        else:
+            raise ValueError(f"Unsupported course RAG mode: {rag_mode}")
+    return _chain_cache[cache_key]
 
 
 def _serialize_source_documents(docs: list[Any]) -> list[dict[str, Any]]:
@@ -113,7 +119,7 @@ async def create_message(
     """
     if role != "human":
         message = Message(conversation_id=conversation.id, role=role, content=content)
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = utc_now()
         db.add(message)
         db.add(conversation)
         try:
@@ -140,7 +146,7 @@ async def create_message(
 
     # Build or retrieve the cached chain, validating the collection exists.
     try:
-        chain = _get_chain(course.chroma_collection)
+        chain = _get_chain(course.chroma_collection, course.rag_mode)
     except ValueError as exc:
         raise stage_error(
             "message_chain_configuration_invalid",
@@ -152,6 +158,7 @@ async def create_message(
             "message_chain_initialization_failed",
             conversation_id=conversation.id,
             collection=course.chroma_collection,
+            rag_mode=course.rag_mode,
         )
         raise stage_error(
             "message_chain_initialization_failed",
@@ -204,6 +211,7 @@ async def create_message(
             logger,
             collection=course.chroma_collection,
             conversation_id=conversation.id,
+            rag_mode=course.rag_mode,
         )
     )
     try:
@@ -240,7 +248,7 @@ async def create_message(
         content=answer,
         sources=serialized_sources,
     )
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = utc_now()
 
     try:
         db.add(human_msg)

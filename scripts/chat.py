@@ -11,7 +11,7 @@ from pathlib import Path
 
 from langchain_core.messages import HumanMessage, AIMessage
 
-from src.chain import build_rag_chain
+from src.chain import build_naive_rag_chain
 
 _LOG_DIR = Path("data/chat_logs")
 
@@ -23,6 +23,8 @@ _BOLD = "\033[1m"
 
 
 def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
+    """Write the terminal chat transcript to data/chat_logs if it is non-empty."""
+
     if not chat_history:
         return
     _LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -33,10 +35,12 @@ def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
 
 
 def main() -> None:
+    """Run an interactive terminal chat session against the default RAG chain."""
+
     print(f"\n{_BOLD}Pensum Piloten — Socratic Tutor{_RESET}")
     print("Type your question and press Enter. Type 'quit' or 'exit' to stop.\n")
 
-    chain = build_rag_chain()
+    chain = build_naive_rag_chain()
     chat_history: list[HumanMessage | AIMessage] = []
 
     while True:
@@ -55,7 +59,8 @@ def main() -> None:
         if not user_input.strip():
             continue
 
-        answer = chain.invoke({"question": user_input, "chat_history": chat_history})
+        result = chain.invoke({"question": user_input, "chat_history": chat_history})
+        answer = result["answer"] if isinstance(result, dict) else str(result)
 
         print(f"{_BLUE}{_BOLD}Tutor:{_RESET} {answer}\n")
 

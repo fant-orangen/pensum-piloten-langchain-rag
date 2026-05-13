@@ -1,3 +1,5 @@
+"""Vectorstore and embedding factory exports."""
+
 from src.vectorstore.store import (
     build_vectorstore,
     delete_vectorstore,

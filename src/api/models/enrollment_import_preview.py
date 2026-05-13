@@ -6,6 +6,8 @@ from datetime import datetime
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class EnrollmentImportPreview(SQLModel, table=True):
     """Staged bulk enrollment import parsed from a CSV upload, pending teacher review.
@@ -30,4 +32,4 @@ class EnrollmentImportPreview(SQLModel, table=True):
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = utc_timestamp_field()

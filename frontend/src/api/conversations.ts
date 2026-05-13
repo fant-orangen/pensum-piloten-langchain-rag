@@ -6,6 +6,7 @@ import type {
 } from '../types'
 import { apiClient } from './client'
 
+/** List conversations, optionally filtered to a single course. */
 export async function getConversations(
   page = 1,
   pageSize = 50,
@@ -21,6 +22,7 @@ export async function getConversations(
   return data
 }
 
+/** Create a new conversation scoped to the given course. */
 export async function createConversation(courseId: string): Promise<ConversationRead> {
   const { data } = await apiClient.post<ConversationRead>('/conversations', {
     course_id: courseId,
@@ -28,15 +30,18 @@ export async function createConversation(courseId: string): Promise<Conversation
   return data
 }
 
+/** Delete a conversation owned by the current user. */
 export async function deleteConversation(conversationId: string): Promise<void> {
   await apiClient.delete(`/conversations/${conversationId}`)
 }
 
+/** Rename a conversation title shown in the sidebar. */
 export async function renameConversation(conversationId: string, title: string): Promise<ConversationRead> {
   const { data } = await apiClient.patch<ConversationRead>(`/conversations/${conversationId}`, { title })
   return data
 }
 
+/** Return persisted messages newest-first; callers reverse when displaying chronologically. */
 export async function getMessages(
   conversationId: string,
   page = 1,
@@ -49,6 +54,7 @@ export async function getMessages(
   return data
 }
 
+/** Send a human message and receive the persisted AI response. */
 export async function sendMessage(conversationId: string, content: string): Promise<MessageRead> {
   const { data } = await apiClient.post<MessageRead>(
     `/conversations/${conversationId}/messages`,
@@ -57,6 +63,7 @@ export async function sendMessage(conversationId: string, content: string): Prom
   return data
 }
 
+/** Resolve stored RAG source references for one AI message. */
 export async function getMessageSources(
   conversationId: string,
   messageId: string

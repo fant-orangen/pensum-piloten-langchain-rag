@@ -19,6 +19,8 @@ from src.prompts.templates import build_conversation_compression_prompt
 
 
 def _parse_messages(payload: Any) -> list[dict[str, str]] | None:
+    """Parse supported conversation-log shapes into role/content messages."""
+
     if isinstance(payload, dict):
         payload = payload.get("messages")
 
@@ -40,6 +42,8 @@ def _parse_messages(payload: Any) -> list[dict[str, str]] | None:
 
 
 def _format_transcript(messages: list[dict[str, str]]) -> str:
+    """Format parsed messages as the transcript expected by the compression prompt."""
+
     return "\n".join(
         f"{message['role']}: {message['content']}"
         for message in messages
@@ -47,6 +51,8 @@ def _format_transcript(messages: list[dict[str, str]]) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Load a JSON conversation log, compress it with the configured LLM, and print the summary."""
+
     parser = argparse.ArgumentParser(
         description="Generate a compressed context summary from a JSON conversation log.",
     )

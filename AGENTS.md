@@ -35,15 +35,12 @@ src/
   ingestion/      Document loading, chunking, TOC filtering
   vectorstore/    ChromaDB persistence and embedding wrappers
   kg/             Knowledge graph: extraction, organisation, Neo4j storage, retrieval
-  retriever/      Hybrid retriever combining vector and KG results
-  chain/          LangChain chains: kg_rag_chain (default), rag_chain, no_rag_chain
+  naive/          Vector-only naive RAG chain and retriever
+  chain/          Shared chain builders and formatting helpers
   prompts/        Prompt templates (Socratic tone enforced here)
-  models.py       Shared pydantic domain models
-  domain/         Domain objects: User, Course
-  storage/        Repository layer: users_repo, courses_repo
-  services/       Shared services (auth, course)
+  models.py       LLM and embedding model factories
   api/
-    app.py        FastAPI app entry point; /health and /ask endpoints; chain cache
+    app.py        FastAPI app entry point; /health and routers
     routers/      auth, conversations, courses
     models/       SQLModel DB models (User, Course, Enrollment, Conversation, Message)
     schemas/      Pydantic request/response schemas
@@ -68,7 +65,7 @@ frontend/
 
 **Settings**: All configuration lives in `src/config/settings.py`. `get_settings()` returns a cached singleton. Override any value via environment variable or `.env` file at the project root.
 
-**Chains**: The `/ask` endpoint selects a chain by `mode`. `kg_rag_chain` is the primary chain — it runs KG-expanded retrieval before generation. `no_rag_chain` is a plain LLM fallback. Chains are built lazily and cached in `_chain_cache` in `app.py`.
+**Chains**: Course conversations select a chain from the course's persisted `rag_mode`. `kg_rag` runs KG-expanded retrieval before generation. `naive_rag` runs plain vector similarity retrieval. Chains are built lazily and cached by `(rag_mode, chroma_collection)` in `src/api/services/messages.py`.
 
 **Frontend state**: The React frontend keeps authentication state in `AuthContext`, server state in TanStack Query, and the JWT token in `localStorage`.
 
@@ -104,8 +101,8 @@ pytest
 
 1. Student sends a question from the React chat page
 2. UI sends `POST /conversations/{conversation_id}/messages` with the JWT header
-3. API persists the human message and invokes the course-scoped KG-RAG chain
-4. `kg_rag_chain` runs: vector retrieval → KG expansion (hop out from matched chunks in Neo4j) → re-rank/merge context
+3. API persists the human message and invokes the course-scoped RAG chain selected by `Course.rag_mode`
+4. `kg_rag` runs vector retrieval → KG expansion (hop out from matched chunks in Neo4j) → re-rank/merge context; `naive_rag` retrieves the top vector-similar chunks directly
 5. Augmented context + Socratic prompt template → LLM
 6. API stores the AI response and source references; UI displays the response and can fetch sources on demand
 

@@ -11,7 +11,9 @@ import { StudentsTab } from './teacher-course/StudentsTab'
 import { TeachersTab } from './teacher-course/TeachersTab'
 import { courseQueryKeys } from './teacher-course/queryKeys'
 import { TEACHER_COURSE_TABS, TEACHERS_TAB, type TeacherCourseTab } from './teacher-course/types'
+import { usePageTitle } from '../hooks/usePageTitle'
 
+/** Teacher course administration page with students, materials, instructions, and teacher tabs. */
 export function TeacherCoursePage() {
   const { courseId } = useParams<{ courseId: string }>()
   const navigate = useNavigate()
@@ -24,6 +26,7 @@ export function TeacherCoursePage() {
   })
 
   const course = coursesQuery.data?.find((c) => c.id === courseId)
+  usePageTitle(course ? `${course.code} administrasjon` : 'Emneadministrasjon')
   const isCreator = !!(course && user && course.created_by_id === user.id)
 
   const visibleTabs = useMemo(

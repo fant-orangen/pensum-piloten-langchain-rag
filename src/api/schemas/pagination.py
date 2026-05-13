@@ -15,6 +15,8 @@ class PaginationParams(BaseModel):
 
     @property
     def offset(self) -> int:
+        """Zero-based row offset used in SQL queries."""
+
         return (self.page - 1) * self.page_size
 
 
@@ -29,6 +31,8 @@ class Page(BaseModel, Generic[T]):
 
     @classmethod
     def create(cls, items: list[T], total: int, params: PaginationParams) -> "Page[T]":
+        """Build a response envelope from query results and request params."""
+
         import math
         return cls(
             items=items,

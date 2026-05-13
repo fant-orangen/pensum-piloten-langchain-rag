@@ -18,7 +18,16 @@ async def register(
     request: RegisterRequest,
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
-    """Register a new user account."""
+    """Register a new student account.
+
+    Args:
+        request: Email, password, first name, and last name for the new account.
+        db: Request-scoped database session.
+
+    Raises:
+        409: Email already exists.
+        422: Payload validation failed.
+    """
     user = await register_user(request, db)
     return UserResponse.model_validate(user)
 
@@ -28,7 +37,16 @@ async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    """Authenticate and return a JWT access token."""
+    """Authenticate and return a JWT access token.
+
+    Args:
+        request: Login email and plaintext password.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Invalid credentials.
+        422: Payload validation failed.
+    """
     user = await authenticate_user(request.email, request.password, db)
     token = create_access_token(str(user.id))
     return TokenResponse(access_token=token)
@@ -36,7 +54,14 @@ async def login(
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
-    """Return the authenticated user's profile."""
+    """Return the authenticated user's profile.
+
+    Args:
+        current_user: User resolved from the bearer token.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+    """
     return UserResponse.model_validate(current_user)
 
 
@@ -46,5 +71,16 @@ async def change_password_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Change the authenticated user's password."""
+    """Change the authenticated user's password.
+
+    Args:
+        request: Old password, if required, and new password.
+        current_user: User resolved from the bearer token.
+        db: Request-scoped database session.
+
+    Raises:
+        400: Invalid old password, weak new password, or missing old password
+            when not in forced-change mode.
+        401: Missing, expired, or invalid bearer token.
+    """
     await change_password(current_user, request.old_password, request.new_password, db)

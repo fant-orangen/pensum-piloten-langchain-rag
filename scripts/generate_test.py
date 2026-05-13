@@ -46,6 +46,8 @@ def _resolve_llm_model(settings: Settings) -> str:
 
 
 def _save_log(transcript: list[dict[str, str]], max_messages: int, settings: Settings) -> None:
+    """Persist the generated tutor/tester transcript with model metadata."""
+
     _LOG_DIR.mkdir(parents=True, exist_ok=True)
     filepath = _LOG_DIR / f"kg-test-{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}.json"
     payload = {

@@ -19,6 +19,7 @@ const queryClient = new QueryClient({
   },
 })
 
+/** Top-level route tree and provider composition for the React SPA. */
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>

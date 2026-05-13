@@ -17,17 +17,17 @@ import re
 import uuid
 from typing import Any
 
-_STORED_NAME_PREFIX_RE = re.compile(r"^[0-9a-f]{32}_", re.IGNORECASE)
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.models.course import Course
 from src.api.models.message import Message
 from src.api.services.conversations import get_conversation_for_user
-from src.api.utils.exception_util import not_found_error
 from src.api.services.source_metadata import extract_source_page
+from src.api.utils.exception_util import not_found_error
 from src.vectorstore import get_chunks_by_ids
+
+_STORED_NAME_PREFIX_RE = re.compile(r"^[0-9a-f]{32}_", re.IGNORECASE)
 
 
 def _extract_chunk_id(source: Any) -> str | None:

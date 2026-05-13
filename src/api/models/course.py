@@ -6,6 +6,8 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class Course(SQLModel, table=True):
     """A course offered on the platform, backed by a ChromaDB collection for RAG.
@@ -26,8 +28,8 @@ class Course(SQLModel, table=True):
     chroma_collection: Optional[str] = None
     # Relative path (from project root) to this course's source documents.
     documents_dir: str
-    # Default RAG chain to use for conversations in this course.
-    rag_mode: str = Field(default="kg_rag")  # "rag" | "kg_rag" | "no_rag"
+    # RAG chain to use for conversations in this course: "kg_rag" or "naive_rag".
+    rag_mode: str = Field(default="kg_rag")
     # Optional teacher-authored instructions appended to the fixed tutor prompt.
     course_specific_instructions: Optional[str] = None
     # Monotonic version used to name new course-scoped vector/KG partitions.
@@ -35,6 +37,6 @@ class Course(SQLModel, table=True):
     rebuild_status: str = Field(default="idle")
     rebuild_error: Optional[str] = None
     is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = utc_timestamp_field()
     # Teacher who created the course.
     created_by_id: uuid.UUID = Field(foreign_key="app_user.id")

@@ -12,6 +12,7 @@ interface InstructionsTabProps {
 
 const MAX_INSTRUCTIONS_CHARS = 3000
 
+/** Teacher tab for editing course-specific instructions injected into tutor prompts. */
 export function InstructionsTab({ courseId }: InstructionsTabProps) {
   const queryClient = useQueryClient()
   const [instructions, setInstructions] = useState('')

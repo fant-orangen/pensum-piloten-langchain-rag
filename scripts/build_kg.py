@@ -32,6 +32,8 @@ _TRIPLETS_CACHE = _CACHE_DIR / "kg_triplets.json"
 
 
 def _save_cache(triplets: list[Triplet]) -> None:
+    """Persist extracted triplets so future KG rebuilds can skip LLM extraction."""
+
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
     data = [
         {"head": t.head, "relation": t.relation, "tail": t.tail, "chunk_id": t.chunk_id}
@@ -42,6 +44,8 @@ def _save_cache(triplets: list[Triplet]) -> None:
 
 
 def _load_cache() -> list[Triplet]:
+    """Load cached triplets from disk."""
+
     data = json.loads(_TRIPLETS_CACHE.read_text())
     triplets = [
         Triplet(head=t["head"], relation=t["relation"], tail=t["tail"], chunk_id=t["chunk_id"])
@@ -52,6 +56,8 @@ def _load_cache() -> list[Triplet]:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Parse CLI args, obtain triplets, and rebuild the Neo4j graph."""
+
     parser = argparse.ArgumentParser(
         description="Build Neo4j knowledge graph from cached or re-extracted triplets."
     )

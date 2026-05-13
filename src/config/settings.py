@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # --- OPENAI ---
     openai_api_key: str = Field(default="", description="OpenAI API key loaded from OPENAI_API_KEY environment variable")
     openai_llm_model: str = "gpt-4o-mini"
+    openai_ingestion_model: str = "gpt-4o"
     openai_embedding_model: str = "text-embedding-3-small"
 
     # --- Anthropic ---
@@ -43,6 +44,7 @@ class Settings(BaseSettings):
 
     # --- Retrieval ---
     retriever_top_k: int = 5
+    naive_rag_top_k: int = 20
     kg_max_final_chunks: int = 20
     temperature: float = 0.3
     conversation_compression_token_limit: int = 1000
@@ -54,7 +56,6 @@ class Settings(BaseSettings):
     kg_expansion_hops: int = 1
     kg_max_expanded_chunks: int = 10
     # kg_min_chunk_score: float = 0.5
-
 
     # --- Database ---
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten"

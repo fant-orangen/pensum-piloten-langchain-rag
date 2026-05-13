@@ -18,6 +18,8 @@ import networkx as nx
 
 @dataclass
 class WeightedEdge:
+    """KG edge annotated with query relevance for MST filtering."""
+
     head: str      # entity name
     tail: str      # entity name
     relation: str  # relation label

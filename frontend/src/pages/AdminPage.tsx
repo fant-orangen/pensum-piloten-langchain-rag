@@ -7,10 +7,13 @@ import { Spinner } from '../components/Spinner'
 import { RoleBadge } from '../components/Badge'
 import { getAdminUsers, promoteToTeacher, demoteToStudent } from '../api/admin'
 import type { AdminUserRead } from '../types'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 const PAGE_SIZE = 20
 
+/** Admin dashboard for promoting students and demoting teachers. */
 export function AdminPage() {
+  usePageTitle('Brukeradministrasjon')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
@@ -242,6 +245,7 @@ interface UserListProps {
   disabledReason?: string
 }
 
+/** Reusable selectable user table used for student and teacher role changes. */
 function UserList({
   title,
   users,

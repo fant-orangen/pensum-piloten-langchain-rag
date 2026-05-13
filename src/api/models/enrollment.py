@@ -6,6 +6,8 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class CourseEnrollment(SQLModel, table=True):
     """Many-to-many join between User and Course carrying a per-course role.
@@ -23,4 +25,4 @@ class CourseEnrollment(SQLModel, table=True):
     course_id: uuid.UUID = Field(foreign_key="course.id")
     # Role within this specific course — independent of the user's global_role.
     role: str  # "student" | "teacher"
-    enrolled_at: datetime = Field(default_factory=datetime.utcnow)
+    enrolled_at: datetime = utc_timestamp_field()

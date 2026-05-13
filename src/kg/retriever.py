@@ -34,6 +34,8 @@ class KGExpandedRetriever(BaseRetriever):
     graph_scope: str | None = None
 
     class Config:
+        """Allow LangChain/Pydantic to store non-pydantic KGStore instances."""
+
         arbitrary_types_allowed = True
 
     @staticmethod

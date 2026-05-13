@@ -23,6 +23,8 @@ _TOC_LINE_RE = re.compile(r"^.{2,80}[\s.·•–\-]{3,}\d{1,4}\s*$")
 
 
 def _is_toc_document(doc: Document) -> bool:
+    """Return True when a document page resembles a table of contents."""
+
     settings = get_settings()
     lines = [ln.strip() for ln in doc.page_content.splitlines() if ln.strip()]
     if len(lines) < 3:

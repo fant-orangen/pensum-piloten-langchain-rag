@@ -24,6 +24,12 @@ interface ChatSidebarProps {
   onRenameConversation: (conversationId: string, title: string) => void
 }
 
+/**
+ * Conversation navigation and tutor-mode selector for the chat workspace.
+ *
+ * Mutations are delegated to the parent so this component only renders sidebar
+ * state and forwards user intents.
+ */
 export function ChatSidebar({
   courseCode,
   courseId,
@@ -64,7 +70,7 @@ export function ChatSidebar({
         <>
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <h2 className="text-sm font-semibold text-gray-700">
-              {courseCode ?? 'Samtaler'}
+              {courseCode ? `${courseCode} Chat` : 'Samtaler'}
             </h2>
             <button
               onClick={onCollapseSidebar}

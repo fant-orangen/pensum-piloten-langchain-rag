@@ -5,6 +5,8 @@ from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class User(SQLModel, table=True):
     """Platform user authenticated via email and password.
@@ -27,4 +29,4 @@ class User(SQLModel, table=True):
     # Selected tutoring style used to extend the base system prompt.
     system_prompt_mode: int = Field(default=1)
     must_change_password: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = utc_timestamp_field()

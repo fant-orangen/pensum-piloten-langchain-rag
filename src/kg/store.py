@@ -31,6 +31,8 @@ class KGStore:
         logger.info("neo4j_connected", uri=settings.neo4j_uri)
 
     def close(self) -> None:
+        """Close the underlying Neo4j driver."""
+
         self._driver.close()
 
     def clear(self, scope: str | None = None) -> None:
@@ -44,6 +46,8 @@ class KGStore:
         logger.info("neo4j_scope_cleared", scope=scope)
 
     def _create_indexes(self) -> None:
+        """Create indexes needed for scoped entity lookup during ingestion/retrieval."""
+
         with self._driver.session() as session:
             session.run(
                 "CREATE INDEX IF NOT EXISTS FOR (e:Entity) ON (e.scope, e.name)"

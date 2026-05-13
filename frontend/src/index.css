@@ -68,6 +68,14 @@
 .dark .bg-gray-50  { background-color: rgb(17 24 39);  }   /* gray-900  */
 .dark .bg-gray-100 { background-color: rgb(55 65 81);  }   /* gray-700  */
 .dark .bg-indigo-50{ background-color: rgba(67,56,202,0.2); }
+.dark .bg-red-50   { background-color: rgba(127, 29, 29, 0.35); }
+.dark .bg-red-100  { background-color: rgba(127, 29, 29, 0.45); }
+.dark .bg-yellow-50{ background-color: rgba(113, 63, 18, 0.35); }
+.dark .bg-yellow-100{ background-color: rgba(113, 63, 18, 0.45); }
+.dark .bg-amber-50 { background-color: rgba(120, 53, 15, 0.35); }
+.dark .bg-amber-100{ background-color: rgba(120, 53, 15, 0.45); }
+.dark .bg-green-100{ background-color: rgba(20, 83, 45, 0.45); }
+.dark .bg-blue-100 { background-color: rgba(30, 64, 175, 0.4); }
 
 /* Text */
 .dark .text-gray-900 { color: rgb(249 250 251); }   /* gray-50  */
@@ -77,12 +85,29 @@
 .dark .text-gray-500 { color: rgb(156 163 175); }   /* gray-400 */
 .dark .text-gray-400 { color: rgb(107 114 128); }   /* gray-500 */
 .dark .text-indigo-900 { color: rgb(199 210 254); } /* indigo-200 */
+.dark .text-indigo-700 { color: rgb(165 180 252); } /* indigo-300 */
+.dark .text-indigo-600 { color: rgb(129 140 248); } /* indigo-400 */
 .dark .text-indigo-500 { color: rgb(165 180 252); } /* indigo-300 */
+.dark .text-red-700 { color: rgb(252 165 165); }
+.dark .text-red-600 { color: rgb(248 113 113); }
+.dark .text-red-500 { color: rgb(248 113 113); }
+.dark .text-yellow-800 { color: rgb(253 230 138); }
+.dark .text-yellow-700 { color: rgb(252 211 77); }
+.dark .text-yellow-600 { color: rgb(251 191 36); }
+.dark .text-amber-800 { color: rgb(253 230 138); }
+.dark .text-amber-700 { color: rgb(252 211 77); }
+.dark .text-amber-500 { color: rgb(251 191 36); }
+.dark .text-green-800 { color: rgb(134 239 172); }
+.dark .text-green-700 { color: rgb(74 222 128); }
+.dark .text-blue-800 { color: rgb(147 197 253); }
 
 /* Borders */
 .dark .border-gray-100 { border-color: rgb(55 65 81); }  /* gray-700 */
 .dark .border-gray-200 { border-color: rgb(55 65 81); }  /* gray-700 */
 .dark .border-gray-300 { border-color: rgb(75 85 99);  } /* gray-600 */
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(55 65 81); }
+.dark .border-red-200 { border-color: rgba(248, 113, 113, 0.35); }
+.dark .border-amber-200 { border-color: rgba(251, 191, 36, 0.35); }
 
 /* Rings */
 .dark .ring-gray-200 { --tw-ring-color: rgb(55 65 81); }

@@ -14,6 +14,11 @@ interface TeachersTabProps {
   creatorId: string
 }
 
+/**
+ * Course-owner tab for assigning and removing course teachers.
+ *
+ * The course creator cannot be removed; the backend enforces the same rule.
+ */
 export function TeachersTab({ courseId, creatorId }: TeachersTabProps) {
   const queryClient = useQueryClient()
 
@@ -211,6 +216,7 @@ interface TeacherListProps {
   creatorId: string
 }
 
+/** Selectable teacher table with search, pagination, and creator-protection UI. */
 function TeacherList({
   title,
   users,

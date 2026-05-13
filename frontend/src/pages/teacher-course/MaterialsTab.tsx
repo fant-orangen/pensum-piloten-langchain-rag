@@ -23,6 +23,12 @@ interface MaterialsTabProps {
   courseId: string
 }
 
+/**
+ * Teacher tab for source-material staging and rebuild orchestration.
+ *
+ * Uploads/removals are staged on the backend until the teacher confirms
+ * ingestion, which queues a versioned vector/KG rebuild.
+ */
 export function MaterialsTab({ courseId }: MaterialsTabProps) {
   const queryClient = useQueryClient()
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set())

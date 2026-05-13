@@ -61,7 +61,7 @@ async def test_create_message_returns_stage_specific_error_when_agent_response_f
     async def _fake_compress(*_args, **_kwargs):
         return None, None, False
 
-    monkeypatch.setattr(message_service, "_get_chain", lambda _scope: chain)
+    monkeypatch.setattr(message_service, "_get_chain", lambda _scope, _rag_mode: chain)
     monkeypatch.setattr(
         message_service,
         "maybe_compress_conversation_history",
@@ -111,7 +111,7 @@ async def test_create_message_rolls_back_and_returns_stage_specific_error_on_db_
     async def _fake_compress(*_args, **_kwargs):
         return None, None, False
 
-    monkeypatch.setattr(message_service, "_get_chain", lambda _scope: chain)
+    monkeypatch.setattr(message_service, "_get_chain", lambda _scope, _rag_mode: chain)
     monkeypatch.setattr(
         message_service,
         "maybe_compress_conversation_history",
@@ -168,7 +168,7 @@ async def test_create_message_persists_sources_from_chain_result_documents(monke
     async def _fake_compress(*_args, **_kwargs):
         return None, None, False
 
-    monkeypatch.setattr(message_service, "_get_chain", lambda _scope: chain)
+    monkeypatch.setattr(message_service, "_get_chain", lambda _scope, _rag_mode: chain)
     monkeypatch.setattr(
         message_service,
         "maybe_compress_conversation_history",
@@ -192,3 +192,18 @@ async def test_create_message_persists_sources_from_chain_result_documents(monke
         }
     ]
     chain.ainvoke.assert_awaited_once()
+
+
+def test_get_chain_uses_naive_builder_for_naive_rag(monkeypatch) -> None:
+    message_service._chain_cache.clear()
+    chain = object()
+    calls: list[str] = []
+
+    def _fake_naive_builder(*, chroma_collection: str):
+        calls.append(chroma_collection)
+        return chain
+
+    monkeypatch.setattr(message_service, "build_naive_rag_chain", _fake_naive_builder)
+
+    assert message_service._get_chain("course_scope", "naive_rag") is chain
+    assert calls == ["course_scope"]

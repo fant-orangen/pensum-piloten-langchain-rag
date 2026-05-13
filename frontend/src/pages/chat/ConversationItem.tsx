@@ -13,6 +13,7 @@ interface ConversationItemProps {
   onRename: (title: string) => void
 }
 
+/** Single sidebar conversation row with inline rename and delete controls. */
 export function ConversationItem({ conversation, isActive, onSelect, onDelete, onRename }: ConversationItemProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isEditing, setIsEditing] = useState(false)

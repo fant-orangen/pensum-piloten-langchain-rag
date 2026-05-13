@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import type { Components } from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 export function messageMarkdownComponents(isHuman: boolean): Components {
   const textClassName = isHuman ? 'text-white' : 'text-gray-900'
@@ -48,7 +48,7 @@ export function messageMarkdownComponents(isHuman: boolean): Components {
           <SyntaxHighlighter
             PreTag="div"
             language={match[1]}
-            style={isHuman ? oneDark : oneLight}
+            style={oneDark}
             customStyle={{
               margin: '0 0 0.75rem 0',
               borderRadius: '0.75rem',

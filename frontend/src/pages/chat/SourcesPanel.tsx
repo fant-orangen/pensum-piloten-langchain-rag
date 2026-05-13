@@ -11,6 +11,7 @@ interface SourcesPanelProps {
   onClose: () => void
 }
 
+/** Side panel that resolves and displays vectorstore chunks cited by an AI message. */
 export function SourcesPanel({ conversationId, messageId, onClose }: SourcesPanelProps) {
   const { data: sources, isLoading, isError } = useQuery<MessageSourceRead[]>({
     queryKey: chatQueryKeys.messageSources(conversationId, messageId),

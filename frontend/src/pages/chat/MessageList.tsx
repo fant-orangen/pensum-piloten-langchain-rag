@@ -15,6 +15,7 @@ interface MessageListProps {
   onShowSources: (messageId: string) => void
 }
 
+/** Scrollable message viewport with loading/empty states and source controls. */
 export function MessageList({
   courseId,
   selectedConversationId,

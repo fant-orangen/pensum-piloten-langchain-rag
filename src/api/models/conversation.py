@@ -6,6 +6,8 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
+from src.api.models.time import utc_timestamp_field
+
 
 class Conversation(SQLModel, table=True):
     """A chat session owned by a user and scoped to a single course.
@@ -28,6 +30,6 @@ class Conversation(SQLModel, table=True):
     title: Optional[str] = None
     # System prompt mode fixed at conversation creation time.
     system_prompt_mode: int = Field(default=1)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = utc_timestamp_field()
     # Bumped on every new message so conversations can be sorted by recency.
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = utc_timestamp_field()

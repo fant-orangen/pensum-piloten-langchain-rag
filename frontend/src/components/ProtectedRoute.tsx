@@ -8,6 +8,12 @@ interface ProtectedRouteProps {
   requiredRole?: GlobalRole
 }
 
+/**
+ * Route guard for authenticated pages.
+ *
+ * Redirects unauthenticated users to login, forced-password-change users to
+ * settings, admins to the admin dashboard, and role mismatches to home.
+ */
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth()
   const location = useLocation()

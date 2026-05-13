@@ -9,7 +9,6 @@ import re
 import shutil
 import uuid
 import zipfile
-from datetime import datetime
 from functools import partial
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.database import get_session_factory
 from src.api.models.course import Course
 from src.api.models.course_document import CourseDocument
+from src.api.models.time import utc_now
 from src.api.models.user import User
 from src.api.schemas.course import CourseMaterialsStatusRead
 from src.api.utils.exception_util import bad_request_error, conflict_error, not_found_error
@@ -223,7 +223,7 @@ async def sync_course_documents_from_directory(
     existing_paths = {document.storage_path for document in result.scalars().all()}
 
     created_count = 0
-    now = datetime.utcnow()
+    now = utc_now()
     for path in sorted(storage_root.rglob("*")):
         resolved_path = path.resolve()
         if not resolved_path.is_file():
@@ -306,7 +306,7 @@ def _write_course_artifacts(
             }
             for document in snapshot_documents
         ],
-        "rebuilt_at": datetime.utcnow().isoformat(),
+        "rebuilt_at": utc_now().isoformat(),
     }
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
@@ -418,7 +418,7 @@ async def _stage_raw_files(
     """
     written_paths: list[Path] = []
     created_docs: list[CourseDocument] = []
-    now = datetime.utcnow()
+    now = utc_now()
     try:
         for display_name, data, content_type in file_payloads:
             safe_name = _sanitize_filename(display_name)
@@ -602,7 +602,7 @@ async def stage_course_document_removal(
 
     if document.status == DOC_STATUS_ACTIVE:
         document.status = DOC_STATUS_PENDING_REMOVE
-        document.updated_at = datetime.utcnow()
+        document.updated_at = utc_now()
         db.add(document)
         await db.commit()
         return
@@ -680,7 +680,7 @@ async def _activate_staged_documents(course_id: uuid.UUID, db: AsyncSession) -> 
     )
     documents = list(result.scalars().all())
     removed_paths: list[Path] = []
-    now = datetime.utcnow()
+    now = utc_now()
 
     for document in documents:
         if document.status == DOC_STATUS_PENDING_ADD:
@@ -852,24 +852,33 @@ async def run_course_material_rebuild(course_id: uuid.UUID) -> None:
                         replace=True,
                     )
                 )
-                log_course_material_rebuild_step(
-                    rebuild_logger,
-                    step="extract_triplets",
-                    target_scope=target_scope,
-                    chunk_count=len(chunks),
-                )
-                triplets = await asyncio.to_thread(extract_triplets, chunks)
-                log_course_material_rebuild_step(
-                    rebuild_logger,
-                    step="build_knowledge_graph",
-                    target_scope=target_scope,
-                    triplet_count=len(triplets),
-                )
-                kg_store = KGStore()
-                try:
-                    await asyncio.to_thread(kg_store.build_kg, triplets, target_scope)
-                finally:
-                    kg_store.close()
+                triplets = []
+                if course.rag_mode == "kg_rag":
+                    log_course_material_rebuild_step(
+                        rebuild_logger,
+                        step="extract_triplets",
+                        target_scope=target_scope,
+                        chunk_count=len(chunks),
+                    )
+                    triplets = await asyncio.to_thread(extract_triplets, chunks)
+                    log_course_material_rebuild_step(
+                        rebuild_logger,
+                        step="build_knowledge_graph",
+                        target_scope=target_scope,
+                        triplet_count=len(triplets),
+                    )
+                    kg_store = KGStore()
+                    try:
+                        await asyncio.to_thread(kg_store.build_kg, triplets, target_scope)
+                    finally:
+                        kg_store.close()
+                else:
+                    log_course_material_rebuild_step(
+                        rebuild_logger,
+                        step="skip_knowledge_graph",
+                        target_scope=target_scope,
+                        rag_mode=course.rag_mode,
+                    )
                 log_course_material_rebuild_step(
                     rebuild_logger,
                     step="write_course_artifacts",
@@ -962,7 +971,7 @@ async def stage_all_course_documents_removal(
     documents = list(result.scalars().all())
 
     affected = 0
-    now = datetime.utcnow()
+    now = utc_now()
     for document in documents:
         if document.status == DOC_STATUS_PENDING_ADD:
             path = Path(document.storage_path)

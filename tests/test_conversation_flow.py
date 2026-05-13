@@ -62,7 +62,7 @@ def main() -> None:
     step("1 / 5  Logging in as test student")
     login_resp = post("/auth/login", {"email": STUDENT_EMAIL, "password": STUDENT_PASSWORD})
     token = login_resp["access_token"]
-    print(f"  ✓ Token received")
+    print("  ✓ Token received")
 
     # 2. Fetch enrolled courses and pick the first one
     step("2 / 5  Fetching enrolled courses")

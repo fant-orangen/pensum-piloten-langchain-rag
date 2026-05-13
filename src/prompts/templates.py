@@ -165,7 +165,7 @@ TUTOR_PROMPT = ChatPromptTemplate.from_messages(
 # Automated tester prompt
 # ---------------------------------------------------------------------------
 
-_TESTER_TEMPLATE = f"""\
+_TESTER_TEMPLATE = """\
 <system_prompt>
 You are a curious student AI used to test a Socratic tutor AI.
 

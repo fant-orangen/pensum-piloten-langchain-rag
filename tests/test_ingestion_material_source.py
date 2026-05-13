@@ -234,3 +234,67 @@ async def test_rebuild_uses_staged_document_files_and_versioned_scope(
     assert captured["replace"] is True
     assert course.chroma_collection == "TST101_v1"
     assert course.index_version == 1
+
+
+@pytest.mark.asyncio
+async def test_naive_rag_rebuild_skips_triplet_extraction_and_kg_build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    course = Course(
+        name="Algorithms",
+        code="TST101",
+        documents_dir=str(tmp_path),
+        index_version=0,
+        rag_mode="naive_rag",
+        created_by_id=uuid.uuid4(),
+    )
+    notes_path = tmp_path / "notes.txt"
+    notes_path.write_text("alpha", encoding="utf-8")
+    documents = [
+        CourseDocument(
+            course_id=course.id,
+            original_filename="notes.txt",
+            storage_path=str(notes_path),
+            status=course_documents.DOC_STATUS_ACTIVE,
+        ),
+    ]
+    session = _FakeSession(course, documents)
+
+    captured: dict[str, object] = {}
+
+    def _fail_extract_triplets(_chunks: list[_Chunk]) -> list[Triplet]:
+        raise AssertionError("naive_rag must not extract KG triplets")
+
+    class _FailingKGStore:
+        def build_kg(self, _triplets: list[Triplet], scope: str | None = None) -> None:
+            raise AssertionError(f"naive_rag must not build KG for {scope}")
+
+        def close(self) -> None:
+            return None
+
+    async def _skip_cleanup(**_kwargs: object) -> None:
+        return None
+
+    def _capture_artifacts(*_args: object, **kwargs: object) -> None:
+        captured["triplets"] = kwargs["triplets"]
+
+    monkeypatch.setattr(
+        course_documents,
+        "get_session_factory",
+        lambda: lambda: _FakeSessionContext(session),
+    )
+    monkeypatch.setattr(course_documents, "load_documents_from_paths", lambda _paths: [object()])
+    monkeypatch.setattr(course_documents, "chunk_documents", lambda _documents: [_Chunk()])
+    monkeypatch.setattr(course_documents, "make_chunk_id", lambda _chunk: "chunk-1")
+    monkeypatch.setattr(course_documents, "build_vectorstore", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(course_documents, "extract_triplets", _fail_extract_triplets)
+    monkeypatch.setattr(course_documents, "KGStore", _FailingKGStore)
+    monkeypatch.setattr(course_documents, "_write_course_artifacts", _capture_artifacts)
+    monkeypatch.setattr(course_documents, "_cleanup_after_activation", _skip_cleanup)
+
+    await course_documents.run_course_material_rebuild(course.id)
+
+    assert captured["triplets"] == []
+    assert course.chroma_collection == "TST101_v1"
+    assert course.index_version == 1

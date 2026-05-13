@@ -66,7 +66,15 @@ async def list_my_courses(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseRead]:
-    """Return all courses the authenticated user is enrolled in."""
+    """Return all courses the authenticated user is enrolled in.
+
+    Args:
+        current_user: User resolved from the bearer token.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+    """
     courses = await get_enrolled_courses(current_user.id, db)
     return [CourseRead.model_validate(c) for c in courses]
 
@@ -76,7 +84,15 @@ async def list_available_courses(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseRead]:
-    """Return all courses where the authenticated user is enrolled as a student."""
+    """Return all courses where the authenticated user is enrolled as a student.
+
+    Args:
+        current_user: User resolved from the bearer token.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+    """
     courses = await get_available_courses(current_user.id, db)
     return [CourseRead.model_validate(c) for c in courses]
 
@@ -86,7 +102,16 @@ async def list_responsible_courses(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseRead]:
-    """Return all courses where the authenticated user is enrolled as a teacher."""
+    """Return all courses where the authenticated user is enrolled as a teacher.
+
+    Args:
+        current_user: User resolved from the bearer token; must be teacher/admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller is not a teacher or admin.
+    """
     courses = await get_responsible_courses(current_user, db)
     return [CourseRead.model_validate(c) for c in courses]
 
@@ -96,7 +121,16 @@ async def list_all_teachers(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseStudentRead]:
-    """Return all users with global teacher role. Requires teacher or admin."""
+    """Return all users with global teacher role.
+
+    Args:
+        current_user: User resolved from the bearer token; must be teacher/admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller is not a teacher or admin.
+    """
     teachers = await get_all_teachers(current_user, db)
     return [CourseStudentRead.model_validate(t) for t in teachers]
 
@@ -107,7 +141,19 @@ async def get_course_by_id(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseSummaryRead:
-    """Return safe course metadata for chat/sidebar display."""
+    """Return safe course metadata for chat/sidebar display.
+
+    Args:
+        course_id: Course to read.
+        current_user: User resolved from the bearer token.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller is not enrolled in the course and is not admin.
+        404: Course does not exist.
+        422: Invalid course_id path value.
+    """
     course = await get_course_summary_for_user(current_user, course_id, db)
     return CourseSummaryRead.model_validate(course)
 
@@ -120,7 +166,21 @@ async def list_course_students(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> Page[CourseStudentRead]:
-    """Return paginated student enrollments for a course."""
+    """Return paginated student enrollments for a course.
+
+    Args:
+        course_id: Course whose students should be listed.
+        page: One-based page number.
+        page_size: Number of students per page, capped at 100.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        422: Invalid UUID or pagination query value.
+    """
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_course_students(current_user, course_id, params, db)
     return Page.create(
@@ -138,7 +198,21 @@ async def list_course_teachers(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> Page[CourseStudentRead]:
-    """Return paginated teacher enrollments for a course. Requires course owner or admin."""
+    """Return paginated teacher enrollments for a course.
+
+    Args:
+        course_id: Course whose teachers should be listed.
+        page: One-based page number.
+        page_size: Number of teachers per page, capped at 100.
+        current_user: User resolved from the bearer token; must own the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller is not course owner/admin.
+        404: Course does not exist.
+        422: Invalid UUID or pagination query value.
+    """
     params = PaginationParams(page=page, page_size=page_size)
     items, total = await get_course_teachers(current_user, course_id, params, db)
     return Page.create(
@@ -154,7 +228,19 @@ async def new_course(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseRead:
-    """Create a new course."""
+    """Create a new course.
+
+    Args:
+        body: Course creation payload.
+        current_user: User resolved from the bearer token; must be teacher/admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller is not teacher/admin.
+        409: Course code already exists.
+        422: Invalid request body.
+    """
     course = await create_course(current_user, body, db)
     return CourseRead.model_validate(course)
 
@@ -165,7 +251,19 @@ async def list_documents(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseDocumentRead]:
-    """List staged and active source materials for a course."""
+    """List staged and active source materials for a course.
+
+    Args:
+        course_id: Course whose document records should be listed.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        422: Invalid course_id path value.
+    """
     documents = await list_course_documents(current_user, course_id, db)
     return [CourseDocumentRead.model_validate(document) for document in documents]
 
@@ -181,7 +279,23 @@ async def add_documents(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CourseDocumentRead]:
-    """Stage new source materials for a course."""
+    """Stage new source materials for a course.
+
+    Args:
+        course_id: Course receiving the uploaded files.
+        files: Multipart files to store as pending additions.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        400: File type is unsupported or no valid files were supplied.
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        409: Course materials are already queued/building.
+        413: Upload exceeds configured size limits.
+        422: Invalid multipart request or UUID.
+    """
     documents = await stage_course_documents(current_user, course_id, files, db)
     return [CourseDocumentRead.model_validate(document) for document in documents]
 
@@ -197,7 +311,23 @@ async def add_documents_from_zip(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> ZipImportResultRead:
-    """Extract a zip archive and stage all supported files as pending-add source materials."""
+    """Extract a zip archive and stage supported files as pending-add materials.
+
+    Args:
+        course_id: Course receiving the extracted files.
+        file: Multipart zip archive.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        400: Upload is not a valid zip or contains no supported files.
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        409: Course materials are already queued/building.
+        413: Upload exceeds configured size limits.
+        422: Invalid multipart request or UUID.
+    """
     staged, skipped_names = await stage_course_documents_from_zip(current_user, course_id, file, db)
     return ZipImportResultRead(
         staged=[CourseDocumentRead.model_validate(doc) for doc in staged],
@@ -218,6 +348,18 @@ async def remove_all_documents(
     Pending-add documents are deleted immediately. Active documents are
     transitioned to pending_remove and will be purged on the next rebuild.
     Returns the count of affected documents.
+
+    Args:
+        course_id: Course whose documents should be staged for removal.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        409: Course materials are already queued/building.
+        422: Invalid course_id path value.
     """
     affected = await stage_all_course_documents_removal(current_user, course_id, db)
     return {"removed": affected}
@@ -230,7 +372,24 @@ async def remove_document(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Stage removal of a source document from a course."""
+    """Stage removal of a source document from a course.
+
+    Active documents move to pending_remove; pending-add documents are deleted
+    immediately. Requires course teacher or admin.
+
+    Args:
+        course_id: Course containing the document.
+        document_id: Document record to remove or stage for removal.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course or document does not exist.
+        409: Course materials are already queued/building.
+        422: Invalid UUID path value.
+    """
     await stage_course_document_removal(current_user, course_id, document_id, db)
 
 
@@ -240,7 +399,19 @@ async def get_documents_status(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseMaterialsStatusRead:
-    """Return current rebuild state and pending document counts for a course."""
+    """Return current rebuild state and pending document counts for a course.
+
+    Args:
+        course_id: Course whose material status should be read.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        422: Invalid course_id path value.
+    """
     return await get_course_materials_status(current_user, course_id, db)
 
 
@@ -255,7 +426,24 @@ async def confirm_document_changes(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseMaterialsStatusRead:
-    """Confirm all staged add/remove changes and start a versioned rebuild."""
+    """Confirm all staged add/remove changes and start a versioned rebuild.
+
+    Returns 202 with the queued status. Raises 409 if another rebuild is
+    already queued/running or there are no staged changes.
+
+    Args:
+        course_id: Course whose staged document changes should be activated.
+        background_tasks: FastAPI background task manager used to run rebuild work.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        409: Rebuild is already queued/running or no staged changes exist.
+        422: Invalid course_id path value.
+    """
     course_status = await queue_course_material_rebuild(current_user, course_id, db)
     background_tasks.add_task(run_course_material_rebuild, course_id)
     return course_status
@@ -267,7 +455,22 @@ async def remove_course(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete a course."""
+    """Delete a course and its conversations, enrollments, and material indexes.
+
+    Requires course owner or admin. Raises 409 while materials are rebuilding.
+
+    Args:
+        course_id: Course to delete.
+        current_user: User resolved from the bearer token; must own the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller is not course owner/admin.
+        404: Course does not exist.
+        409: Course materials are queued/building.
+        422: Invalid course_id path value.
+    """
     await delete_course(current_user, course_id, db)
 
 
@@ -278,7 +481,20 @@ async def update_course_instructions(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseRead:
-    """Update the course-specific prompt instructions for a course."""
+    """Update the course-specific prompt instructions for a course.
+
+    Args:
+        course_id: Course whose instructions should be updated.
+        body: New instruction text; blank text clears existing instructions.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        422: Invalid UUID or request body.
+    """
     course = await update_course_specific_instructions(current_user, course_id, body, db)
     return CourseRead.model_validate(course)
 
@@ -289,7 +505,19 @@ async def read_course_instructions(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> CourseInstructionsRead:
-    """Return the current course-specific prompt instructions for a course."""
+    """Return the current course-specific prompt instructions for a course.
+
+    Args:
+        course_id: Course whose instructions should be read.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        422: Invalid course_id path value.
+    """
     return await get_course_specific_instructions(current_user, course_id, db)
 
 
@@ -304,7 +532,23 @@ async def preview_enrollment_csv(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> EnrollmentImportPreviewRead:
-    """Parse a CSV of student emails and stage a preview for confirmation."""
+    """Parse a CSV of student emails and stage a preview for confirmation.
+
+    Does not mutate enrollments. Raises 400 for invalid/empty CSV input.
+
+    Args:
+        course_id: Course receiving the imported student enrollments.
+        file: UTF-8 CSV upload with email and optional first/last name columns.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        400: CSV is invalid, non-UTF-8, or contains no valid email rows.
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        422: Invalid multipart request or UUID.
+    """
     return await preview_enrollment_import(current_user, course_id, file, db)
 
 
@@ -318,7 +562,23 @@ async def confirm_enrollment_csv(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> EnrollmentImportConfirmRead:
-    """Confirm a staged enrollment import and delete the preview entry."""
+    """Confirm a staged enrollment import and delete the preview entry.
+
+    Creates placeholder user accounts for missing candidates and enrolls all
+    eligible addresses from the preview.
+
+    Args:
+        course_id: Course receiving the imported enrollments.
+        preview_id: Previously created import preview to apply.
+        current_user: User resolved from the bearer token; must own the preview or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller cannot access the course or did not create the preview.
+        404: Course or preview does not exist.
+        422: Invalid UUID path value.
+    """
     return await confirm_enrollment_import(current_user, course_id, preview_id, db)
 
 
@@ -332,7 +592,20 @@ async def cancel_enrollment_csv(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Cancel a staged enrollment import and delete the preview entry."""
+    """Cancel a staged enrollment import and delete the preview entry.
+
+    Args:
+        course_id: Course associated with the preview.
+        preview_id: Preview to discard.
+        current_user: User resolved from the bearer token; must own the preview or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller cannot access the course or did not create the preview.
+        404: Course or preview does not exist.
+        422: Invalid UUID path value.
+    """
     await cancel_enrollment_import(current_user, course_id, preview_id, db)
 
 
@@ -347,7 +620,25 @@ async def add_enrollment(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> EnrollmentRead:
-    """Enroll a user in a course by email."""
+    """Enroll a user in a course by email.
+
+    Requires teacher/admin access to the course. Raises 404 for unknown users
+    and 409 when the enrollment already exists.
+
+    Args:
+        course_id: Course receiving the enrollment.
+        body: Target user email and role to assign.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        400: Enrollment role is unsupported.
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course or target user does not exist.
+        409: User is already enrolled.
+        422: Invalid UUID or request body.
+    """
     enrollment = await enroll_user(current_user, course_id, body, db)
     return EnrollmentRead.model_validate(enrollment)
 
@@ -358,7 +649,19 @@ async def remove_all_student_enrollments(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Remove all student enrollments from a course. Teacher or admin only."""
+    """Remove all student enrollments from a course.
+
+    Args:
+        course_id: Course whose student enrollments should be removed.
+        current_user: User resolved from the bearer token; must teach the course or be admin.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks course teacher/admin access.
+        404: Course does not exist.
+        422: Invalid course_id path value.
+    """
     removed = await unenroll_all_students(current_user, course_id, db)
     return {"removed": removed}
 
@@ -370,5 +673,22 @@ async def remove_enrollment(
     current_user: User = Depends(get_current_app_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Remove a user from a course."""
+    """Remove a user from a course.
+
+    Teachers can remove students. Course owners/admins can also remove course
+    teachers, except the course owner.
+
+    Args:
+        course_id: Course containing the enrollment.
+        user_id: User enrollment to remove.
+        current_user: User resolved from the bearer token.
+        db: Request-scoped database session.
+
+    Raises:
+        401: Missing, expired, or invalid bearer token.
+        403: Caller lacks permission to remove this enrollment.
+        404: Course or enrollment does not exist.
+        409: Attempted to remove the course owner.
+        422: Invalid UUID path value.
+    """
     await unenroll_user(current_user, course_id, user_id, db)

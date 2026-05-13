@@ -6,6 +6,7 @@ interface CourseCardProps {
   onClick: () => void
 }
 
+/** Clickable dashboard card for one course. */
 export function CourseCard({ course, onClick }: CourseCardProps) {
   return (
     <article>
