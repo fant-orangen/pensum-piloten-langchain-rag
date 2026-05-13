@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AxiosError } from 'axios'
 import {
   ArrowLeft,
   BookOpen,
@@ -26,6 +27,9 @@ import { SourcesPanel } from './chat/SourcesPanel'
 import { formatConversationDate } from './chat/format'
 import { chatQueryKeys } from './chat/queryKeys'
 import { usePageTitle } from '../hooks/usePageTitle'
+
+const NO_COURSE_SOURCES_MESSAGE = 'Kunne ikke sende melding. Dette faget har ingen kilder.'
+const NO_COURSE_SOURCES_DETAIL = 'This course does not currently have ingested materials.'
 
 /**
  * Course-scoped chat workspace.
@@ -114,10 +118,11 @@ export function ChatPage() {
       ])
       setPendingUserMessage(null)
     },
-    onError: (_error, variables) => {
+    onError: (error, variables) => {
       setPendingUserMessage(null)
       setInputValue(variables.content)
-      toast.error('Klarte ikke sende melding.')
+      const detail = error instanceof AxiosError ? error.response?.data?.detail : undefined
+      toast.error(detail === NO_COURSE_SOURCES_DETAIL ? NO_COURSE_SOURCES_MESSAGE : 'Klarte ikke sende melding.')
     },
   })
 
