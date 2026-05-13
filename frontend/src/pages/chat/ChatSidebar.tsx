@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { type UIEvent } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Spinner } from '../../components/Spinner'
 import type { ConversationRead, SystemPromptMode } from '../../types'
@@ -11,6 +12,8 @@ interface ChatSidebarProps {
   conversations: ConversationRead[]
   totalConversations: number | undefined
   isLoadingConversations: boolean
+  isLoadingMoreConversations: boolean
+  hasMoreConversations: boolean
   selectedConversationId: string | null
   promptMode: SystemPromptMode
   sidebarCollapsed: boolean
@@ -22,6 +25,7 @@ interface ChatSidebarProps {
   onSelectConversation: (conversationId: string) => void
   onDeleteConversation: (conversationId: string) => void
   onRenameConversation: (conversationId: string, title: string) => void
+  onLoadMoreConversations: () => void
 }
 
 /**
@@ -36,6 +40,8 @@ export function ChatSidebar({
   conversations,
   totalConversations,
   isLoadingConversations,
+  isLoadingMoreConversations,
+  hasMoreConversations,
   selectedConversationId,
   promptMode,
   sidebarCollapsed,
@@ -47,7 +53,15 @@ export function ChatSidebar({
   onSelectConversation,
   onDeleteConversation,
   onRenameConversation,
+  onLoadMoreConversations,
 }: ChatSidebarProps) {
+  function handleConversationScroll(e: UIEvent<HTMLElement>) {
+    const el = e.currentTarget
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80 && hasMoreConversations && !isLoadingMoreConversations) {
+      onLoadMoreConversations()
+    }
+  }
+
   return (
     <aside
       aria-label="Samtaler"
@@ -130,7 +144,11 @@ export function ChatSidebar({
             </button>
           </div>
 
-          <nav aria-label="Samtalliste" className="flex-1 min-h-0 overflow-y-auto px-2 pb-4">
+          <nav
+            aria-label="Samtalliste"
+            className="flex-1 min-h-0 overflow-y-auto px-2 pb-4"
+            onScroll={handleConversationScroll}
+          >
             {isLoadingConversations && (
               <div className="flex justify-center py-6">
                 <Spinner size="sm" className="text-indigo-600" />
@@ -154,6 +172,11 @@ export function ChatSidebar({
                 </li>
               ))}
             </ul>
+            {isLoadingMoreConversations && (
+              <div className="flex justify-center py-3">
+                <Spinner size="sm" className="text-indigo-600" />
+              </div>
+            )}
             {totalConversations !== undefined && (
               <p className="mt-2 px-3 text-xs text-gray-400">
                 {totalConversations} samtale{totalConversations !== 1 ? 'r' : ''} totalt

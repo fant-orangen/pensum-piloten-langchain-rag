@@ -1,6 +1,6 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, type UIEvent, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, RefreshCw, Search, ShieldCheck, ShieldMinus } from 'lucide-react'
+import { RefreshCw, Search, ShieldCheck, ShieldMinus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Layout } from '../components/Layout'
 import { Spinner } from '../components/Spinner'
@@ -18,8 +18,8 @@ export function AdminPage() {
   const [search, setSearch] = useState('')
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [selectedTeachers, setSelectedTeachers] = useState<Set<string>>(new Set())
-  const [studentPage, setStudentPage] = useState(1)
-  const [teacherPage, setTeacherPage] = useState(1)
+  const [studentVisibleCount, setStudentVisibleCount] = useState(PAGE_SIZE)
+  const [teacherVisibleCount, setTeacherVisibleCount] = useState(PAGE_SIZE)
 
   const usersQuery = useQuery({
     queryKey: ['admin-users'],
@@ -53,18 +53,22 @@ export function AdminPage() {
     [users, lowerSearch]
   )
 
-  // Reset pages when search changes
   const handleSearchChange = (value: string) => {
     setSearch(value)
-    setStudentPage(1)
-    setTeacherPage(1)
+    setStudentVisibleCount(PAGE_SIZE)
+    setTeacherVisibleCount(PAGE_SIZE)
   }
 
-  // Paginate
-  const studentTotalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE))
-  const teacherTotalPages = Math.max(1, Math.ceil(filteredTeachers.length / PAGE_SIZE))
-  const pagedStudents = filteredStudents.slice((studentPage - 1) * PAGE_SIZE, studentPage * PAGE_SIZE)
-  const pagedTeachers = filteredTeachers.slice((teacherPage - 1) * PAGE_SIZE, teacherPage * PAGE_SIZE)
+  const pagedStudents = filteredStudents.slice(0, studentVisibleCount)
+  const pagedTeachers = filteredTeachers.slice(0, teacherVisibleCount)
+
+  const handleStudentLoadMore = () => {
+    setStudentVisibleCount((count) => Math.min(filteredStudents.length, count + PAGE_SIZE))
+  }
+
+  const handleTeacherLoadMore = () => {
+    setTeacherVisibleCount((count) => Math.min(filteredTeachers.length, count + PAGE_SIZE))
+  }
 
   // Clear selections that are no longer visible after data changes
   const updateUsersCache = (updatedUser: AdminUserRead) => {
@@ -187,11 +191,10 @@ export function AdminPage() {
                 title="Studenter"
                 users={pagedStudents}
                 totalFiltered={filteredStudents.length}
+                hasMore={pagedStudents.length < filteredStudents.length}
                 selected={selectedStudents}
                 onToggle={toggleStudent}
-                page={studentPage}
-                totalPages={studentTotalPages}
-                onPageChange={setStudentPage}
+                onLoadMore={handleStudentLoadMore}
                 actionLabel="Promoter til lærer"
                 actionIcon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
                 actionDisabled={selectedStudents.size === 0 || isBusy}
@@ -204,11 +207,10 @@ export function AdminPage() {
                 title="Lærere"
                 users={pagedTeachers}
                 totalFiltered={filteredTeachers.length}
+                hasMore={pagedTeachers.length < filteredTeachers.length}
                 selected={selectedTeachers}
                 onToggle={toggleTeacher}
-                page={teacherPage}
-                totalPages={teacherTotalPages}
-                onPageChange={setTeacherPage}
+                onLoadMore={handleTeacherLoadMore}
                 actionLabel="Degrader til student"
                 actionIcon={<ShieldMinus className="h-4 w-4" aria-hidden="true" />}
                 actionDisabled={selectedTeachers.size === 0 || isBusy}
@@ -231,11 +233,10 @@ interface UserListProps {
   title: string
   users: AdminUserRead[]
   totalFiltered: number
+  hasMore: boolean
   selected: Set<string>
   onToggle: (id: string) => void
-  page: number
-  totalPages: number
-  onPageChange: (p: number) => void
+  onLoadMore: () => void
   actionLabel: string
   actionIcon: ReactNode
   actionDisabled: boolean
@@ -250,11 +251,10 @@ function UserList({
   title,
   users,
   totalFiltered,
+  hasMore,
   selected,
   onToggle,
-  page,
-  totalPages,
-  onPageChange,
+  onLoadMore,
   actionLabel,
   actionIcon,
   actionDisabled,
@@ -263,6 +263,13 @@ function UserList({
   disabledIds,
   disabledReason,
 }: UserListProps) {
+  function handleScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80 && hasMore) {
+      onLoadMore()
+    }
+  }
+
   return (
     <div className="flex flex-col">
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -273,7 +280,7 @@ function UserList({
           </h2>
         </div>
 
-        <div className="min-h-[320px]">
+        <div className="max-h-[420px] min-h-[320px] overflow-y-auto" onScroll={handleScroll}>
           {users.length === 0 ? (
             <p className="px-6 py-8 text-center text-sm text-gray-400">Ingen treff.</p>
           ) : (
@@ -333,31 +340,6 @@ function UserList({
               </tbody>
             </table>
           )}
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-2">
-          <p className="text-xs text-gray-500">
-            Side {page} av {totalPages}
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-              className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-              aria-label="Forrige side"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-              className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-              aria-label="Neste side"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
         </div>
       </div>
 

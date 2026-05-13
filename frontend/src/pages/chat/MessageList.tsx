@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import type { RefObject, UIEvent } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { Spinner } from '../../components/Spinner'
 import type { MessageRead } from '../../types'
@@ -9,9 +9,12 @@ interface MessageListProps {
   selectedConversationId: string | null
   messages: MessageRead[]
   isLoadingMessages: boolean
+  isLoadingMoreMessages: boolean
+  hasMoreMessages: boolean
   isSendingMessage: boolean
   activeSourceMessageId: string | null
   messagesEndRef: RefObject<HTMLDivElement>
+  onLoadMoreMessages: () => void
   onShowSources: (messageId: string) => void
 }
 
@@ -21,13 +24,22 @@ export function MessageList({
   selectedConversationId,
   messages,
   isLoadingMessages,
+  isLoadingMoreMessages,
+  hasMoreMessages,
   isSendingMessage,
   activeSourceMessageId,
   messagesEndRef,
+  onLoadMoreMessages,
   onShowSources,
 }: MessageListProps) {
+  function handleScroll(e: UIEvent<HTMLDivElement>) {
+    if (e.currentTarget.scrollTop <= 80 && hasMoreMessages && !isLoadingMoreMessages) {
+      onLoadMoreMessages()
+    }
+  }
+
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
+    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6" onScroll={handleScroll}>
       {!selectedConversationId ? (
         <div className="flex h-full flex-col items-center justify-center text-center">
           <MessageSquare className="mb-4 h-12 w-12 text-gray-200" aria-hidden="true" />
@@ -44,6 +56,11 @@ export function MessageList({
         </div>
       ) : (
         <div className="mx-auto max-w-3xl space-y-4">
+          {isLoadingMoreMessages && (
+            <div className="flex justify-center py-2">
+              <Spinner size="sm" className="text-indigo-600" />
+            </div>
+          )}
           {messages.length === 0 && (
             <div className="py-8 text-center">
               <p className="text-sm text-gray-400">

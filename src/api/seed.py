@@ -10,11 +10,12 @@ When enabled, the `seed()` function should be called once on startup (typically 
 
 ## What gets seeded?
 
-- **Users**: One teacher, one student, one admin (ids and emails are consistent across runs).
-- **Courses**: A main test course (_COURSE_CODE = "TEST101", instructor: teacher), and a second test course ("TEST102", instructor: admin).
+- **Users**: Canonical admin/teacher/student accounts plus bulk demo students and teachers from `seed_demo_users.csv`.
+- **Courses**: "Operating Systems" (_COURSE_CODE = "TEST101", instructor: teacher), and "Java Programming" ("TEST102", instructor: admin).
 - **Enrollments**:
     - The student is enrolled in the main test course as a student.
     - The teacher is enrolled as a teacher in TEST101 and (for UI flows) as a *student* in TEST102.
+    - Bulk demo users are enrolled according to `seed_demo_users.csv`.
 - **Directories**: Document directories are created if missing. Course documents may be synced from their directory.
 - **RAG/KG index**: Course metadata is reconciled against the ChromaDB collections
   that actually exist on disk. The newest `<COURSE>_vN` collection wins.
@@ -27,8 +28,10 @@ This function is safe to call multiple times or on every startup. It will provis
 
 """
 
+import csv
 import json
 import re
+from pathlib import Path
 
 import structlog
 from sqlalchemy import select
@@ -56,8 +59,11 @@ _STUDENT_EMAIL = "student@test.com"
 _ADMIN_EMAIL = "admin@test.com"
 _COURSE_CODE = "TEST101"
 _SECOND_COURSE_CODE = "TEST102"
+_COURSE_NAME = "Operating Systems"
+_SECOND_COURSE_NAME = "Java Programming"
 _COURSE_RAG_MODE = "kg_rag"
 _SECOND_COURSE_RAG_MODE = "naive_rag"
+_DEMO_USERS_FILE = Path(__file__).with_name("seed_demo_users.csv")
 _COURSE_SPECIFIC_INSTRUCTIONS = (
     "This course is specifically about understanding NTFS when discussing file systems. "
     "When file-system concepts are explained, always describe them with reference to NTFS."
@@ -196,6 +202,16 @@ def _reconcile_course_rag_mode(course: Course, expected_rag_mode: str) -> None:
     course.rag_mode = expected_rag_mode
 
 
+def _load_demo_seed_users() -> list[dict[str, str]]:
+    """Load bulk demo users used for pagination demonstrations."""
+    try:
+        with _DEMO_USERS_FILE.open(newline="", encoding="utf-8") as f:
+            return list(csv.DictReader(f))
+    except OSError:
+        logger.warning("seed_demo_users_unreadable", path=str(_DEMO_USERS_FILE))
+        return []
+
+
 async def seed(db: AsyncSession) -> None:
     """
     Populate canonical test users, courses, and their relationships in the database for dev/test/demo.
@@ -257,25 +273,12 @@ async def seed(db: AsyncSession) -> None:
         global_role="student",
     )
 
-    # --- Additional test students ---
-    test_students = []
-    for i in range(1, 6):
-        ts = await _get_or_create_user(
-            db,
-            email=f"test{i}@test.com",
-            password="password123",
-            first_name=f"Test{i}",
-            last_name="Student",
-            global_role="student",
-        )
-        test_students.append(ts)
-
     # --- Course ---
     course_result = await db.execute(select(Course).where(Course.code == _COURSE_CODE))
     course = course_result.scalars().first()
     if course is None:
         course = Course(
-            name="Test Course",
+            name=_COURSE_NAME,
             code=_COURSE_CODE,
             chroma_collection=test_course_scope,
             documents_dir=str(test_course_dir),
@@ -288,6 +291,7 @@ async def seed(db: AsyncSession) -> None:
         await db.flush()  # populate course.id before using it below
         logger.info("seed_created_course", code=_COURSE_CODE)
     else:
+        course.name = _COURSE_NAME
         course.documents_dir = str(test_course_dir)
         course.course_specific_instructions = _COURSE_SPECIFIC_INSTRUCTIONS
         _reconcile_course_rag_mode(course, _COURSE_RAG_MODE)
@@ -300,7 +304,7 @@ async def seed(db: AsyncSession) -> None:
     second_course = second_course_result.scalars().first()
     if second_course is None:
         second_course = Course(
-            name="Second Test Course",
+            name=_SECOND_COURSE_NAME,
             code=_SECOND_COURSE_CODE,
             chroma_collection=second_course_scope,
             documents_dir=str(second_course_dir),
@@ -312,6 +316,7 @@ async def seed(db: AsyncSession) -> None:
         await db.flush()
         logger.info("seed_created_course", code=_SECOND_COURSE_CODE)
     else:
+        second_course.name = _SECOND_COURSE_NAME
         second_course.documents_dir = str(second_course_dir)
         _reconcile_course_rag_mode(second_course, _SECOND_COURSE_RAG_MODE)
         _reconcile_course_scope(second_course, collection_names=collection_names)
@@ -363,18 +368,6 @@ async def seed(db: AsyncSession) -> None:
         db.add(CourseEnrollment(user_id=teacher2.id, course_id=second_course.id, role="teacher"))
         logger.info("seed_enrolled_teacher2", email=_TEACHER2_EMAIL, course=_SECOND_COURSE_CODE)
 
-    # Additional test students enrolled in TEST101
-    for ts in test_students:
-        ts_enrollment_result = await db.execute(
-            select(CourseEnrollment).where(
-                CourseEnrollment.user_id == ts.id,
-                CourseEnrollment.course_id == course.id,
-            )
-        )
-        if ts_enrollment_result.scalars().first() is None:
-            db.add(CourseEnrollment(user_id=ts.id, course_id=course.id, role="student"))
-            logger.info("seed_enrolled_test_student", email=ts.email, course=_COURSE_CODE)
-
     # Teacher enrolled in TEST102 as student (for UI/role switching flows)
     second_course_teacher_enrollment_result = await db.execute(
         select(CourseEnrollment).where(
@@ -396,6 +389,24 @@ async def seed(db: AsyncSession) -> None:
             course=_SECOND_COURSE_CODE,
             role="student",
         )
+
+    course_by_code = {
+        _COURSE_CODE: course,
+        _SECOND_COURSE_CODE: second_course,
+    }
+    for row in _load_demo_seed_users():
+        demo_user = await _get_or_create_user(
+            db,
+            email=row["email"],
+            password="password123",
+            first_name=row["first_name"],
+            last_name=row["last_name"],
+            global_role=row["global_role"],
+        )
+        demo_course = course_by_code.get(row.get("course_code", ""))
+        demo_role = row.get("course_role", "")
+        if demo_course is not None and demo_role:
+            await _ensure_enrollment(db, demo_user, demo_course, demo_role)
 
     await _seed_course_documents(db, course)
     await db.commit()
@@ -430,6 +441,29 @@ async def _get_or_create_user(
     else:
         logger.info("seed_user_exists", email=email)
     return user
+
+
+async def _ensure_enrollment(
+    db: AsyncSession,
+    user: User,
+    course: Course,
+    role: str,
+) -> None:
+    """Idempotently enroll a user in a course with the requested course role."""
+    enrollment_result = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.user_id == user.id,
+            CourseEnrollment.course_id == course.id,
+        )
+    )
+    enrollment = enrollment_result.scalars().first()
+    if enrollment is None:
+        db.add(CourseEnrollment(user_id=user.id, course_id=course.id, role=role))
+        logger.info("seed_enrolled_demo_user", email=user.email, course=course.code, role=role)
+    elif enrollment.role != role:
+        enrollment.role = role
+        db.add(enrollment)
+        logger.info("seed_updated_demo_enrollment", email=user.email, course=course.code, role=role)
 
 
 async def _seed_course_documents(db: AsyncSession, course: Course) -> None:

@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle, Upload, UserPlus } from 'lucide-react'
+import { useState, type FormEvent, type UIEvent } from 'react'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, CheckCircle, Search, Upload, UserPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Spinner } from '../../components/Spinner'
@@ -29,16 +29,20 @@ const PAGE_SIZE = 20
  */
 export function StudentsTab({ courseId }: StudentsTabProps) {
   const queryClient = useQueryClient()
-  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
   const [enrollEmail, setEnrollEmail] = useState('')
   const [enrollError, setEnrollError] = useState('')
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<EnrollmentImportPreviewRead | null>(null)
   const [confirmDeleteStudentId, setConfirmDeleteStudentId] = useState<string | null>(null)
 
-  const studentsQuery = useQuery({
-    queryKey: courseQueryKeys.studentsPage(courseId, page),
-    queryFn: () => getCourseStudents(courseId, page, PAGE_SIZE),
+  const studentsQuery = useInfiniteQuery({
+    queryKey: courseQueryKeys.studentsPage(courseId, search),
+    queryFn: ({ pageParam }) => getCourseStudents(courseId, pageParam, PAGE_SIZE, search),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (
+      lastPage.page < lastPage.pages ? lastPage.page + 1 : undefined
+    ),
   })
 
   const enrollMutation = useMutation({
@@ -107,9 +111,20 @@ export function StudentsTab({ courseId }: StudentsTabProps) {
     enrollMutation.mutate(enrollEmail.trim())
   }
 
-  const students: CourseStudentRead[] = studentsQuery.data?.items ?? []
-  const total = studentsQuery.data?.total ?? 0
-  const totalPages = Math.ceil(total / PAGE_SIZE)
+  const students: CourseStudentRead[] = studentsQuery.data?.pages.flatMap((page) => page.items) ?? []
+  const total = studentsQuery.data?.pages[0]?.total ?? 0
+  const hasSearch = search.trim().length > 0
+
+  function handleStudentsScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    if (
+      el.scrollTop + el.clientHeight >= el.scrollHeight - 80 &&
+      studentsQuery.hasNextPage &&
+      !studentsQuery.isFetchingNextPage
+    ) {
+      studentsQuery.fetchNextPage()
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -126,13 +141,38 @@ export function StudentsTab({ courseId }: StudentsTabProps) {
           </div>
         )}
 
+        <div className="mb-4 max-w-md">
+          <label htmlFor="student-search" className="sr-only">
+            Søk etter student
+          </label>
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden="true"
+            />
+            <input
+              id="student-search"
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Søk etter navn eller e-post..."
+              className="input-field pl-10 py-1.5 text-sm"
+            />
+          </div>
+        </div>
+
         {students.length === 0 && !studentsQuery.isLoading && (
-          <p className="text-sm text-gray-500">Ingen studenter påmeldt ennå.</p>
+          <p className="text-sm text-gray-500">
+            {hasSearch ? 'Ingen studenter matcher søket.' : 'Ingen studenter påmeldt ennå.'}
+          </p>
         )}
 
         {students.length > 0 && (
           <>
-            <div className="overflow-hidden rounded-lg border border-gray-200">
+            <div
+              className="max-h-[520px] overflow-y-auto rounded-lg border border-gray-200"
+              onScroll={handleStudentsScroll}
+            >
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
@@ -162,27 +202,9 @@ export function StudentsTab({ courseId }: StudentsTabProps) {
                 </tbody>
               </table>
             </div>
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-gray-500">
-                  Side {page} av {totalPages}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="btn-secondary px-3 py-1 text-xs"
-                  >
-                    Forrige
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="btn-secondary px-3 py-1 text-xs"
-                  >
-                    Neste
-                  </button>
-                </div>
+            {studentsQuery.isFetchingNextPage && (
+              <div className="mt-3 flex justify-center">
+                <Spinner size="sm" className="text-indigo-600" />
               </div>
             )}
           </>

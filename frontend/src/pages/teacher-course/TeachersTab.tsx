@@ -1,6 +1,6 @@
-import { type ReactNode, useMemo, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Search, UserPlus, UserMinus } from 'lucide-react'
+import { type ReactNode, type UIEvent, useEffect, useMemo, useState } from 'react'
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Search, UserPlus, UserMinus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Spinner } from '../../components/Spinner'
 import { getAllTeachers, getCourseTeachers, enrollStudent, unenrollStudent } from '../../api/courses'
@@ -26,8 +26,7 @@ export function TeachersTab({ courseId, creatorId }: TeachersTabProps) {
   const [courseSearch, setCourseSearch] = useState('')
   const [selectedAll, setSelectedAll] = useState<Set<string>>(new Set())
   const [selectedCourse, setSelectedCourse] = useState<Set<string>>(new Set())
-  const [allPage, setAllPage] = useState(1)
-  const [coursePage, setCoursePage] = useState(1)
+  const [allVisibleCount, setAllVisibleCount] = useState(PAGE_SIZE)
 
   // All teachers in the system
   const allTeachersQuery = useQuery({
@@ -36,17 +35,17 @@ export function TeachersTab({ courseId, creatorId }: TeachersTabProps) {
   })
 
   // Teachers in the current course (paginated server-side, but we fetch all for client-side filtering)
-  const courseTeachersQuery = useQuery({
+  const courseTeachersQuery = useInfiniteQuery({
     queryKey: courseQueryKeys.teachers(courseId),
-    queryFn: async () => {
-      // Fetch all pages to get the full list for client-side search
-      const first = await getCourseTeachers(courseId, 1, 100)
-      return first.items
-    },
+    queryFn: ({ pageParam }) => getCourseTeachers(courseId, pageParam, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (
+      lastPage.page < lastPage.pages ? lastPage.page + 1 : undefined
+    ),
   })
 
   const allTeachers = allTeachersQuery.data ?? []
-  const courseTeachers = courseTeachersQuery.data ?? []
+  const courseTeachers = courseTeachersQuery.data?.pages.flatMap((page) => page.items) ?? []
   const courseTeacherIds = useMemo(
     () => new Set(courseTeachers.map((t) => t.id)),
     [courseTeachers]
@@ -78,14 +77,29 @@ export function TeachersTab({ courseId, creatorId }: TeachersTabProps) {
     [courseTeachers, lowerCourse]
   )
 
-  // Pagination
-  const allTotalPages = Math.max(1, Math.ceil(filteredAll.length / PAGE_SIZE))
-  const courseTotalPages = Math.max(1, Math.ceil(filteredCourse.length / PAGE_SIZE))
-  const pagedAll = filteredAll.slice((allPage - 1) * PAGE_SIZE, allPage * PAGE_SIZE)
-  const pagedCourse = filteredCourse.slice((coursePage - 1) * PAGE_SIZE, coursePage * PAGE_SIZE)
+  useEffect(() => {
+    if (
+      courseSearch.trim() &&
+      filteredCourse.length === 0 &&
+      courseTeachersQuery.hasNextPage &&
+      !courseTeachersQuery.isFetchingNextPage
+    ) {
+      courseTeachersQuery.fetchNextPage()
+    }
+  }, [courseSearch, filteredCourse.length, courseTeachersQuery])
 
-  const handleAllSearch = (v: string) => { setAllSearch(v); setAllPage(1) }
-  const handleCourseSearch = (v: string) => { setCourseSearch(v); setCoursePage(1) }
+  const pagedAll = filteredAll.slice(0, allVisibleCount)
+
+  const handleAllSearch = (v: string) => { setAllSearch(v); setAllVisibleCount(PAGE_SIZE) }
+  const handleCourseSearch = (v: string) => setCourseSearch(v)
+  const handleAllLoadMore = () => {
+    setAllVisibleCount((count) => Math.min(filteredAll.length, count + PAGE_SIZE))
+  }
+  const handleCourseLoadMore = () => {
+    if (courseTeachersQuery.hasNextPage && !courseTeachersQuery.isFetchingNextPage) {
+      courseTeachersQuery.fetchNextPage()
+    }
+  }
 
   const invalidate = () => invalidateAllCourseQueries(queryClient, courseId)
 
@@ -157,13 +171,13 @@ export function TeachersTab({ courseId, creatorId }: TeachersTabProps) {
         title="Alle lærere"
         users={pagedAll}
         totalFiltered={filteredAll.length}
+        hasMore={pagedAll.length < filteredAll.length}
+        isLoadingMore={false}
         selected={selectedAll}
         onToggle={toggleAll}
         search={allSearch}
         onSearchChange={handleAllSearch}
-        page={allPage}
-        totalPages={allTotalPages}
-        onPageChange={setAllPage}
+        onLoadMore={handleAllLoadMore}
         actionLabel="Legg til i emnet"
         actionIcon={<UserPlus className="h-4 w-4" aria-hidden="true" />}
         actionDisabled={selectedAll.size === 0 || isBusy}
@@ -175,15 +189,15 @@ export function TeachersTab({ courseId, creatorId }: TeachersTabProps) {
       {/* Teachers in this course */}
       <TeacherList
         title="Lærere i emnet"
-        users={pagedCourse}
+        users={filteredCourse}
         totalFiltered={filteredCourse.length}
+        hasMore={courseTeachersQuery.hasNextPage}
+        isLoadingMore={courseTeachersQuery.isFetchingNextPage}
         selected={selectedCourse}
         onToggle={toggleCourse}
         search={courseSearch}
         onSearchChange={handleCourseSearch}
-        page={coursePage}
-        totalPages={courseTotalPages}
-        onPageChange={setCoursePage}
+        onLoadMore={handleCourseLoadMore}
         actionLabel="Fjern fra emnet"
         actionIcon={<UserMinus className="h-4 w-4" aria-hidden="true" />}
         actionDisabled={selectedCourse.size === 0 || isBusy}
@@ -201,13 +215,13 @@ interface TeacherListProps {
   title: string
   users: CourseStudentRead[]
   totalFiltered: number
+  hasMore: boolean
+  isLoadingMore: boolean
   selected: Set<string>
   onToggle: (id: string) => void
   search: string
   onSearchChange: (v: string) => void
-  page: number
-  totalPages: number
-  onPageChange: (p: number) => void
+  onLoadMore: () => void
   actionLabel: string
   actionIcon: ReactNode
   actionDisabled: boolean
@@ -221,13 +235,13 @@ function TeacherList({
   title,
   users,
   totalFiltered,
+  hasMore,
+  isLoadingMore,
   selected,
   onToggle,
   search,
   onSearchChange,
-  page,
-  totalPages,
-  onPageChange,
+  onLoadMore,
   actionLabel,
   actionIcon,
   actionDisabled,
@@ -235,6 +249,13 @@ function TeacherList({
   onAction,
   creatorId,
 }: TeacherListProps) {
+  function handleScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80 && hasMore && !isLoadingMore) {
+      onLoadMore()
+    }
+  }
+
   return (
     <div className="flex flex-col">
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -260,7 +281,7 @@ function TeacherList({
           </div>
         </div>
 
-        <div className="min-h-[320px]">
+        <div className="max-h-[420px] min-h-[320px] overflow-y-auto" onScroll={handleScroll}>
           {users.length === 0 ? (
             <p className="px-6 py-8 text-center text-sm text-gray-400">Ingen treff.</p>
           ) : (
@@ -316,31 +337,11 @@ function TeacherList({
               </tbody>
             </table>
           )}
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-2">
-          <p className="text-xs text-gray-500">
-            Side {page} av {totalPages}
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-              className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-              aria-label="Forrige side"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-              className="rounded p-1 text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-              aria-label="Neste side"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          {isLoadingMore && (
+            <div className="flex justify-center py-3">
+              <Spinner size="sm" className="text-indigo-600" />
+            </div>
+          )}
         </div>
       </div>
 

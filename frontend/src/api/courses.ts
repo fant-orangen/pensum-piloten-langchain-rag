@@ -53,11 +53,15 @@ export async function deleteCourse(courseId: string): Promise<void> {
 export async function getCourseStudents(
   courseId: string,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  search = ''
 ): Promise<PaginatedResponse<CourseStudentRead>> {
+  const params: Record<string, string | number> = { page, page_size: pageSize }
+  if (search.trim()) params.search = search.trim()
+
   const { data } = await apiClient.get<PaginatedResponse<CourseStudentRead>>(
     `/courses/${courseId}/students`,
-    { params: { page, page_size: pageSize } }
+    { params }
   )
   return data
 }
