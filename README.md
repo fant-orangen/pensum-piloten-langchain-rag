@@ -139,7 +139,9 @@ Teachers stage material changes in the frontend and confirm ingestion from the c
 
 ## Configuration
 
-All application settings live in `src/config/settings.py` and can be overridden by environment variables or `.env`.
+`src/config/settings.py` is the configuration source of truth. It defines the available settings, defaults, provider selection, service URLs, storage paths, retrieval parameters, upload limits, and startup data options. Review this file before running the repo.
+
+Settings can be overridden by environment variables or by a project-root `.env` file. Environment variable names use the uppercase form of the field name, for example `database_url` becomes `DATABASE_URL`.
 
 Important settings include:
 
