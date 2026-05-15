@@ -72,53 +72,101 @@ docs/               Project documentation
 8. The backend stores both the human message and AI response. AI messages include source chunk metadata.
 9. The frontend can request resolved source chunks for an AI message.
 
-## Local Development
+## Running the Application
 
-Full container stack:
+### Docker Compose Stack
 
-Create a `.env` file in the project root before starting Compose. Configure the selected model provider, provider keys, Neo4j credentials, and secret key.
+Recommended approach. Use this workflow when Docker runs the database, graph store, backend, and frontend.
+
+Requirements:
+
+- Docker with Compose support is running.
+- Host port `80` is available for the frontend container.
+- The machine can pull Docker images and install Python/Node dependencies during the image build.
+
+Create the environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` before starting Compose. At minimum, set:
+
+```text
+MODEL_PROVIDER=openai
+OPENAI_API_KEY=<your OpenAI API key>
+SECRET_KEY=<long random string>
+```
+
+`.env.example` sets `NEO4J_PASSWORD=pensumpiloten`. Keep that value for a first local run, or replace it before the first Compose startup. The same `.env` value is used to initialize Neo4j and to let the backend connect to it.
+
+For Anthropic, set `MODEL_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, and `OPENAI_API_KEY` because embeddings use OpenAI.
+
+Start the stack:
 
 ```bash
 docker compose up --build
 ```
 
-The frontend is served on port 80 and proxies API routes to the backend container.
+Compose starts PostgreSQL, Neo4j, the backend, and the frontend. Do not start separate PostgreSQL or Neo4j services for this workflow. The frontend is served on port 80 and proxies API routes to the backend container.
 
-Host-run backend/frontend development:
+### Host-Run Development
 
-Install Python dependencies:
+Use this workflow when PostgreSQL and Neo4j are running outside the application backend process.
+
+1. Install Python dependencies:
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-Install frontend dependencies:
+1. Install frontend dependencies:
 
 ```bash
 cd frontend
 npm install
+cd ..
 ```
 
-Start PostgreSQL and Neo4j before starting the backend. For the default local database URL, PostgreSQL must be reachable on port `5432` and contain a database named `pensum_piloten`.
+1. Start PostgreSQL and create the database expected by the default settings:
+
+```bash
+createdb pensum_piloten
+```
+
+If the database already exists, keep it and continue.
+
+1. Start Neo4j and make it reachable at:
 
 ```text
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=<your Neo4j password>
 ```
 
+1. Create a `.env` file in the project root. At minimum, set:
+
+```text
+MODEL_PROVIDER=openai
+OPENAI_API_KEY=<your OpenAI API key>
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=<your Neo4j password>
+SECRET_KEY=<long random string>
+```
+
+For Anthropic, set `MODEL_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, and `OPENAI_API_KEY` because embeddings use OpenAI.
+
 The Compose PostgreSQL and Neo4j services are configured for the containerized backend and do not publish host ports. If you run the backend on the host, run PostgreSQL and Neo4j separately or expose the compose service ports before using the default URLs.
 
-Create a `.env` file in the project root. At minimum, configure the selected model provider, provider keys, database URL, Neo4j credentials, and secret key.
-
-Run the backend:
+1. Run the backend:
 
 ```bash
 serve
 ```
 
-Run the frontend:
+1. In a second terminal, run the frontend:
 
 ```bash
 cd frontend
@@ -127,7 +175,7 @@ npm run dev
 
 If the frontend is not served through the Nginx container, set `VITE_API_BASE_URL` when the backend is not available at the same origin.
 
-Backend health check:
+1. Check the backend:
 
 ```bash
 curl http://localhost:8000/health
@@ -203,3 +251,4 @@ Detailed documentation lives under `docs/`:
 - `src/api/services/course_documents.py`: material staging and rebuild workflow.
 - `frontend/src/App.tsx`: frontend route tree.
 - `frontend/src/api/`: frontend API clients.
+
