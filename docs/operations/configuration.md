@@ -10,7 +10,6 @@ Configuration is defined in `src/config/settings.py`. Values load from environme
 |---|---|---|---|
 | `openai` | `OPENAI_LLM_MODEL` | `OPENAI_EMBEDDING_MODEL` | `OPENAI_API_KEY` |
 | `anthropic` | `ANTHROPIC_LLM_MODEL` | `OPENAI_EMBEDDING_MODEL` | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` |
-| `local` | `LOCAL_LLM_MODEL` through `IDUN_BASE_URL` | `LOCAL_EMBEDDING_MODEL` | `IDUN_API_KEY` |
 
 KG extraction uses `get_ingestion_llm()`:
 
@@ -18,20 +17,17 @@ KG extraction uses `get_ingestion_llm()`:
 |---|---|
 | `openai` | `OPENAI_INGESTION_MODEL` |
 | `anthropic` | `ANTHROPIC_LLM_MODEL` |
-| `local` | `LOCAL_LLM_MODEL` through `IDUN_BASE_URL` |
 
-For the IDUN path, "OpenAI-compatible" means the code uses the OpenAI client request format against the IDUN `/v1` API endpoint.
+The repository contains an `idun/` deployment directory and a `local` model-provider path. This path is not set up to run correctly; using it requires further setup and implementation work.
 
 Model defaults:
 
 | Setting | Default |
 |---|---|
-| `OPENAI_LLM_MODEL` | `gpt-4o-mini` |
-| `OPENAI_INGESTION_MODEL` | `gpt-4o` |
+| `OPENAI_LLM_MODEL` | `gpt-5.5` |
+| `OPENAI_INGESTION_MODEL` | `gpt-4o-mini` |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` |
 | `ANTHROPIC_LLM_MODEL` | `claude-sonnet-4-6` |
-| `LOCAL_LLM_MODEL` | `moonshotai/Kimi-K2.5` |
-| `LOCAL_EMBEDDING_MODEL` | `intfloat/multilingual-e5-small` |
 
 ## Core Settings
 

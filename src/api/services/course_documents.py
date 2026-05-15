@@ -35,9 +35,10 @@ from src.api.utils import (
 from src.api.utils.logging_util import ServiceLogger
 from src.config import get_settings
 from src.config.settings import PROJECT_ROOT
+from src.ingestion.chunk_ids import make_chunk_id
 from src.ingestion.chunker import chunk_documents
 from src.ingestion.loader import is_supported_document_path, load_documents_from_paths
-from src.kg.extractor import extract_triplets, make_chunk_id
+from src.kg.extractor import extract_triplets
 from src.kg.store import KGStore
 from src.vectorstore import build_vectorstore, delete_vectorstore
 

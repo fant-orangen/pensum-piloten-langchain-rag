@@ -4,7 +4,6 @@ Each triplet links two entities via a relation and is traced back to its source 
 """
 
 import asyncio
-import hashlib
 import re
 from dataclasses import dataclass
 
@@ -12,6 +11,7 @@ import structlog
 from langchain_core.documents import Document
 from langchain_core.language_models import BaseChatModel
 
+from src.ingestion.chunk_ids import make_chunk_id
 from src.models import get_ingestion_llm
 
 logger = structlog.get_logger(__name__)
@@ -55,15 +55,6 @@ class Triplet:
     relation: str
     tail: str
     chunk_id: str
-
-
-def make_chunk_id(doc: Document) -> str:
-    """Generate a stable, deterministic ID for a chunk based on its source and position."""
-    source = doc.metadata.get("source_path") or doc.metadata.get("source_file", "unknown")
-    page = doc.metadata.get("page", "")
-    start = doc.metadata.get("start_index", 0)
-    raw = f"{source}:{page}:{start}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 def _parse_triplets(text: str, chunk_id: str) -> list[Triplet]:

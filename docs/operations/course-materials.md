@@ -2,6 +2,8 @@
 
 Course materials are managed by `src/api/services/course_documents.py` and exposed through `src/api/routers/courses.py`.
 
+Command-line ingestion utilities exist for vector-only and KG-RAG indexing. The application course-material workflow uses the backend staging and rebuild service described here.
+
 ## Storage
 
 Course documents live under the course's `documents_dir`.

@@ -32,7 +32,7 @@ The admin page uses:
 | Frontend function | Backend route |
 |---|---|
 | `getAdminUsers()` | `GET /admin/users` |
-| `promoteToTeacher(userId)` | `POST /admin/users/{user_id}/promote` |
-| `demoteToStudent(userId)` | `POST /admin/users/{user_id}/demote` |
+| `promoteToTeacher(userId)` | `POST /admin/users/{user_id}/promote-teacher` |
+| `demoteToStudent(userId)` | `POST /admin/users/{user_id}/demote-student` |
 
 Admin user-management restrictions are documented in `docs/security/authentication.md`.

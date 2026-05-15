@@ -2,9 +2,11 @@
 
 Usage:
     python -m scripts.chat_kg
+    python -m scripts.chat_kg --collection-name COURSE_v1 --graph-scope COURSE_v1
     python -m scripts.chat_kg --debug   # print retrieved chunks before each response
 """
 
+import argparse
 import json
 import sys
 from datetime import datetime
@@ -54,24 +56,54 @@ def _save_log(chat_history: list[HumanMessage | AIMessage]) -> None:
         return
     _LOG_DIR.mkdir(parents=True, exist_ok=True)
     filepath = _LOG_DIR / f"kg-{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}.json"
-    log = [{"role": "human" if isinstance(m, HumanMessage) else "ai", "content": m.content}
-           for m in chat_history]
+    log = [
+        {"role": "human" if isinstance(m, HumanMessage) else "ai", "content": m.content}
+        for m in chat_history
+    ]
     filepath.write_text(json.dumps(log, indent=2, ensure_ascii=False))
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """Run an interactive terminal chat session against the KG-RAG chain."""
 
-    debug = "--debug" in sys.argv
+    parser = argparse.ArgumentParser(description="Run an interactive KG-RAG chat.")
+    parser.add_argument(
+        "--collection-name",
+        type=str,
+        default=None,
+        help="Chroma collection to query. Defaults to settings.chroma_collection_name.",
+    )
+    parser.add_argument(
+        "--graph-scope",
+        type=str,
+        default=None,
+        help="Neo4j graph scope to query. Defaults to the unscoped graph.",
+    )
+    parser.add_argument(
+        "--mode",
+        type=int,
+        default=1,
+        choices=[1, 2, 3],
+        help="Prompt mode: 1=Socratic, 2=Direct, 3=Example.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print retrieved chunks before each response.",
+    )
+    args = parser.parse_args(argv)
 
-    print(f"\n{_BOLD}Pensum Piloten — Socratic Tutor (KG-RAG){_RESET}")
-    if debug:
+    print(f"\n{_BOLD}Pensum Piloten — KG-RAG Chat{_RESET}")
+    if args.debug:
         print(f"{_YELLOW}[DEBUG mode enabled — retrieved chunks will be shown]{_RESET}")
     print("Type your question and press Enter. Type 'quit' or 'exit' to stop.\n")
 
-    chain = build_kg_rag_chain()
-    chat_history: list[HumanMessage | AIMessage] = [] # Differentiate between human and AI messages
-    callbacks = [_ChunkDebugHandler()] if debug else []
+    chain = build_kg_rag_chain(
+        chroma_collection=args.collection_name,
+        graph_scope=args.graph_scope,
+    )
+    chat_history: list[HumanMessage | AIMessage] = []
+    callbacks = [_ChunkDebugHandler()] if args.debug else []
 
     while True:
         try:
@@ -92,10 +124,17 @@ def main() -> None:
         if not user_input.strip():
             continue
 
-        answer = chain.invoke(
-            {"question": user_input, "chat_history": chat_history},
+        result = chain.invoke(
+            {
+                "question": user_input,
+                "chat_history": chat_history,
+                "system_prompt_mode": args.mode,
+                "course_specific_instructions": None,
+                "conversation_summary": None,
+            },
             config={"callbacks": callbacks},
         )
+        answer = result["answer"] if isinstance(result, dict) else str(result)
 
         print(f"{_BLUE}{_BOLD}Tutor:{_RESET} {answer}\n")
 

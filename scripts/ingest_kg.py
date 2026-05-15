@@ -1,4 +1,4 @@
-"""Rebuild one course's vector store and KG using the backend ingestion flow.
+"""Rebuild one course's vector store and knowledge graph for KG-RAG. Requires a running PostgreSQL and Neo4j instance.
 
 Usage:
     python -m scripts.ingest_kg
@@ -27,9 +27,7 @@ logger = structlog.get_logger(__name__)
 def main(argv: list[str] | None = None) -> None:
     """Parse CLI args and run the async course rebuild workflow."""
 
-    parser = argparse.ArgumentParser(
-        description="Rebuild a course-scoped vector store and knowledge graph."
-    )
+    parser = argparse.ArgumentParser(description="Rebuild a course for KG-RAG.")
     parser.add_argument(
         "--course-code",
         type=str,
@@ -57,6 +55,8 @@ async def _main_async(course_code: str) -> None:
 
         canonical_documents_dir = build_course_documents_dir(course.code)
         canonical_documents_dir.mkdir(parents=True, exist_ok=True)
+        previous_rag_mode = course.rag_mode
+        course.rag_mode = "kg_rag"
         course.documents_dir = str(canonical_documents_dir)
         synced_documents = await sync_course_documents_from_directory(course, db)
         db.add(course)
@@ -77,6 +77,8 @@ async def _main_async(course_code: str) -> None:
         synced_documents=synced_documents,
         previous_scope=previous_scope,
         previous_version=previous_version,
+        previous_rag_mode=previous_rag_mode,
+        rag_mode="kg_rag",
     )
     await run_course_material_rebuild(course_id)
 
@@ -104,6 +106,7 @@ async def _main_async(course_code: str) -> None:
             artifacts_dir=str(get_course_artifacts_dir(updated_course)),
             scope=updated_course.chroma_collection,
             index_version=updated_course.index_version,
+            rag_mode=updated_course.rag_mode,
         )
 
 

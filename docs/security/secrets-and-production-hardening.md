@@ -19,7 +19,6 @@ Source files:
 | `NEO4J_PASSWORD` / `NEO4J_URI` | Use production Neo4j credentials and endpoint. |
 | `OPENAI_API_KEY` | Set only when OpenAI models or embeddings are used. |
 | `ANTHROPIC_API_KEY` | Set when Anthropic chat models are used. |
-| `IDUN_API_KEY` | Set when `model_provider="local"` uses the IDUN gateway. |
 | `ADMIN_PASSWORD` | Use only for controlled admin bootstrap. |
 
 Do not commit `.env` files containing these values.
@@ -78,9 +77,6 @@ Production requirement:
 |---|---|
 | `openai` | `OPENAI_API_KEY` |
 | `anthropic` | `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` for embeddings |
-| `local` | `IDUN_API_KEY` and `IDUN_BASE_URL` |
-
-For `local`, the code uses `ChatOpenAI` with `base_url=idun_base_url`. The request format is OpenAI-compatible; the endpoint is IDUN.
 
 ## Data Stores
 

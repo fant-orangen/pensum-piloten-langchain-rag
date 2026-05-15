@@ -2,10 +2,10 @@
 
 Source files:
 
-- Python project and entry points: `pyproject.toml`
+- Python project metadata: `pyproject.toml`
 - API startup: `src/api/app.py`
 - Settings: `src/config/settings.py`
-- Frontend scripts: `frontend/package.json`
+- Frontend package commands: `frontend/package.json`
 - Container stack: `docker-compose.yml`
 
 ## Backend

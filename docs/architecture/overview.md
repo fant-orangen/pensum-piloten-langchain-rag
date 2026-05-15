@@ -21,7 +21,7 @@ flowchart LR
 | PostgreSQL | Users, courses, enrollments, conversations, messages, material metadata. | `src/api/models/` |
 | ChromaDB | Embedded document chunks per active course scope. | `src/vectorstore/` |
 | Neo4j | Entity graph for `kg_rag` course scopes. | `src/kg/` |
-| Filesystem | Uploaded course documents and rebuild artifacts. | `data/course_materials/` |
+| Filesystem | Uploaded course documents and rebuild artifacts. | `data/documents/` |
 | LLM provider | Chat responses and KG triplet extraction. | `src/models.py` |
 
 ## Backend Startup
@@ -91,9 +91,8 @@ Relevant code:
 |---|---|---|
 | `openai` | OpenAI chat model | OpenAI embeddings |
 | `anthropic` | Anthropic chat model | OpenAI embeddings |
-| `local` | IDUN LLM gateway | local E5 sentence-transformer wrapper |
 
-KG extraction uses `get_ingestion_llm()`. With `model_provider="openai"`, it uses `openai_ingestion_model`. With `model_provider="anthropic"`, it uses `anthropic_llm_model`. With `model_provider="local"`, it uses `ChatOpenAI` pointed at `idun_base_url`, so the request format is OpenAI-compatible while the endpoint is IDUN. Note that the IDUN-based implementation is incomplete.
+KG extraction uses `get_ingestion_llm()`. With `model_provider="openai"`, it uses `openai_ingestion_model`. With `model_provider="anthropic"`, it uses `anthropic_llm_model`.
 
 ## Data Boundaries
 

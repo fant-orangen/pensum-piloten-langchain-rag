@@ -33,7 +33,7 @@ Course role is separate from platform role. A platform teacher can be a student 
 
 | Action | Required product access |
 |---|---|
-| Open course chat | Course enrollment or admin access on the backend. |
+| Open course chat and create conversations | Course enrollment. |
 | Create course | Platform `teacher` or `admin`. |
 | Manage students | Course teacher or admin. |
 | Manage materials | Course teacher or admin. |

@@ -33,8 +33,8 @@ Retrieval is selected per course:
 - ChromaDB
 - Neo4j
 - PostgreSQL, SQLModel, asyncpg
-- Anthropic, OpenAI, or the IDUN LLM gateway called through an OpenAI-compatible API
-- OpenAI or local sentence-transformer embeddings
+- Anthropic or OpenAI LLM providers
+- OpenAI embeddings
 - React, Vite, TypeScript, Tailwind CSS, TanStack Query
 - Ruff and mypy for Python checks
 
@@ -56,7 +56,6 @@ frontend/
     components/     Shared UI components
     contexts/       Authentication state
     pages/          Route-level screens
-idun/               IDUN/HPC deployment files
 tests/              Backend tests
 docs/               Project documentation
 ```
@@ -76,6 +75,8 @@ docs/               Project documentation
 ## Local Development
 
 Full container stack:
+
+Create a `.env` file in the project root before starting Compose. Configure the selected model provider, provider keys, Neo4j credentials, and secret key.
 
 ```bash
 docker compose up --build
@@ -98,7 +99,16 @@ cd frontend
 npm install
 ```
 
-Run PostgreSQL and Neo4j in a way the host backend can reach. The Compose PostgreSQL and Neo4j services are configured for the containerized backend and do not publish host ports. If you run the backend on the host, make sure PostgreSQL and Neo4j are reachable from the host and set `DATABASE_URL` and `NEO4J_URI` accordingly.
+Start PostgreSQL and Neo4j before starting the backend. For the default local database URL, PostgreSQL must be reachable on port `5432` and contain a database named `pensum_piloten`.
+
+```text
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/pensum_piloten
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=<your Neo4j password>
+```
+
+The Compose PostgreSQL and Neo4j services are configured for the containerized backend and do not publish host ports. If you run the backend on the host, run PostgreSQL and Neo4j separately or expose the compose service ports before using the default URLs.
 
 Create a `.env` file in the project root. At minimum, configure the selected model provider, provider keys, database URL, Neo4j credentials, and secret key.
 
@@ -133,14 +143,14 @@ All application settings live in `src/config/settings.py` and can be overridden 
 
 Important settings include:
 
-- `MODEL_PROVIDER`: `anthropic`, `openai`, or `local`.
-- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `IDUN_API_KEY`.
+- `MODEL_PROVIDER`: `anthropic` or `openai`.
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
 - `DATABASE_URL`.
 - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`.
 - `SECRET_KEY`.
 - `CORS_ORIGINS`.
 - `CHROMA_PERSIST_DIR`.
-- `COURSE_MATERIALS_DIR`.
+- `DOCUMENTS_DIR`.
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD` for optional admin bootstrap.
 
 ## Tests and Checks
