@@ -152,7 +152,7 @@ Course record and active retrieval index pointer.
 | `index_version` | integer | no | Monotonic version used for scoped material indexes, e.g. `TDT4186_v3`. |
 | `rebuild_status` | string | no | `idle`, `queued`, `building`, or `failed`. Not enforced by a DB check constraint. |
 | `rebuild_error` | string | yes | Last material rebuild error. |
-| `is_active` | boolean | no | Present in the model; most service logic uses hard deletion. |
+| `is_active` | boolean | no | Present in the model. Course service code does not read this field. |
 | `created_at` | timestamptz | no | UTC timestamp. |
 | `created_by_id` | UUID | no | FK to `app_user.id`; creator is the course owner. |
 
@@ -270,7 +270,9 @@ Indexes:
 Lifecycle:
 
 - Uploads create `pending_add` rows.
-- Deletions usually mark rows `pending_remove`.
+- Deleting a `pending_add` document removes the file and row immediately.
+- Deleting an `active` document changes status to `pending_remove`.
+- Deleting a `pending_remove` document leaves the row unchanged.
 - Confirming ingestion rebuilds the course material scope and activates/removes staged rows.
 
 ### `enrollment_import_preview`

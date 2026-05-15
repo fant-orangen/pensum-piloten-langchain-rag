@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Pensum Piloten",
-    description="Socratic RAG tutor that guides students toward independent learning.",
+    description="RAG tutor that guides students toward independent learning.",
     version="0.1.0",
     lifespan=lifespan,
 )

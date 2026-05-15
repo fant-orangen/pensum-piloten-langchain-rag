@@ -33,7 +33,7 @@ Retrieval is selected per course:
 - ChromaDB
 - Neo4j
 - PostgreSQL, SQLModel, asyncpg
-- Anthropic, OpenAI, or local OpenAI-compatible IDUN gateway for chat models
+- Anthropic, OpenAI, or the IDUN LLM gateway called through an OpenAI-compatible API
 - OpenAI or local sentence-transformer embeddings
 - React, Vite, TypeScript, Tailwind CSS, TanStack Query
 - Ruff and mypy for Python checks
