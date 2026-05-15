@@ -195,6 +195,7 @@ Important settings include:
 
 - `MODEL_PROVIDER`: `anthropic` or `openai`.
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
+- `OPENAI_LLM_MODEL`, `OPENAI_INGESTION_MODEL`, `ANTHROPIC_LLM_MODEL`, `ANTHROPIC_INGESTION_MODEL`.
 - `DATABASE_URL`.
 - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`.
 - `SECRET_KEY`.
@@ -251,4 +252,3 @@ Detailed documentation lives under `docs/`:
 - `src/api/services/course_documents.py`: material staging and rebuild workflow.
 - `frontend/src/App.tsx`: frontend route tree.
 - `frontend/src/api/`: frontend API clients.
-

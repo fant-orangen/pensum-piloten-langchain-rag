@@ -92,7 +92,7 @@ Relevant code:
 | `openai` | OpenAI chat model | OpenAI embeddings |
 | `anthropic` | Anthropic chat model | OpenAI embeddings |
 
-KG extraction uses `get_ingestion_llm()`. With `model_provider="openai"`, it uses `openai_ingestion_model`. With `model_provider="anthropic"`, it uses `anthropic_llm_model`.
+KG extraction uses `get_ingestion_llm()`. With `model_provider="openai"`, it uses `openai_ingestion_model`. With `model_provider="anthropic"`, it uses `anthropic_ingestion_model`.
 
 ## Data Boundaries
 

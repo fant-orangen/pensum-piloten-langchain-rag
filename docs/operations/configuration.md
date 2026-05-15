@@ -16,7 +16,7 @@ KG extraction uses `get_ingestion_llm()`:
 | `MODEL_PROVIDER` | KG extraction model |
 |---|---|
 | `openai` | `OPENAI_INGESTION_MODEL` |
-| `anthropic` | `ANTHROPIC_LLM_MODEL` |
+| `anthropic` | `ANTHROPIC_INGESTION_MODEL` |
 
 The repository contains an `idun/` deployment directory and a `local` model-provider path. This path is not set up to run correctly; using it requires further setup and implementation work.
 
@@ -28,6 +28,7 @@ Model defaults:
 | `OPENAI_INGESTION_MODEL` | `gpt-4o-mini` |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` |
 | `ANTHROPIC_LLM_MODEL` | `claude-sonnet-4-6` |
+| `ANTHROPIC_INGESTION_MODEL` | `claude-sonnet-4-6` |
 
 ## Core Settings
 

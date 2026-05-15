@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         description="Anthropic API key loaded from ANTHROPIC_API_KEY.",
     )
     anthropic_llm_model: str = "claude-sonnet-4-6"
+    anthropic_ingestion_model: str = "claude-sonnet-4-6"
 
     # Existing local-provider path. It requires further setup before use.
     idun_base_url: str = "https://llm.hpc.ntnu.no/v1"
