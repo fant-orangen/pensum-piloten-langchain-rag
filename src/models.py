@@ -3,13 +3,14 @@
 Set ``MODEL_PROVIDER`` in .env to select the backend:
 
     openai  — ChatOpenAI + OpenAIEmbeddings (default, requires OPENAI_API_KEY)
-    anthropic — ChatAnthropic + OpenAIEmbeddings (requires ANTHROPIC_API_KEY)
+    anthropic — ChatAnthropic + OpenAIEmbeddings
+                 (requires ANTHROPIC_API_KEY and OPENAI_API_KEY)
     local   — IDUN LLM gateway (Kimi K2.5 etc.) + HuggingFace sentence-transformers
               Requires IDUN_API_KEY and NTNU network / VPN access.
 
-Ingestion KG extraction uses ``OPENAI_INGESTION_MODEL`` when the OpenAI provider
-is active. Other providers use the normal local model so ingestion remains
-available without adding another provider-specific setting.
+Ingestion KG extraction uses the configured provider: OpenAI uses
+``OPENAI_INGESTION_MODEL``, Anthropic uses ``ANTHROPIC_LLM_MODEL``, and local
+uses the IDUN OpenAI-compatible gateway.
 """
 
 from functools import lru_cache
@@ -25,6 +26,7 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
     settings = get_settings()
     if settings.model_provider == "openai":
         from langchain_openai import ChatOpenAI
+
         return ChatOpenAI(
             model=settings.openai_llm_model,
             openai_api_key=settings.openai_api_key,
@@ -32,6 +34,7 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
         )
     if settings.model_provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
+
         return ChatAnthropic(
             model=settings.anthropic_llm_model,
             anthropic_api_key=settings.anthropic_api_key,
@@ -39,6 +42,7 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
         )
     if settings.model_provider == "local":
         from langchain_openai import ChatOpenAI
+
         return ChatOpenAI(
             model=settings.local_llm_model,
             openai_api_key=settings.idun_api_key,
@@ -46,27 +50,46 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
             temperature=temperature,
         )
     raise ValueError(
-        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'anthropic', 'local'"
+        f"Unknown model_provider: {settings.model_provider!r}. "
+        "Supported values: 'openai', 'anthropic', 'local'"
     )
 
 
 def get_ingestion_llm(temperature: float = 0.0) -> BaseChatModel:
     """Return the model used only for ingestion-time KG extraction."""
     settings = get_settings()
-    from langchain_openai import ChatOpenAI
 
     if settings.model_provider == "openai":
+        from langchain_openai import ChatOpenAI
+
         return ChatOpenAI(
             model=settings.openai_ingestion_model,
             openai_api_key=settings.openai_api_key,
             temperature=temperature,
         )
 
-    return ChatOpenAI(
-        model=settings.local_llm_model,
-        openai_api_key=settings.idun_api_key,
-        base_url=settings.idun_base_url,
-        temperature=temperature,
+    if settings.model_provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+
+        return ChatAnthropic(
+            model=settings.anthropic_llm_model,
+            anthropic_api_key=settings.anthropic_api_key,
+            temperature=temperature,
+        )
+
+    if settings.model_provider == "local":
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(
+            model=settings.local_llm_model,
+            openai_api_key=settings.idun_api_key,
+            base_url=settings.idun_base_url,
+            temperature=temperature,
+        )
+
+    raise ValueError(
+        f"Unknown model_provider: {settings.model_provider!r}. "
+        "Supported values: 'openai', 'anthropic', 'local'"
     )
 
 
@@ -76,6 +99,7 @@ def get_embeddings() -> Embeddings:
     settings = get_settings()
     if settings.model_provider in {"openai", "anthropic"}:
         from langchain_openai import OpenAIEmbeddings
+
         return OpenAIEmbeddings(
             model=settings.openai_embedding_model,
             openai_api_key=settings.openai_api_key,
@@ -84,7 +108,8 @@ def get_embeddings() -> Embeddings:
     if settings.model_provider == "local":
         return _E5Embeddings(model_name=settings.local_embedding_model)
     raise ValueError(
-        f"Unknown model_provider: {settings.model_provider!r}. Supported values: 'openai', 'anthropic', 'local'"
+        f"Unknown model_provider: {settings.model_provider!r}. "
+        "Supported values: 'openai', 'anthropic', 'local'"
     )
 
 

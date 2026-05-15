@@ -56,7 +56,6 @@ frontend/
     components/     Shared UI components
     contexts/       Authentication state
     pages/          Route-level screens
-scripts/            CLI ingestion, KG build, chat, and test utilities
 idun/               IDUN/HPC deployment files
 tests/              Backend tests
 docs/               Project documentation
@@ -124,21 +123,9 @@ Backend health check:
 curl http://localhost:8000/health
 ```
 
-## Ingestion
+## Course Materials
 
-Global vector-only ingestion:
-
-```bash
-ingest
-```
-
-Course-scoped vector and KG rebuild:
-
-```bash
-ingest-kg --course-code TEST101
-```
-
-Teachers can also stage material changes in the frontend and confirm ingestion from the course materials tab. The backend builds a new course scope and swaps it in only after a successful rebuild.
+Teachers stage material changes in the frontend and confirm ingestion from the course materials tab. The backend builds a new course scope and swaps it in only after a successful rebuild.
 
 ## Configuration
 

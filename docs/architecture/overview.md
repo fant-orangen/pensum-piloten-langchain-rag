@@ -93,7 +93,7 @@ Relevant code:
 | `anthropic` | Anthropic chat model | OpenAI embeddings |
 | `local` | IDUN LLM gateway | local E5 sentence-transformer wrapper |
 
-KG extraction uses `get_ingestion_llm()`. With `model_provider="openai"`, it uses `openai_ingestion_model`. With `model_provider="anthropic"` or `model_provider="local"`, it uses `ChatOpenAI` pointed at `idun_base_url`, so the request format is OpenAI-compatible while the endpoint is IDUN. Note that the IDUN-based implementation is incomplete.
+KG extraction uses `get_ingestion_llm()`. With `model_provider="openai"`, it uses `openai_ingestion_model`. With `model_provider="anthropic"`, it uses `anthropic_llm_model`. With `model_provider="local"`, it uses `ChatOpenAI` pointed at `idun_base_url`, so the request format is OpenAI-compatible while the endpoint is IDUN. Note that the IDUN-based implementation is incomplete.
 
 ## Data Boundaries
 

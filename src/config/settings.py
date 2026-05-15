@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """All tuneable knobs live here.  Override via env vars or a .env file."""
 
     # --- LLM provider ---
-    model_provider: str = "anthropic"  # "openai" | "anthropic" | "local"
+    model_provider: str = "openai"  # "openai" | "anthropic" | "local"
 
     # --- IDUN LLM gateway (used when model_provider = "local") ---
     idun_base_url: str = "https://llm.hpc.ntnu.no/v1"
