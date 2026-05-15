@@ -180,14 +180,14 @@ npm run build
 
 ## Documentation Plan
 
-Detailed documentation should live under `docs/`:
+Detailed documentation lives under `docs/`:
 
-- `docs/architecture/`: system architecture, data model, RAG pipeline, KG2RAG, frontend, authorization.
+- `docs/architecture/`: system architecture, data model, RAG pipeline, KG2RAG, frontend.
 - `docs/api/`: endpoint groups and API behavior.
 - `docs/operations/`: local development, configuration, deployment, database, course materials, IDUN.
 - `docs/development/`: codebase map, tests, linting, contribution workflow.
 - `docs/product/`: roles, teacher workflows, student workflows, prompt modes.
-- `docs/security/`: authentication, upload safety, production hardening.
+- `docs/security/`: authentication, authorization, upload safety, production hardening.
 
 ## Key Implementation Files
 
