@@ -44,8 +44,7 @@ Routes are defined in `frontend/src/App.tsx`.
 | `/dashboard/admin`  | `AdminPage`         | admin         |
 | `/settings`         | `SettingsPage`      | authenticated |
 
-The chat route requires `courseId`; `/chat` falls through to the fallback redirect.
-
+The chat route includes the selected course id.
 
 `ProtectedRoute` applies frontend navigation rules. Backend authorization remains the security boundary.
 

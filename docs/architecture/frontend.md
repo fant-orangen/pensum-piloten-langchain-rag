@@ -39,7 +39,7 @@ TanStack Query defaults:
 | `/settings` | `SettingsPage` | Authenticated. |
 | `*` | Redirect to `/` | Fallback. |
 
-The chat workspace is only routed as `/chat/:courseId`. There is no standalone `/chat` page.
+The chat workspace route is `/chat/:courseId`.
 
 `ProtectedRoute` also redirects forced-password-change users to `/settings`.
 

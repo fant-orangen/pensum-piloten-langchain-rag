@@ -173,6 +173,7 @@ Detailed documentation lives under `docs/`:
 - `docs/api/`: endpoint groups and API behavior.
 - `docs/operations/`: local development, configuration, deployment, database, course materials.
 - `docs/development/`: backend, frontend, testing, logging and error conventions.
+- `docs/product/`: roles, student workflows, teacher workflows, admin workflows, prompt modes.
 - `docs/security/`: authentication, authorization, upload safety, production hardening.
 
 ## Key Implementation Files
