@@ -33,12 +33,13 @@ TanStack Query defaults:
 |---|---|---|
 | `/login` | `AuthPage` | Public. |
 | `/` | `DashboardPage` | Authenticated. |
-| `/chat` | `ChatPage` | Authenticated. |
 | `/chat/:courseId` | `ChatPage` | Authenticated. |
 | `/manage/:courseId` | `TeacherCoursePage` | Requires platform role `teacher` or higher in frontend guard. |
 | `/dashboard/admin` | `AdminPage` | Requires platform role `admin`. |
 | `/settings` | `SettingsPage` | Authenticated. |
 | `*` | Redirect to `/` | Fallback. |
+
+The chat workspace is only routed as `/chat/:courseId`. There is no standalone `/chat` page.
 
 `ProtectedRoute` also redirects forced-password-change users to `/settings`.
 

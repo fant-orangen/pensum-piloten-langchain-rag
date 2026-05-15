@@ -38,15 +38,6 @@ export default function App() {
             />
 
             <Route
-              path="/chat"
-              element={
-                <ProtectedRoute>
-                  <ChatPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
               path="/chat/:courseId"
               element={
                 <ProtectedRoute>
