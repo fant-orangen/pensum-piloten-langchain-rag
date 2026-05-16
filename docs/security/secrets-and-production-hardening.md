@@ -100,7 +100,7 @@ Production requirement:
 | `API_RELOAD` | `false` |
 | `SEED_TEST_DATA` | `false` |
 
-`docker-compose.yml` sets `API_RELOAD=false` for the backend container.
+`docker-compose.yml` sets `API_RELOAD=false` for the backend container. `SEED_TEST_DATA` defaults to `true` for local/demo use and must be explicitly set to `false` for production.
 
 ## Not Implemented
 

@@ -51,7 +51,7 @@ AI responses can include source references. The source panel resolves stored chu
 GET /conversations/{conversation_id}/messages/{message_id}/sources
 ```
 
-The source panel is available only for messages with resolvable source chunks.
+The source panel can be opened from AI messages. It shows an empty state when no source chunks resolve.
 
 ## Settings
 

@@ -40,7 +40,6 @@ services:
       CORS_ORIGINS: '["*"]'
     volumes:
       - chromadata:/app/data/chroma
-      - ./data/course_materials:/app/data/course_materials:ro
 
   frontend:
     build:

@@ -75,7 +75,6 @@ All other paths fall back to `/index.html` for React Router.
 | `pgdata` | `/var/lib/postgresql/data` | PostgreSQL data. |
 | `neo4jdata` | `/data` | Neo4j data. |
 | `chromadata` | `/app/data/chroma` | ChromaDB persistence. |
-| `./data/course_materials` | `/app/data/course_materials:ro` | Read-only course material bind mount. |
 
 Course material upload and rebuild workflows write files under `DOCUMENTS_DIR/<COURSE_CODE>`. With the default container settings, that path is `/app/data/documents/<COURSE_CODE>`. The compose file does not mount `/app/data/documents`, so uploaded documents are stored in the backend container filesystem and are lost when the backend container is replaced.
 

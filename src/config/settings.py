@@ -71,8 +71,6 @@ class Settings(BaseSettings):
     # Course documents, chunking, and upload limits
     # -------------------------------------------------------------------------
     documents_dir: str = str(PROJECT_ROOT / "data" / "documents")
-    course_materials_dir: str = str(PROJECT_ROOT / "data" / "course_materials")
-
     chunk_size: int = 800
     chunk_overlap: int = 150
     toc_line_threshold: float = 0.5
@@ -91,7 +89,6 @@ class Settings(BaseSettings):
     retriever_top_k: int = 5
     naive_rag_top_k: int = 20
     kg_expansion_hops: int = 1
-    kg_max_expanded_chunks: int = 10
     kg_max_final_chunks: int = 20
     temperature: float = 0.3
     conversation_compression_token_limit: int = 1000

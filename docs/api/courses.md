@@ -200,7 +200,7 @@ Rebuild status values:
 
 Behavior:
 
-- returns `400` when there are no staged changes;
+- returns `409` when there are no staged changes;
 - returns `409` when a rebuild is already `queued` or `building`;
 - sets `rebuild_status=queued`;
 - schedules `run_course_material_rebuild()` as a FastAPI background task;
