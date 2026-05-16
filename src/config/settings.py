@@ -99,7 +99,7 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # Development and test data
     # -------------------------------------------------------------------------
-    seed_test_data: bool = False
+    seed_test_data: bool = True
     test_chat_max_messages_per_agent: int = 12
 
     model_config = {
