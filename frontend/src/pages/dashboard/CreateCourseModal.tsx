@@ -23,7 +23,7 @@ export function CreateCourseModal({
   const [codeManuallyEdited, setCodeManuallyEdited] = useState(false)
   const [description, setDescription] = useState('')
   const [documentsDir, setDocumentsDir] = useState('')
-  const [ragMode, setRagMode] = useState<RagMode>('kg_rag')
+  const [ragMode, setRagMode] = useState<RagMode>('naive_rag')
   const [formError, setFormError] = useState('')
 
   function handleNameChange(value: string) {

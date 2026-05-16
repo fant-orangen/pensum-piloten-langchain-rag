@@ -57,7 +57,7 @@ export function SourcesPanel({ conversationId, messageId, onClose }: SourcesPane
                 <p className="mb-1 text-xs font-medium text-gray-700 truncate" title={source.document}>
                   {source.document}
                 </p>
-                <p className="text-xs leading-relaxed text-gray-600 line-clamp-4">{source.content}</p>
+                <p className="text-xs leading-relaxed text-gray-600 line-clamp-6">{source.content}</p>
               </li>
             ))}
           </ol>
