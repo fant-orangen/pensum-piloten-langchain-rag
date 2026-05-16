@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AxiosError } from 'axios'
 import {
@@ -40,7 +40,8 @@ const COURSE_REBUILDING_DETAIL = 'Course materials are currently being rebuilt.'
  * and persisted system-prompt mode changes.
  */
 export function ChatPage() {
-  const { courseId } = useParams<{ courseId?: string }>()
+  const { courseId: routeCourseId } = useParams<{ courseId?: string }>()
+  const courseId = routeCourseId ?? ''
   const navigate = useNavigate()
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -57,14 +58,15 @@ export function ChatPage() {
 
   const courseQuery = useQuery({
     queryKey: chatQueryKeys.course(courseId),
-    queryFn: () => getCourse(courseId!),
-    enabled: !!courseId,
+    queryFn: () => getCourse(courseId),
+    enabled: !!routeCourseId,
   })
   usePageTitle(courseQuery.data?.code ? `${courseQuery.data.code} Chat` : 'Chat')
 
   const conversationsQuery = useInfiniteQuery({
     queryKey: chatQueryKeys.conversations(courseId),
     queryFn: ({ pageParam }) => getConversations(pageParam, 50, courseId),
+    enabled: !!routeCourseId,
     initialPageParam: 1,
     getNextPageParam: (lastPage) => (
       lastPage.page < lastPage.pages ? lastPage.page + 1 : undefined
@@ -82,7 +84,7 @@ export function ChatPage() {
   })
 
   const createConversationMutation = useMutation({
-    mutationFn: () => createConversation(courseId!),
+    mutationFn: () => createConversation(courseId),
     onSuccess: (conv) => {
       queryClient.invalidateQueries({ queryKey: chatQueryKeys.conversations(courseId) })
       setSelectedConversationId(conv.id)
@@ -178,6 +180,10 @@ export function ChatPage() {
 
   const conversations = conversationsQuery.data?.pages.flatMap((page) => page.items) ?? []
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
+
+  if (!routeCourseId) {
+    return <Navigate to="/" replace />
+  }
 
   return (
     <Layout>

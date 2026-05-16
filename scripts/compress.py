@@ -1,7 +1,7 @@
 """Run the conversation compression prompt on a saved JSON conversation log.
 
 Usage:
-    python -m scripts.test_compression data/test_logs/kg-test-2026-02-28T12-10-30.json
+    python -m scripts.compress data/test_logs/kg-test-2026-02-28T12-10-30.json
 """
 
 from __future__ import annotations
