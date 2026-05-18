@@ -13,14 +13,14 @@ The key retrieval technique is **KG2RAG**: a hybrid that combines a vector store
 | Layer | Technology |
 |---|---|
 | Language | Python 3.11+ |
-| LLM | Anthropic Codex (default: `Codex-sonnet-4-6`), OpenAI, or local via IDUN HPC gateway |
+| LLM | OpenAI or Anthropic; local/IDUN path exists but is not set up |
 | RAG framework | LangChain 0.3 |
 | Vector store | ChromaDB |
 | Knowledge graph | Neo4j + NetworkX |
 | Embeddings | `sentence-transformers` (local) or OpenAI |
 | API | FastAPI + Uvicorn |
 | UI | React + Vite |
-| Database | PostgreSQL via SQLModel + asyncpg; migrations with Alembic |
+| Database | PostgreSQL via SQLModel + asyncpg; table creation and compatibility DDL at startup |
 | Auth | JWT (PyJWT) + bcrypt |
 | Config | `pydantic-settings`, loaded from `.env` |
 | Linting/typing | Ruff, mypy (strict) |
@@ -41,7 +41,7 @@ src/
   models.py       LLM and embedding model factories
   api/
     app.py        FastAPI app entry point; /health and routers
-    routers/      auth, conversations, courses
+    routers/      auth, admin, conversations, courses, preferences
     models/       SQLModel DB models (User, Course, Enrollment, Conversation, Message)
     schemas/      Pydantic request/response schemas
     services/     Business logic: auth, conversations, courses, messages
@@ -49,7 +49,7 @@ src/
     security.py   JWT creation and verification
     utils/authorization_util.py  Role-based access control helpers
     dependencies.py   FastAPI dependency injection (current user, DB session)
-    seed.py       Optional test data seeding (controlled by seed_test_data setting)
+    seed.py       Startup test data seeding (controlled by seed_test_data setting)
 frontend/
   src/
     App.tsx       React Router route tree

@@ -41,7 +41,6 @@ Model defaults:
 | `CHROMA_PERSIST_DIR` | `data/chroma` | ChromaDB persistence directory. |
 | `CHROMA_COLLECTION_NAME` | `pensum_piloten` | Default collection name used by vector store helpers when no course scope is supplied. |
 | `DOCUMENTS_DIR` | `data/documents` | Base directory for course-code document directories. |
-| `COURSE_MATERIALS_DIR` | `data/course_materials` | Defined setting. `course_documents.py` builds course directories from `DOCUMENTS_DIR`. |
 
 ## Retrieval Settings
 
@@ -53,7 +52,6 @@ Model defaults:
 | `NAIVE_RAG_TOP_K` | `20` | Top-k value for `naive_rag`. |
 | `KG_MAX_FINAL_CHUNKS` | `20` | Maximum final chunks passed from KG retrieval. |
 | `KG_EXPANSION_HOPS` | `1` | Neo4j expansion depth. |
-| `KG_MAX_EXPANDED_CHUNKS` | `10` | Maximum chunks added by KG expansion. |
 | `TEMPERATURE` | `0.3` | Default chat generation temperature. |
 | `CONVERSATION_COMPRESSION_TOKEN_LIMIT` | `1000` | Token budget for conversation summary compression. |
 
@@ -87,7 +85,7 @@ Upload validation and zip handling are documented in `docs/security/upload-safet
 
 | Setting | Default | Startup behavior |
 |---|---|---|
-| `SEED_TEST_DATA` | `false` | Runs `src/api/seed.py` after table creation when set to `true`. |
+| `SEED_TEST_DATA` | `true` | Runs `src/api/seed.py` after table creation when set to `true`. |
 | `ADMIN_EMAIL` | empty string | Enables admin bootstrap when combined with `ADMIN_PASSWORD`. |
 | `ADMIN_PASSWORD` | empty string | Password for the configured bootstrap admin. |
 | `ADMIN_FIRST_NAME` | `System` | First name for a created bootstrap admin. |

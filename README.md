@@ -110,6 +110,12 @@ docker compose up --build
 
 Compose starts PostgreSQL, Neo4j, the backend, and the frontend. Do not start separate PostgreSQL or Neo4j services for this workflow. The frontend is served on port 80 and proxies API routes to the backend container.
 
+Open the frontend in your browser:
+
+```text
+http://localhost
+```
+
 ### Host-Run Development
 
 Use this workflow when PostgreSQL and Neo4j are running outside the application backend process.
@@ -171,6 +177,12 @@ serve
 ```bash
 cd frontend
 npm run dev
+```
+
+Open the frontend in your browser at the URL printed by Vite. By default:
+
+```text
+http://localhost:5173
 ```
 
 If the frontend is not served through the Nginx container, set `VITE_API_BASE_URL` when the backend is not available at the same origin.
