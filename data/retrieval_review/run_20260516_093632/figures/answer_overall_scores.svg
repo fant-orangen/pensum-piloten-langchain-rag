@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="420" viewBox="0 0 860 420">
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#1f2933}
+.title{font-size:22px;font-weight:700}
+.label{font-size:14px}
+.tick{font-size:12px}
+.value{font-size:13px;font-weight:700}
+.legend{font-size:12px}
+</style>
+<rect width="860" height="420" fill="#ffffff" />
+<text x="20" y="36" class="title">Mean Overall Answer Score</text>
+<text x="20" y="95" class="label">kg_rag</text>
+<rect x="170" y="70" width="637.4" height="38" fill="#2f7d7e" rx="4" />
+<text x="815.4" y="95" class="value">4.98</text>
+<text x="20" y="157" class="label">reranked_rag</text>
+<rect x="170" y="132" width="637.4" height="38" fill="#2f7d7e" rx="4" />
+<text x="815.4" y="157" class="value">4.98</text>
+<text x="20" y="219" class="label">vector_rag</text>
+<rect x="170" y="194" width="637.4" height="38" fill="#2f7d7e" rx="4" />
+<text x="815.4" y="219" class="value">4.98</text>
+</svg>

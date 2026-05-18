@@ -4,6 +4,7 @@ import json
 from scripts.generate_anonymized_retrieval_review import (
     MethodReview,
     ReviewChunk,
+    _reranker_candidate_count,
     build_anonymous_labels,
     parse_methods,
     parse_questions,
@@ -114,3 +115,8 @@ def test_question_limit_can_be_applied_before_building_reviews(tmp_path) -> None
     questions = parse_questions(path)[:2]
 
     assert [question.query_id for question in questions] == ["q1", "q2"]
+
+
+def test_reranker_candidate_count_covers_requested_final_chunks() -> None:
+    assert _reranker_candidate_count(configured_candidate_k=30, final_top_k=20) == 30
+    assert _reranker_candidate_count(configured_candidate_k=5, final_top_k=20) == 20

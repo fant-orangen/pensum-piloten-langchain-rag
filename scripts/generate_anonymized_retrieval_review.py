@@ -132,19 +132,19 @@ def retrieve_documents(
     question: str,
     chroma_collection: str,
     graph_scope: str | None,
+    final_top_k: int,
 ) -> tuple[list[Any], float]:
     """Retrieve documents for one method and return documents plus latency."""
     start = time.perf_counter()
     if method == "vector_rag":
         from langchain_core.documents import Document
 
-        from src.config import get_settings
         from src.vectorstore.store import get_vectorstore
 
         vectorstore = get_vectorstore(chroma_collection)
         pairs = vectorstore.similarity_search_with_score(
             question,
-            k=get_settings().retriever_top_k,
+            k=final_top_k,
         )
         docs = [
             Document(
@@ -155,9 +155,16 @@ def retrieve_documents(
         ]
         return docs, time.perf_counter() - start
     elif method == "reranked_rag":
-        from src.retriever import get_reranked_retriever
+        from src.config import get_settings
+        from src.retriever.reranked_retriever import CrossEncoderRerankedRetriever
 
-        retriever = get_reranked_retriever(chroma_collection)
+        settings = get_settings()
+        retriever = CrossEncoderRerankedRetriever(
+            collection_name=chroma_collection,
+            candidate_k=_reranker_candidate_count(settings.reranker_candidate_k, final_top_k),
+            top_k=final_top_k,
+            cross_encoder_model=settings.cross_encoder_model,
+        )
     else:
         from src.kg.retriever import get_kg_retriever
 
@@ -168,6 +175,11 @@ def retrieve_documents(
 
     docs = list(retriever.invoke(question))
     return docs, time.perf_counter() - start
+
+
+def _reranker_candidate_count(configured_candidate_k: int, final_top_k: int) -> int:
+    """Return a reranker candidate count large enough to produce final_top_k chunks."""
+    return max(configured_candidate_k, final_top_k)
 
 
 def generate_answer(question: str, docs: list[Any]) -> tuple[str, float]:
@@ -251,6 +263,7 @@ def build_reviews(
                 question=question.question,
                 chroma_collection=chroma_collection,
                 graph_scope=graph_scope,
+                final_top_k=final_top_k,
             )
             docs = docs[:final_top_k]
             if skip_generation:

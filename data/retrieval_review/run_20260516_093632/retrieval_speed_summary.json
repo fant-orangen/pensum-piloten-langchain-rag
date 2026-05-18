@@ -1,0 +1,38 @@
+[
+  {
+    "method": "kg_rag",
+    "count": 50,
+    "mean_seconds": 0.8341204582597129,
+    "median_seconds": 0.7976200624834746,
+    "min_seconds": 0.6387513750232756,
+    "max_seconds": 2.063487291976344,
+    "stdev_seconds": 0.2105623871710833,
+    "p25_seconds": 0.7471519165119389,
+    "p75_seconds": 0.8793993852304993,
+    "p95_seconds": 0.9937758836895226
+  },
+  {
+    "method": "reranked_rag",
+    "count": 50,
+    "mean_seconds": 0.5866168641543481,
+    "median_seconds": 0.44006718750461005,
+    "min_seconds": 0.34236391697777435,
+    "max_seconds": 5.181477833946701,
+    "stdev_seconds": 0.6776188186838032,
+    "p25_seconds": 0.4040252815175336,
+    "p75_seconds": 0.5424687185295625,
+    "p95_seconds": 0.8557408271735765
+  },
+  {
+    "method": "vector_rag",
+    "count": 50,
+    "mean_seconds": 0.38455571080092343,
+    "median_seconds": 0.20840110402787104,
+    "min_seconds": 0.16401554201729596,
+    "max_seconds": 7.45522554096533,
+    "stdev_seconds": 1.0239652053252728,
+    "p25_seconds": 0.18825946873403154,
+    "p75_seconds": 0.2739971042610705,
+    "p95_seconds": 0.45157948547275684
+  }
+]

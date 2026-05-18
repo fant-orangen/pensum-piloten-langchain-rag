@@ -1,0 +1,154 @@
+{
+  "answer_summaries": [
+    {
+      "method": "kg_rag",
+      "count": 50,
+      "correctness": 5.0,
+      "relevance": 5.0,
+      "clarity": 4.98,
+      "pedagogical_usefulness": 5.0,
+      "faithfulness_to_chunks": 4.66,
+      "overall": 4.98,
+      "overall_ci_low": 4.94,
+      "overall_ci_high": 5.0
+    },
+    {
+      "method": "reranked_rag",
+      "count": 50,
+      "correctness": 5.0,
+      "relevance": 5.0,
+      "clarity": 5.0,
+      "pedagogical_usefulness": 5.0,
+      "faithfulness_to_chunks": 4.2,
+      "overall": 4.9,
+      "overall_ci_low": 4.82,
+      "overall_ci_high": 4.98
+    },
+    {
+      "method": "vector_rag",
+      "count": 50,
+      "correctness": 4.98,
+      "relevance": 5.0,
+      "clarity": 5.0,
+      "pedagogical_usefulness": 5.0,
+      "faithfulness_to_chunks": 4.3,
+      "overall": 4.9,
+      "overall_ci_low": 4.82,
+      "overall_ci_high": 4.98
+    }
+  ],
+  "chunk_summaries": [
+    {
+      "method": "kg_rag",
+      "count": 1000,
+      "direct_relevance": 227,
+      "support_relevance": 299,
+      "marginal": 359,
+      "irrelevant": 115,
+      "redundant": 0,
+      "useful_rate": 0.526,
+      "include_rate": 0.48,
+      "mean_usefulness_score": 1.573
+    },
+    {
+      "method": "reranked_rag",
+      "count": 250,
+      "direct_relevance": 86,
+      "support_relevance": 80,
+      "marginal": 66,
+      "irrelevant": 18,
+      "redundant": 0,
+      "useful_rate": 0.664,
+      "include_rate": 0.612,
+      "mean_usefulness_score": 1.84
+    },
+    {
+      "method": "vector_rag",
+      "count": 250,
+      "direct_relevance": 93,
+      "support_relevance": 76,
+      "marginal": 67,
+      "irrelevant": 14,
+      "redundant": 0,
+      "useful_rate": 0.676,
+      "include_rate": 0.64,
+      "mean_usefulness_score": 1.916
+    }
+  ],
+  "winner_counts": {
+    "kg_rag": 1,
+    "tie": 49
+  },
+  "overlap_matrix": {
+    "kg_rag__kg_rag": 1.0,
+    "kg_rag__reranked_rag": 0.21038961038961038,
+    "kg_rag__vector_rag": 0.24166666666666667,
+    "reranked_rag__kg_rag": 0.21038961038961038,
+    "reranked_rag__reranked_rag": 1.0,
+    "reranked_rag__vector_rag": 0.3583333333333333,
+    "vector_rag__kg_rag": 0.24166666666666667,
+    "vector_rag__reranked_rag": 0.3583333333333333,
+    "vector_rag__vector_rag": 1.0
+  },
+  "review_summaries": [
+    {
+      "method": "kg_rag",
+      "count": 50,
+      "mean_chunks": 20.0,
+      "mean_unique_sources": 2.04,
+      "mean_answer_chars": 1294.26
+    },
+    {
+      "method": "reranked_rag",
+      "count": 50,
+      "mean_chunks": 5.0,
+      "mean_unique_sources": 1.44,
+      "mean_answer_chars": 1265.02
+    },
+    {
+      "method": "vector_rag",
+      "count": 50,
+      "mean_chunks": 5.0,
+      "mean_unique_sources": 1.24,
+      "mean_answer_chars": 1228.16
+    }
+  ],
+  "speed_summaries": [
+    {
+      "method": "kg_rag",
+      "count": 50,
+      "mean_seconds": 0.7516057424794417,
+      "median_seconds": 0.7519400624732953,
+      "min_seconds": 0.5291187079856172,
+      "max_seconds": 1.2189519159728661,
+      "stdev_seconds": 0.14065822850585522,
+      "p25_seconds": 0.6682273129699752,
+      "p75_seconds": 0.8042662397638196,
+      "p95_seconds": 1.0295388706581432
+    },
+    {
+      "method": "reranked_rag",
+      "count": 50,
+      "mean_seconds": 0.5038471241819207,
+      "median_seconds": 0.3675965834991075,
+      "min_seconds": 0.32920904201455414,
+      "max_seconds": 5.690456459007692,
+      "stdev_seconds": 0.7545980074441817,
+      "p25_seconds": 0.3509169375174679,
+      "p75_seconds": 0.39743367725168355,
+      "p95_seconds": 0.6784638349112351
+    },
+    {
+      "method": "vector_rag",
+      "count": 50,
+      "mean_seconds": 0.3900967399775982,
+      "median_seconds": 0.20804204148589633,
+      "min_seconds": 0.1659164159791544,
+      "max_seconds": 8.525785083009396,
+      "stdev_seconds": 1.1752675707021425,
+      "p25_seconds": 0.1986201462423196,
+      "p75_seconds": 0.22718332275690045,
+      "p95_seconds": 0.39522747065057046
+    }
+  ]
+}
